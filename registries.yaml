@@ -1,0 +1,32 @@
+apiVersion: epos/v1
+kind: Registries
+
+# Optional refresh interval for re-probing discovery capability (SPEC §8.1.1).
+discoveryRefreshInterval: "15m"
+
+registries:
+  - name: gitlab
+    url: https://registry.gitlab.example.com
+    # Read-only listing credential — ENV-VAR REFERENCES ONLY (SPEC §6.2).
+    usernameEnv: GITLAB_LISTING_USER
+    tokenEnv: GITLAB_LISTING_TOKEN
+    # discovery omitted → auto-detect via probe (SPEC §8.1.1).
+    repositories:                # explicit repos: guaranteed-working floor
+      - skills/pdf-tools
+      - skills/web-scrape
+    namespaces:                  # enumerated where the registry supports listing
+      - skills                   # ignored WITH A WARNING where not enumerable
+
+  - name: ecr
+    url: https://1234.dkr.ecr.us-east-1.amazonaws.com
+    tokenEnv: ECR_LISTING_TOKEN
+    discovery: registered        # forced: ECR has no _catalog; skip the probe
+    repositories:
+      - team-a/skill-alpha
+      - team-a/skill-beta
+
+  - name: harbor
+    url: https://harbor.example.com
+    usernameEnv: HARBOR_LISTING_USER
+    tokenEnv: HARBOR_LISTING_TOKEN
+    discovery: catalog           # forced catalog; skip the probe

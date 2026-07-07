@@ -1,4 +1,4 @@
-//go:build !containers
+//go:build !integration
 
 package epos_test
 

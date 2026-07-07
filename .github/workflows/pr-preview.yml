@@ -1,0 +1,27 @@
+name: PR Preview
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+permissions:
+  contents: write
+  pull-requests: write
+concurrency: preview-${{ github.ref }}
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - if: github.event.action != 'closed'
+        working-directory: site
+        run: |
+          npm ci
+          npm run build            # relative base path (e.g. ./) so subpath previews work
+      - name: Deploy preview
+        uses: rossjrw/pr-preview-action@v1
+        with:
+          source-dir: ./site/dist
+          preview-branch: gh-pages
+          umbrella-dir: pr-preview
