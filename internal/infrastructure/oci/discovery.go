@@ -3,6 +3,7 @@ package oci
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"oras.land/oras-go/v2/registry/remote"
@@ -10,13 +11,24 @@ import (
 	"oras.land/oras-go/v2/registry/remote/retry"
 )
 
-// registry builds an ORAS remote registry handle for a host base URL.
+// registry builds an ORAS remote registry handle for a host base URL. It
+// accepts either a bare host or a full URL (scheme is stripped; http:// forces
+// plain HTTP).
 func (c *Client) registry(host string) (*remote.Registry, error) {
+	plainHTTP := c.PlainHTTP
+	switch {
+	case strings.HasPrefix(host, "http://"):
+		host = strings.TrimPrefix(host, "http://")
+		plainHTTP = true
+	case strings.HasPrefix(host, "https://"):
+		host = strings.TrimPrefix(host, "https://")
+	}
+	host = strings.TrimRight(host, "/")
 	reg, err := remote.NewRegistry(host)
 	if err != nil {
 		return nil, err
 	}
-	reg.PlainHTTP = c.PlainHTTP
+	reg.PlainHTTP = plainHTTP
 	if c.Auth != nil {
 		reg.Client = &auth.Client{
 			Client: retry.DefaultClient,
