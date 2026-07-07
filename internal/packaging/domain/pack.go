@@ -168,6 +168,39 @@ func tarGzDir(dir string) ([]byte, []SkillFile, error) {
 	return buf.Bytes(), files, nil
 }
 
+// UnpackTarGz extracts a tar+gzip content layer into a path→bytes map.
+func UnpackTarGz(tgz []byte) (map[string][]byte, error) {
+	gz, err := gzip.NewReader(bytes.NewReader(tgz))
+	if err != nil {
+		return nil, err
+	}
+	defer gz.Close()
+	tr := tar.NewReader(gz)
+	out := map[string][]byte{}
+	for {
+		hdr, err := tr.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
+		if hdr.Typeflag != tar.TypeReg {
+			continue
+		}
+		clean := filepath.ToSlash(filepath.Clean(hdr.Name))
+		if strings.HasPrefix(clean, "..") || filepath.IsAbs(clean) {
+			return nil, fmt.Errorf("unsafe path in archive: %q", hdr.Name)
+		}
+		data, err := io.ReadAll(tr) //nolint:gosec // bounded by registry blob size
+		if err != nil {
+			return nil, err
+		}
+		out[clean] = data
+	}
+	return out, nil
+}
+
 // UnpackContent extracts a tar+gzip content layer into dstDir.
 func UnpackContent(tgz []byte, dstDir string) error {
 	gz, err := gzip.NewReader(bytes.NewReader(tgz))
