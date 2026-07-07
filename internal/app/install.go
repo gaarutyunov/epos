@@ -60,7 +60,9 @@ func (a *App) fetchBundle(ctx context.Context, ref string, opts InstallOpts) (fu
 	if err != nil {
 		return "", "", nil, err
 	}
-	if _, verr := verify.Verify(ctx, a.OCI, repoRef, subject, opts.RequireSignature); verr != nil {
+	res, verr := verify.Verify(ctx, a.OCI, repoRef, subject, opts.RequireSignature)
+	a.LastVerify = res
+	if verr != nil {
 		return "", "", nil, fmt.Errorf("signature verification: %w", verr)
 	}
 	man, err := a.OCI.Pull(ctx, full)

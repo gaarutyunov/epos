@@ -17,6 +17,7 @@ import (
 	"github.com/gaarutyunov/epos/internal/infrastructure/kube"
 	"github.com/gaarutyunov/epos/internal/infrastructure/oci"
 	"github.com/gaarutyunov/epos/internal/packaging/domain"
+	"github.com/gaarutyunov/epos/internal/signing/verify"
 )
 
 // Options configures the application service.
@@ -32,6 +33,8 @@ type Options struct {
 	Password string
 	// WorkDir is the project directory for file materialization and the lockfile.
 	WorkDir string
+	// Kubeconfig is the kubeconfig path for the ConfigMap target.
+	Kubeconfig string
 	// Out/Err are the CLI's output streams.
 	Out io.Writer
 	Err io.Writer
@@ -45,6 +48,10 @@ type App struct {
 	// Kubeconfig). Only the install --target=configmap path holds cluster creds.
 	Kube       *kube.Client
 	Kubeconfig string
+
+	// LastVerify holds the most recent signature verification result (for
+	// status reporting and tests).
+	LastVerify *verify.Result
 }
 
 // New constructs an App with an OCI client bound to the options' credentials.
@@ -62,7 +69,7 @@ func New(opts Options) *App {
 	if opts.Username != "" || opts.Password != "" {
 		c.Auth = &oci.Auth{Username: opts.Username, Password: opts.Password}
 	}
-	return &App{Opts: opts, OCI: c}
+	return &App{Opts: opts, OCI: c, Kubeconfig: opts.Kubeconfig}
 }
 
 // Create scaffolds a new skill package directory (SPEC §4.1).
