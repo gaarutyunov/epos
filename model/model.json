@@ -1,0 +1,5123 @@
+[
+  {
+    "payload": {
+      "@id": "usage-Infrastructure-HttpEndpoint-url-0",
+      "@type": "AttributeUsage",
+      "declaredName": "url",
+      "isLibraryElement": false,
+      "type": "String"
+    },
+    "identity": {
+      "@id": "usage-Infrastructure-HttpEndpoint-url-0"
+    }
+  },
+  {
+    "payload": {
+      "@id": "def-Infrastructure-HttpEndpoint",
+      "@type": "AttributeDefinition",
+      "declaredName": "HttpEndpoint",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "usage-Infrastructure-HttpEndpoint-url-0"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "def-Infrastructure-HttpEndpoint"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Infrastructure-OciClient-endpoint-0",
+      "@type": "ItemUsage",
+      "declaredName": "endpoint",
+      "isLibraryElement": false,
+      "type": "HttpEndpoint",
+      "direction": "in"
+    },
+    "identity": {
+      "@id": "usage-Infrastructure-OciClient-endpoint-0"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Infrastructure-OciClient-repo-1",
+      "@type": "ItemUsage",
+      "declaredName": "repo",
+      "isLibraryElement": false,
+      "type": "String",
+      "direction": "in"
+    },
+    "identity": {
+      "@id": "usage-Infrastructure-OciClient-repo-1"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Infrastructure-OciClient-reference-2",
+      "@type": "ItemUsage",
+      "declaredName": "reference",
+      "isLibraryElement": false,
+      "type": "String",
+      "direction": "in"
+    },
+    "identity": {
+      "@id": "usage-Infrastructure-OciClient-reference-2"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Infrastructure-OciClient-bytes-3",
+      "@type": "ItemUsage",
+      "declaredName": "bytes",
+      "isLibraryElement": false,
+      "type": "String",
+      "direction": "out"
+    },
+    "identity": {
+      "@id": "usage-Infrastructure-OciClient-bytes-3"
+    }
+  },
+  {
+    "payload": {
+      "@id": "def-Infrastructure-OciClient",
+      "@type": "PortDefinition",
+      "declaredName": "OciClient",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "usage-Infrastructure-OciClient-endpoint-0"
+        },
+        {
+          "@id": "usage-Infrastructure-OciClient-repo-1"
+        },
+        {
+          "@id": "usage-Infrastructure-OciClient-reference-2"
+        },
+        {
+          "@id": "usage-Infrastructure-OciClient-bytes-3"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "def-Infrastructure-OciClient"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Infrastructure-GitClient-remoteUrl-0",
+      "@type": "ItemUsage",
+      "declaredName": "remoteUrl",
+      "isLibraryElement": false,
+      "type": "String",
+      "direction": "in"
+    },
+    "identity": {
+      "@id": "usage-Infrastructure-GitClient-remoteUrl-0"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Infrastructure-GitClient-ref-1",
+      "@type": "ItemUsage",
+      "declaredName": "ref",
+      "isLibraryElement": false,
+      "type": "String",
+      "direction": "in"
+    },
+    "identity": {
+      "@id": "usage-Infrastructure-GitClient-ref-1"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Infrastructure-GitClient-subpath-2",
+      "@type": "ItemUsage",
+      "declaredName": "subpath",
+      "isLibraryElement": false,
+      "type": "String",
+      "direction": "in"
+    },
+    "identity": {
+      "@id": "usage-Infrastructure-GitClient-subpath-2"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Infrastructure-GitClient-commit-3",
+      "@type": "ItemUsage",
+      "declaredName": "commit",
+      "isLibraryElement": false,
+      "type": "String",
+      "direction": "out"
+    },
+    "identity": {
+      "@id": "usage-Infrastructure-GitClient-commit-3"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Infrastructure-GitClient-treeSha-4",
+      "@type": "ItemUsage",
+      "declaredName": "treeSha",
+      "isLibraryElement": false,
+      "type": "String",
+      "direction": "out"
+    },
+    "identity": {
+      "@id": "usage-Infrastructure-GitClient-treeSha-4"
+    }
+  },
+  {
+    "payload": {
+      "@id": "def-Infrastructure-GitClient",
+      "@type": "PortDefinition",
+      "declaredName": "GitClient",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "usage-Infrastructure-GitClient-remoteUrl-0"
+        },
+        {
+          "@id": "usage-Infrastructure-GitClient-ref-1"
+        },
+        {
+          "@id": "usage-Infrastructure-GitClient-subpath-2"
+        },
+        {
+          "@id": "usage-Infrastructure-GitClient-commit-3"
+        },
+        {
+          "@id": "usage-Infrastructure-GitClient-treeSha-4"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "def-Infrastructure-GitClient"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Infrastructure-KubeClient-namespace-0",
+      "@type": "ItemUsage",
+      "declaredName": "namespace",
+      "isLibraryElement": false,
+      "type": "String",
+      "direction": "in"
+    },
+    "identity": {
+      "@id": "usage-Infrastructure-KubeClient-namespace-0"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Infrastructure-KubeClient-kind-1",
+      "@type": "ItemUsage",
+      "declaredName": "kind",
+      "isLibraryElement": false,
+      "type": "String",
+      "direction": "in"
+    },
+    "identity": {
+      "@id": "usage-Infrastructure-KubeClient-kind-1"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Infrastructure-KubeClient-name-2",
+      "@type": "ItemUsage",
+      "declaredName": "name",
+      "isLibraryElement": false,
+      "type": "String",
+      "direction": "in"
+    },
+    "identity": {
+      "@id": "usage-Infrastructure-KubeClient-name-2"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Infrastructure-KubeClient-manifest-3",
+      "@type": "ItemUsage",
+      "declaredName": "manifest",
+      "isLibraryElement": false,
+      "type": "String",
+      "direction": "in"
+    },
+    "identity": {
+      "@id": "usage-Infrastructure-KubeClient-manifest-3"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Infrastructure-KubeClient-applied-4",
+      "@type": "ItemUsage",
+      "declaredName": "applied",
+      "isLibraryElement": false,
+      "type": "Boolean",
+      "direction": "out"
+    },
+    "identity": {
+      "@id": "usage-Infrastructure-KubeClient-applied-4"
+    }
+  },
+  {
+    "payload": {
+      "@id": "def-Infrastructure-KubeClient",
+      "@type": "PortDefinition",
+      "declaredName": "KubeClient",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "usage-Infrastructure-KubeClient-namespace-0"
+        },
+        {
+          "@id": "usage-Infrastructure-KubeClient-kind-1"
+        },
+        {
+          "@id": "usage-Infrastructure-KubeClient-name-2"
+        },
+        {
+          "@id": "usage-Infrastructure-KubeClient-manifest-3"
+        },
+        {
+          "@id": "usage-Infrastructure-KubeClient-applied-4"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "def-Infrastructure-KubeClient"
+    }
+  },
+  {
+    "payload": {
+      "@id": "pkg-Infrastructure",
+      "@type": "Package",
+      "declaredName": "Infrastructure",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "def-Infrastructure-HttpEndpoint"
+        },
+        {
+          "@id": "def-Infrastructure-OciClient"
+        },
+        {
+          "@id": "def-Infrastructure-GitClient"
+        },
+        {
+          "@id": "def-Infrastructure-KubeClient"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "pkg-Infrastructure"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Packaging-MediaType-value-0",
+      "@type": "AttributeUsage",
+      "declaredName": "value",
+      "isLibraryElement": false,
+      "type": "String"
+    },
+    "identity": {
+      "@id": "usage-Packaging-MediaType-value-0"
+    }
+  },
+  {
+    "payload": {
+      "@id": "def-Packaging-MediaType",
+      "@type": "AttributeDefinition",
+      "declaredName": "MediaType",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "usage-Packaging-MediaType-value-0"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "def-Packaging-MediaType"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Packaging-SemVer-raw-0",
+      "@type": "AttributeUsage",
+      "declaredName": "raw",
+      "isLibraryElement": false,
+      "type": "String"
+    },
+    "identity": {
+      "@id": "usage-Packaging-SemVer-raw-0"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Packaging-SemVer-major-1",
+      "@type": "AttributeUsage",
+      "declaredName": "major",
+      "isLibraryElement": false,
+      "type": "Integer"
+    },
+    "identity": {
+      "@id": "usage-Packaging-SemVer-major-1"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Packaging-SemVer-minor-2",
+      "@type": "AttributeUsage",
+      "declaredName": "minor",
+      "isLibraryElement": false,
+      "type": "Integer"
+    },
+    "identity": {
+      "@id": "usage-Packaging-SemVer-minor-2"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Packaging-SemVer-patch-3",
+      "@type": "AttributeUsage",
+      "declaredName": "patch",
+      "isLibraryElement": false,
+      "type": "Integer"
+    },
+    "identity": {
+      "@id": "usage-Packaging-SemVer-patch-3"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Packaging-SemVer-build-4",
+      "@type": "AttributeUsage",
+      "declaredName": "build",
+      "isLibraryElement": false,
+      "type": "String"
+    },
+    "identity": {
+      "@id": "usage-Packaging-SemVer-build-4"
+    }
+  },
+  {
+    "payload": {
+      "@id": "def-Packaging-SemVer",
+      "@type": "AttributeDefinition",
+      "declaredName": "SemVer",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "usage-Packaging-SemVer-raw-0"
+        },
+        {
+          "@id": "usage-Packaging-SemVer-major-1"
+        },
+        {
+          "@id": "usage-Packaging-SemVer-minor-2"
+        },
+        {
+          "@id": "usage-Packaging-SemVer-patch-3"
+        },
+        {
+          "@id": "usage-Packaging-SemVer-build-4"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "def-Packaging-SemVer"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Packaging-Digest-algo-0",
+      "@type": "AttributeUsage",
+      "declaredName": "algo",
+      "isLibraryElement": false,
+      "type": "String"
+    },
+    "identity": {
+      "@id": "usage-Packaging-Digest-algo-0"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Packaging-Digest-value-1",
+      "@type": "AttributeUsage",
+      "declaredName": "value",
+      "isLibraryElement": false,
+      "type": "String"
+    },
+    "identity": {
+      "@id": "usage-Packaging-Digest-value-1"
+    }
+  },
+  {
+    "payload": {
+      "@id": "def-Packaging-Digest",
+      "@type": "AttributeDefinition",
+      "declaredName": "Digest",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "usage-Packaging-Digest-algo-0"
+        },
+        {
+          "@id": "usage-Packaging-Digest-value-1"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "def-Packaging-Digest"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Packaging-OciRef-registry-0",
+      "@type": "AttributeUsage",
+      "declaredName": "registry",
+      "isLibraryElement": false,
+      "type": "String"
+    },
+    "identity": {
+      "@id": "usage-Packaging-OciRef-registry-0"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Packaging-OciRef-repo-1",
+      "@type": "AttributeUsage",
+      "declaredName": "repo",
+      "isLibraryElement": false,
+      "type": "String"
+    },
+    "identity": {
+      "@id": "usage-Packaging-OciRef-repo-1"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Packaging-OciRef-tag-2",
+      "@type": "AttributeUsage",
+      "declaredName": "tag",
+      "isLibraryElement": false,
+      "type": "String"
+    },
+    "identity": {
+      "@id": "usage-Packaging-OciRef-tag-2"
+    }
+  },
+  {
+    "payload": {
+      "@id": "def-Packaging-OciRef",
+      "@type": "AttributeDefinition",
+      "declaredName": "OciRef",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "usage-Packaging-OciRef-registry-0"
+        },
+        {
+          "@id": "usage-Packaging-OciRef-repo-1"
+        },
+        {
+          "@id": "usage-Packaging-OciRef-tag-2"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "def-Packaging-OciRef"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Packaging-ContentLayer-mediaType-0",
+      "@type": "AttributeUsage",
+      "declaredName": "mediaType",
+      "isLibraryElement": false,
+      "type": "MediaType"
+    },
+    "identity": {
+      "@id": "usage-Packaging-ContentLayer-mediaType-0"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Packaging-ContentLayer-digest-1",
+      "@type": "AttributeUsage",
+      "declaredName": "digest",
+      "isLibraryElement": false,
+      "type": "Digest"
+    },
+    "identity": {
+      "@id": "usage-Packaging-ContentLayer-digest-1"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Packaging-ContentLayer-sizeBytes-2",
+      "@type": "AttributeUsage",
+      "declaredName": "sizeBytes",
+      "isLibraryElement": false,
+      "type": "Integer"
+    },
+    "identity": {
+      "@id": "usage-Packaging-ContentLayer-sizeBytes-2"
+    }
+  },
+  {
+    "payload": {
+      "@id": "def-Packaging-ContentLayer",
+      "@type": "AttributeDefinition",
+      "declaredName": "ContentLayer",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "usage-Packaging-ContentLayer-mediaType-0"
+        },
+        {
+          "@id": "usage-Packaging-ContentLayer-digest-1"
+        },
+        {
+          "@id": "usage-Packaging-ContentLayer-sizeBytes-2"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "def-Packaging-ContentLayer"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Packaging-ConfigBlob-mediaType-0",
+      "@type": "AttributeUsage",
+      "declaredName": "mediaType",
+      "isLibraryElement": false,
+      "type": "MediaType"
+    },
+    "identity": {
+      "@id": "usage-Packaging-ConfigBlob-mediaType-0"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Packaging-ConfigBlob-digest-1",
+      "@type": "AttributeUsage",
+      "declaredName": "digest",
+      "isLibraryElement": false,
+      "type": "Digest"
+    },
+    "identity": {
+      "@id": "usage-Packaging-ConfigBlob-digest-1"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Packaging-ConfigBlob-sizeBytes-2",
+      "@type": "AttributeUsage",
+      "declaredName": "sizeBytes",
+      "isLibraryElement": false,
+      "type": "Integer"
+    },
+    "identity": {
+      "@id": "usage-Packaging-ConfigBlob-sizeBytes-2"
+    }
+  },
+  {
+    "payload": {
+      "@id": "def-Packaging-ConfigBlob",
+      "@type": "AttributeDefinition",
+      "declaredName": "ConfigBlob",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "usage-Packaging-ConfigBlob-mediaType-0"
+        },
+        {
+          "@id": "usage-Packaging-ConfigBlob-digest-1"
+        },
+        {
+          "@id": "usage-Packaging-ConfigBlob-sizeBytes-2"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "def-Packaging-ConfigBlob"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Packaging-SkillFile-path-0",
+      "@type": "AttributeUsage",
+      "declaredName": "path",
+      "isLibraryElement": false,
+      "type": "String"
+    },
+    "identity": {
+      "@id": "usage-Packaging-SkillFile-path-0"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Packaging-SkillFile-isBinary-1",
+      "@type": "AttributeUsage",
+      "declaredName": "isBinary",
+      "isLibraryElement": false,
+      "type": "Boolean"
+    },
+    "identity": {
+      "@id": "usage-Packaging-SkillFile-isBinary-1"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Packaging-SkillFile-sizeBytes-2",
+      "@type": "AttributeUsage",
+      "declaredName": "sizeBytes",
+      "isLibraryElement": false,
+      "type": "Integer"
+    },
+    "identity": {
+      "@id": "usage-Packaging-SkillFile-sizeBytes-2"
+    }
+  },
+  {
+    "payload": {
+      "@id": "def-Packaging-SkillFile",
+      "@type": "AttributeDefinition",
+      "declaredName": "SkillFile",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "usage-Packaging-SkillFile-path-0"
+        },
+        {
+          "@id": "usage-Packaging-SkillFile-isBinary-1"
+        },
+        {
+          "@id": "usage-Packaging-SkillFile-sizeBytes-2"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "def-Packaging-SkillFile"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Packaging-SkillMetadata-name-0",
+      "@type": "AttributeUsage",
+      "declaredName": "name",
+      "isLibraryElement": false,
+      "type": "String"
+    },
+    "identity": {
+      "@id": "usage-Packaging-SkillMetadata-name-0"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Packaging-SkillMetadata-version-1",
+      "@type": "AttributeUsage",
+      "declaredName": "version",
+      "isLibraryElement": false,
+      "type": "SemVer"
+    },
+    "identity": {
+      "@id": "usage-Packaging-SkillMetadata-version-1"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Packaging-SkillMetadata-description-2",
+      "@type": "AttributeUsage",
+      "declaredName": "description",
+      "isLibraryElement": false,
+      "type": "String"
+    },
+    "identity": {
+      "@id": "usage-Packaging-SkillMetadata-description-2"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Packaging-SkillMetadata-keywords-3",
+      "@type": "AttributeUsage",
+      "declaredName": "keywords",
+      "isLibraryElement": false,
+      "type": "String",
+      "many": true
+    },
+    "identity": {
+      "@id": "usage-Packaging-SkillMetadata-keywords-3"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Packaging-SkillMetadata-home-4",
+      "@type": "AttributeUsage",
+      "declaredName": "home",
+      "isLibraryElement": false,
+      "type": "String"
+    },
+    "identity": {
+      "@id": "usage-Packaging-SkillMetadata-home-4"
+    }
+  },
+  {
+    "payload": {
+      "@id": "def-Packaging-SkillMetadata",
+      "@type": "PartDefinition",
+      "declaredName": "SkillMetadata",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "usage-Packaging-SkillMetadata-name-0"
+        },
+        {
+          "@id": "usage-Packaging-SkillMetadata-version-1"
+        },
+        {
+          "@id": "usage-Packaging-SkillMetadata-description-2"
+        },
+        {
+          "@id": "usage-Packaging-SkillMetadata-keywords-3"
+        },
+        {
+          "@id": "usage-Packaging-SkillMetadata-home-4"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "def-Packaging-SkillMetadata"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Packaging-SkillArtifact-id-0",
+      "@type": "AttributeUsage",
+      "declaredName": "id",
+      "isLibraryElement": false,
+      "type": "String"
+    },
+    "identity": {
+      "@id": "usage-Packaging-SkillArtifact-id-0"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Packaging-SkillArtifact-metadata-1",
+      "@type": "AttributeUsage",
+      "declaredName": "metadata",
+      "isLibraryElement": false,
+      "type": "SkillMetadata"
+    },
+    "identity": {
+      "@id": "usage-Packaging-SkillArtifact-metadata-1"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Packaging-SkillArtifact-config-2",
+      "@type": "AttributeUsage",
+      "declaredName": "config",
+      "isLibraryElement": false,
+      "type": "ConfigBlob"
+    },
+    "identity": {
+      "@id": "usage-Packaging-SkillArtifact-config-2"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Packaging-SkillArtifact-content-3",
+      "@type": "AttributeUsage",
+      "declaredName": "content",
+      "isLibraryElement": false,
+      "type": "ContentLayer"
+    },
+    "identity": {
+      "@id": "usage-Packaging-SkillArtifact-content-3"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Packaging-SkillArtifact-files-4",
+      "@type": "PartUsage",
+      "declaredName": "files",
+      "isLibraryElement": false,
+      "type": "SkillFile",
+      "many": true
+    },
+    "identity": {
+      "@id": "usage-Packaging-SkillArtifact-files-4"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Packaging-SkillArtifact-build-5",
+      "@type": "PortUsage",
+      "declaredName": "build",
+      "isLibraryElement": false,
+      "type": "PackagingPort"
+    },
+    "identity": {
+      "@id": "usage-Packaging-SkillArtifact-build-5"
+    }
+  },
+  {
+    "payload": {
+      "@id": "def-Packaging-SkillArtifact",
+      "@type": "PartDefinition",
+      "declaredName": "SkillArtifact",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "usage-Packaging-SkillArtifact-id-0"
+        },
+        {
+          "@id": "usage-Packaging-SkillArtifact-metadata-1"
+        },
+        {
+          "@id": "usage-Packaging-SkillArtifact-config-2"
+        },
+        {
+          "@id": "usage-Packaging-SkillArtifact-content-3"
+        },
+        {
+          "@id": "usage-Packaging-SkillArtifact-files-4"
+        },
+        {
+          "@id": "usage-Packaging-SkillArtifact-build-5"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "def-Packaging-SkillArtifact"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Packaging-PackagingPort-request-0",
+      "@type": "ItemUsage",
+      "declaredName": "request",
+      "isLibraryElement": false,
+      "type": "PackageRequest",
+      "direction": "in"
+    },
+    "identity": {
+      "@id": "usage-Packaging-PackagingPort-request-0"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Packaging-PackagingPort-artifact-1",
+      "@type": "ItemUsage",
+      "declaredName": "artifact",
+      "isLibraryElement": false,
+      "type": "PackagedArtifact",
+      "direction": "out"
+    },
+    "identity": {
+      "@id": "usage-Packaging-PackagingPort-artifact-1"
+    }
+  },
+  {
+    "payload": {
+      "@id": "def-Packaging-PackagingPort",
+      "@type": "PortDefinition",
+      "declaredName": "PackagingPort",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "usage-Packaging-PackagingPort-request-0"
+        },
+        {
+          "@id": "usage-Packaging-PackagingPort-artifact-1"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "def-Packaging-PackagingPort"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Packaging-ValidationPort-artifact-0",
+      "@type": "ItemUsage",
+      "declaredName": "artifact",
+      "isLibraryElement": false,
+      "type": "SkillArtifact",
+      "direction": "in"
+    },
+    "identity": {
+      "@id": "usage-Packaging-ValidationPort-artifact-0"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Packaging-ValidationPort-report-1",
+      "@type": "ItemUsage",
+      "declaredName": "report",
+      "isLibraryElement": false,
+      "type": "ValidationReport",
+      "direction": "out"
+    },
+    "identity": {
+      "@id": "usage-Packaging-ValidationPort-report-1"
+    }
+  },
+  {
+    "payload": {
+      "@id": "def-Packaging-ValidationPort",
+      "@type": "PortDefinition",
+      "declaredName": "ValidationPort",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "usage-Packaging-ValidationPort-artifact-0"
+        },
+        {
+          "@id": "usage-Packaging-ValidationPort-report-1"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "def-Packaging-ValidationPort"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Packaging-PackageRequest-sourceDir-0",
+      "@type": "AttributeUsage",
+      "declaredName": "sourceDir",
+      "isLibraryElement": false,
+      "type": "String"
+    },
+    "identity": {
+      "@id": "usage-Packaging-PackageRequest-sourceDir-0"
+    }
+  },
+  {
+    "payload": {
+      "@id": "def-Packaging-PackageRequest",
+      "@type": "ItemDefinition",
+      "declaredName": "PackageRequest",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "usage-Packaging-PackageRequest-sourceDir-0"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "def-Packaging-PackageRequest"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Packaging-PackagedArtifact-ref-0",
+      "@type": "AttributeUsage",
+      "declaredName": "ref",
+      "isLibraryElement": false,
+      "type": "OciRef"
+    },
+    "identity": {
+      "@id": "usage-Packaging-PackagedArtifact-ref-0"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Packaging-PackagedArtifact-digest-1",
+      "@type": "AttributeUsage",
+      "declaredName": "digest",
+      "isLibraryElement": false,
+      "type": "Digest"
+    },
+    "identity": {
+      "@id": "usage-Packaging-PackagedArtifact-digest-1"
+    }
+  },
+  {
+    "payload": {
+      "@id": "def-Packaging-PackagedArtifact",
+      "@type": "ItemDefinition",
+      "declaredName": "PackagedArtifact",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "usage-Packaging-PackagedArtifact-ref-0"
+        },
+        {
+          "@id": "usage-Packaging-PackagedArtifact-digest-1"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "def-Packaging-PackagedArtifact"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Packaging-ValidationReport-ok-0",
+      "@type": "AttributeUsage",
+      "declaredName": "ok",
+      "isLibraryElement": false,
+      "type": "Boolean"
+    },
+    "identity": {
+      "@id": "usage-Packaging-ValidationReport-ok-0"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Packaging-ValidationReport-messages-1",
+      "@type": "AttributeUsage",
+      "declaredName": "messages",
+      "isLibraryElement": false,
+      "type": "String",
+      "many": true
+    },
+    "identity": {
+      "@id": "usage-Packaging-ValidationReport-messages-1"
+    }
+  },
+  {
+    "payload": {
+      "@id": "def-Packaging-ValidationReport",
+      "@type": "ItemDefinition",
+      "declaredName": "ValidationReport",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "usage-Packaging-ValidationReport-ok-0"
+        },
+        {
+          "@id": "usage-Packaging-ValidationReport-messages-1"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "def-Packaging-ValidationReport"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Packaging-PackageSkill-request-0",
+      "@type": "ItemUsage",
+      "declaredName": "request",
+      "isLibraryElement": false,
+      "type": "PackageRequest",
+      "direction": "in"
+    },
+    "identity": {
+      "@id": "usage-Packaging-PackageSkill-request-0"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Packaging-PackageSkill-artifact-1",
+      "@type": "ItemUsage",
+      "declaredName": "artifact",
+      "isLibraryElement": false,
+      "type": "PackagedArtifact",
+      "direction": "out"
+    },
+    "identity": {
+      "@id": "usage-Packaging-PackageSkill-artifact-1"
+    }
+  },
+  {
+    "payload": {
+      "@id": "def-Packaging-PackageSkill",
+      "@type": "ActionDefinition",
+      "declaredName": "PackageSkill",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "usage-Packaging-PackageSkill-request-0"
+        },
+        {
+          "@id": "usage-Packaging-PackageSkill-artifact-1"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "def-Packaging-PackageSkill"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Packaging-ValidateSkill-artifact-0",
+      "@type": "ItemUsage",
+      "declaredName": "artifact",
+      "isLibraryElement": false,
+      "type": "SkillArtifact",
+      "direction": "in"
+    },
+    "identity": {
+      "@id": "usage-Packaging-ValidateSkill-artifact-0"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Packaging-ValidateSkill-report-1",
+      "@type": "ItemUsage",
+      "declaredName": "report",
+      "isLibraryElement": false,
+      "type": "ValidationReport",
+      "direction": "out"
+    },
+    "identity": {
+      "@id": "usage-Packaging-ValidateSkill-report-1"
+    }
+  },
+  {
+    "payload": {
+      "@id": "def-Packaging-ValidateSkill",
+      "@type": "ActionDefinition",
+      "declaredName": "ValidateSkill",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "usage-Packaging-ValidateSkill-artifact-0"
+        },
+        {
+          "@id": "usage-Packaging-ValidateSkill-report-1"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "def-Packaging-ValidateSkill"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Packaging-PushSkill-ref-0",
+      "@type": "ItemUsage",
+      "declaredName": "ref",
+      "isLibraryElement": false,
+      "type": "OciRef",
+      "direction": "in"
+    },
+    "identity": {
+      "@id": "usage-Packaging-PushSkill-ref-0"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Packaging-PushSkill-artifact-1",
+      "@type": "ItemUsage",
+      "declaredName": "artifact",
+      "isLibraryElement": false,
+      "type": "SkillArtifact",
+      "direction": "in"
+    },
+    "identity": {
+      "@id": "usage-Packaging-PushSkill-artifact-1"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Packaging-PushSkill-pushed-2",
+      "@type": "ItemUsage",
+      "declaredName": "pushed",
+      "isLibraryElement": false,
+      "type": "PackagedArtifact",
+      "direction": "out"
+    },
+    "identity": {
+      "@id": "usage-Packaging-PushSkill-pushed-2"
+    }
+  },
+  {
+    "payload": {
+      "@id": "def-Packaging-PushSkill",
+      "@type": "ActionDefinition",
+      "declaredName": "PushSkill",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "usage-Packaging-PushSkill-ref-0"
+        },
+        {
+          "@id": "usage-Packaging-PushSkill-artifact-1"
+        },
+        {
+          "@id": "usage-Packaging-PushSkill-pushed-2"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "def-Packaging-PushSkill"
+    }
+  },
+  {
+    "payload": {
+      "@id": "pkg-Packaging",
+      "@type": "Package",
+      "declaredName": "Packaging",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "def-Packaging-MediaType"
+        },
+        {
+          "@id": "def-Packaging-SemVer"
+        },
+        {
+          "@id": "def-Packaging-Digest"
+        },
+        {
+          "@id": "def-Packaging-OciRef"
+        },
+        {
+          "@id": "def-Packaging-ContentLayer"
+        },
+        {
+          "@id": "def-Packaging-ConfigBlob"
+        },
+        {
+          "@id": "def-Packaging-SkillFile"
+        },
+        {
+          "@id": "def-Packaging-SkillMetadata"
+        },
+        {
+          "@id": "def-Packaging-SkillArtifact"
+        },
+        {
+          "@id": "def-Packaging-PackagingPort"
+        },
+        {
+          "@id": "def-Packaging-ValidationPort"
+        },
+        {
+          "@id": "def-Packaging-PackageRequest"
+        },
+        {
+          "@id": "def-Packaging-PackagedArtifact"
+        },
+        {
+          "@id": "def-Packaging-ValidationReport"
+        },
+        {
+          "@id": "def-Packaging-PackageSkill"
+        },
+        {
+          "@id": "def-Packaging-ValidateSkill"
+        },
+        {
+          "@id": "def-Packaging-PushSkill"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "pkg-Packaging"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Composition-LayerKind-value-0",
+      "@type": "AttributeUsage",
+      "declaredName": "value",
+      "isLibraryElement": false,
+      "type": "String"
+    },
+    "identity": {
+      "@id": "usage-Composition-LayerKind-value-0"
+    }
+  },
+  {
+    "payload": {
+      "@id": "def-Composition-LayerKind",
+      "@type": "AttributeDefinition",
+      "declaredName": "LayerKind",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "usage-Composition-LayerKind-value-0"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "def-Composition-LayerKind"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Composition-SourceKind-value-0",
+      "@type": "AttributeUsage",
+      "declaredName": "value",
+      "isLibraryElement": false,
+      "type": "String"
+    },
+    "identity": {
+      "@id": "usage-Composition-SourceKind-value-0"
+    }
+  },
+  {
+    "payload": {
+      "@id": "def-Composition-SourceKind",
+      "@type": "AttributeDefinition",
+      "declaredName": "SourceKind",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "usage-Composition-SourceKind-value-0"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "def-Composition-SourceKind"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Composition-Pin-sourceType-0",
+      "@type": "AttributeUsage",
+      "declaredName": "sourceType",
+      "isLibraryElement": false,
+      "type": "SourceKind"
+    },
+    "identity": {
+      "@id": "usage-Composition-Pin-sourceType-0"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Composition-Pin-source-1",
+      "@type": "AttributeUsage",
+      "declaredName": "source",
+      "isLibraryElement": false,
+      "type": "String"
+    },
+    "identity": {
+      "@id": "usage-Composition-Pin-source-1"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Composition-Pin-version-2",
+      "@type": "AttributeUsage",
+      "declaredName": "version",
+      "isLibraryElement": false,
+      "type": "String"
+    },
+    "identity": {
+      "@id": "usage-Composition-Pin-version-2"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Composition-Pin-digest-3",
+      "@type": "AttributeUsage",
+      "declaredName": "digest",
+      "isLibraryElement": false,
+      "type": "String"
+    },
+    "identity": {
+      "@id": "usage-Composition-Pin-digest-3"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Composition-Pin-commit-4",
+      "@type": "AttributeUsage",
+      "declaredName": "commit",
+      "isLibraryElement": false,
+      "type": "String"
+    },
+    "identity": {
+      "@id": "usage-Composition-Pin-commit-4"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Composition-Pin-treeSha-5",
+      "@type": "AttributeUsage",
+      "declaredName": "treeSha",
+      "isLibraryElement": false,
+      "type": "String"
+    },
+    "identity": {
+      "@id": "usage-Composition-Pin-treeSha-5"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Composition-Pin-subpath-6",
+      "@type": "AttributeUsage",
+      "declaredName": "subpath",
+      "isLibraryElement": false,
+      "type": "String"
+    },
+    "identity": {
+      "@id": "usage-Composition-Pin-subpath-6"
+    }
+  },
+  {
+    "payload": {
+      "@id": "def-Composition-Pin",
+      "@type": "AttributeDefinition",
+      "declaredName": "Pin",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "usage-Composition-Pin-sourceType-0"
+        },
+        {
+          "@id": "usage-Composition-Pin-source-1"
+        },
+        {
+          "@id": "usage-Composition-Pin-version-2"
+        },
+        {
+          "@id": "usage-Composition-Pin-digest-3"
+        },
+        {
+          "@id": "usage-Composition-Pin-commit-4"
+        },
+        {
+          "@id": "usage-Composition-Pin-treeSha-5"
+        },
+        {
+          "@id": "usage-Composition-Pin-subpath-6"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "def-Composition-Pin"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Composition-Operation-op-0",
+      "@type": "AttributeUsage",
+      "declaredName": "op",
+      "isLibraryElement": false,
+      "type": "String"
+    },
+    "identity": {
+      "@id": "usage-Composition-Operation-op-0"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Composition-Operation-target-1",
+      "@type": "AttributeUsage",
+      "declaredName": "target",
+      "isLibraryElement": false,
+      "type": "String"
+    },
+    "identity": {
+      "@id": "usage-Composition-Operation-target-1"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Composition-Operation-payloadPath-2",
+      "@type": "AttributeUsage",
+      "declaredName": "payloadPath",
+      "isLibraryElement": false,
+      "type": "String"
+    },
+    "identity": {
+      "@id": "usage-Composition-Operation-payloadPath-2"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Composition-Operation-content-3",
+      "@type": "AttributeUsage",
+      "declaredName": "content",
+      "isLibraryElement": false,
+      "type": "String"
+    },
+    "identity": {
+      "@id": "usage-Composition-Operation-content-3"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Composition-Operation-pattern-4",
+      "@type": "AttributeUsage",
+      "declaredName": "pattern",
+      "isLibraryElement": false,
+      "type": "String"
+    },
+    "identity": {
+      "@id": "usage-Composition-Operation-pattern-4"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Composition-Operation-replacement-5",
+      "@type": "AttributeUsage",
+      "declaredName": "replacement",
+      "isLibraryElement": false,
+      "type": "String"
+    },
+    "identity": {
+      "@id": "usage-Composition-Operation-replacement-5"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Composition-Operation-required-6",
+      "@type": "AttributeUsage",
+      "declaredName": "required",
+      "isLibraryElement": false,
+      "type": "Boolean"
+    },
+    "identity": {
+      "@id": "usage-Composition-Operation-required-6"
+    }
+  },
+  {
+    "payload": {
+      "@id": "def-Composition-Operation",
+      "@type": "AttributeDefinition",
+      "declaredName": "Operation",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "usage-Composition-Operation-op-0"
+        },
+        {
+          "@id": "usage-Composition-Operation-target-1"
+        },
+        {
+          "@id": "usage-Composition-Operation-payloadPath-2"
+        },
+        {
+          "@id": "usage-Composition-Operation-content-3"
+        },
+        {
+          "@id": "usage-Composition-Operation-pattern-4"
+        },
+        {
+          "@id": "usage-Composition-Operation-replacement-5"
+        },
+        {
+          "@id": "usage-Composition-Operation-required-6"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "def-Composition-Operation"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Composition-Layer-id-0",
+      "@type": "AttributeUsage",
+      "declaredName": "id",
+      "isLibraryElement": false,
+      "type": "String"
+    },
+    "identity": {
+      "@id": "usage-Composition-Layer-id-0"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Composition-Layer-name-1",
+      "@type": "AttributeUsage",
+      "declaredName": "name",
+      "isLibraryElement": false,
+      "type": "String"
+    },
+    "identity": {
+      "@id": "usage-Composition-Layer-name-1"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Composition-Layer-kind-2",
+      "@type": "AttributeUsage",
+      "declaredName": "kind",
+      "isLibraryElement": false,
+      "type": "LayerKind"
+    },
+    "identity": {
+      "@id": "usage-Composition-Layer-kind-2"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Composition-Layer-source-3",
+      "@type": "AttributeUsage",
+      "declaredName": "source",
+      "isLibraryElement": false,
+      "type": "SourceKind"
+    },
+    "identity": {
+      "@id": "usage-Composition-Layer-source-3"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Composition-Layer-pin-4",
+      "@type": "AttributeUsage",
+      "declaredName": "pin",
+      "isLibraryElement": false,
+      "type": "Pin"
+    },
+    "identity": {
+      "@id": "usage-Composition-Layer-pin-4"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Composition-Layer-operations-5",
+      "@type": "PartUsage",
+      "declaredName": "operations",
+      "isLibraryElement": false,
+      "type": "Operation",
+      "many": true
+    },
+    "identity": {
+      "@id": "usage-Composition-Layer-operations-5"
+    }
+  },
+  {
+    "payload": {
+      "@id": "def-Composition-Layer",
+      "@type": "PartDefinition",
+      "declaredName": "Layer",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "usage-Composition-Layer-id-0"
+        },
+        {
+          "@id": "usage-Composition-Layer-name-1"
+        },
+        {
+          "@id": "usage-Composition-Layer-kind-2"
+        },
+        {
+          "@id": "usage-Composition-Layer-source-3"
+        },
+        {
+          "@id": "usage-Composition-Layer-pin-4"
+        },
+        {
+          "@id": "usage-Composition-Layer-operations-5"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "def-Composition-Layer"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Composition-LayerStack-id-0",
+      "@type": "AttributeUsage",
+      "declaredName": "id",
+      "isLibraryElement": false,
+      "type": "String"
+    },
+    "identity": {
+      "@id": "usage-Composition-LayerStack-id-0"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Composition-LayerStack-layers-1",
+      "@type": "PartUsage",
+      "declaredName": "layers",
+      "isLibraryElement": false,
+      "type": "Layer",
+      "many": true
+    },
+    "identity": {
+      "@id": "usage-Composition-LayerStack-layers-1"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Composition-LayerStack-source-2",
+      "@type": "PortUsage",
+      "declaredName": "source",
+      "isLibraryElement": false,
+      "type": "LayerSource"
+    },
+    "identity": {
+      "@id": "usage-Composition-LayerStack-source-2"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Composition-LayerStack-merge-3",
+      "@type": "PortUsage",
+      "declaredName": "merge",
+      "isLibraryElement": false,
+      "type": "CompositionPort"
+    },
+    "identity": {
+      "@id": "usage-Composition-LayerStack-merge-3"
+    }
+  },
+  {
+    "payload": {
+      "@id": "def-Composition-LayerStack",
+      "@type": "PartDefinition",
+      "declaredName": "LayerStack",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "usage-Composition-LayerStack-id-0"
+        },
+        {
+          "@id": "usage-Composition-LayerStack-layers-1"
+        },
+        {
+          "@id": "usage-Composition-LayerStack-source-2"
+        },
+        {
+          "@id": "usage-Composition-LayerStack-merge-3"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "def-Composition-LayerStack"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Composition-LayerSource-layer-0",
+      "@type": "ItemUsage",
+      "declaredName": "layer",
+      "isLibraryElement": false,
+      "type": "Layer",
+      "direction": "in"
+    },
+    "identity": {
+      "@id": "usage-Composition-LayerSource-layer-0"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Composition-LayerSource-pin-1",
+      "@type": "ItemUsage",
+      "declaredName": "pin",
+      "isLibraryElement": false,
+      "type": "PinRecord",
+      "direction": "out"
+    },
+    "identity": {
+      "@id": "usage-Composition-LayerSource-pin-1"
+    }
+  },
+  {
+    "payload": {
+      "@id": "def-Composition-LayerSource",
+      "@type": "PortDefinition",
+      "declaredName": "LayerSource",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "usage-Composition-LayerSource-layer-0"
+        },
+        {
+          "@id": "usage-Composition-LayerSource-pin-1"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "def-Composition-LayerSource"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Composition-CompositionPort-request-0",
+      "@type": "ItemUsage",
+      "declaredName": "request",
+      "isLibraryElement": false,
+      "type": "ComposeRequest",
+      "direction": "in"
+    },
+    "identity": {
+      "@id": "usage-Composition-CompositionPort-request-0"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Composition-CompositionPort-merged-1",
+      "@type": "ItemUsage",
+      "declaredName": "merged",
+      "isLibraryElement": false,
+      "type": "MergedSkill",
+      "direction": "out"
+    },
+    "identity": {
+      "@id": "usage-Composition-CompositionPort-merged-1"
+    }
+  },
+  {
+    "payload": {
+      "@id": "def-Composition-CompositionPort",
+      "@type": "PortDefinition",
+      "declaredName": "CompositionPort",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "usage-Composition-CompositionPort-request-0"
+        },
+        {
+          "@id": "usage-Composition-CompositionPort-merged-1"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "def-Composition-CompositionPort"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Composition-ComposeRequest-stackId-0",
+      "@type": "AttributeUsage",
+      "declaredName": "stackId",
+      "isLibraryElement": false,
+      "type": "String"
+    },
+    "identity": {
+      "@id": "usage-Composition-ComposeRequest-stackId-0"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Composition-ComposeRequest-values-1",
+      "@type": "AttributeUsage",
+      "declaredName": "values",
+      "isLibraryElement": false,
+      "type": "String"
+    },
+    "identity": {
+      "@id": "usage-Composition-ComposeRequest-values-1"
+    }
+  },
+  {
+    "payload": {
+      "@id": "def-Composition-ComposeRequest",
+      "@type": "ItemDefinition",
+      "declaredName": "ComposeRequest",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "usage-Composition-ComposeRequest-stackId-0"
+        },
+        {
+          "@id": "usage-Composition-ComposeRequest-values-1"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "def-Composition-ComposeRequest"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Composition-MergedSkill-skillId-0",
+      "@type": "AttributeUsage",
+      "declaredName": "skillId",
+      "isLibraryElement": false,
+      "type": "String"
+    },
+    "identity": {
+      "@id": "usage-Composition-MergedSkill-skillId-0"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Composition-MergedSkill-provenance-1",
+      "@type": "AttributeUsage",
+      "declaredName": "provenance",
+      "isLibraryElement": false,
+      "type": "String",
+      "many": true
+    },
+    "identity": {
+      "@id": "usage-Composition-MergedSkill-provenance-1"
+    }
+  },
+  {
+    "payload": {
+      "@id": "def-Composition-MergedSkill",
+      "@type": "ItemDefinition",
+      "declaredName": "MergedSkill",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "usage-Composition-MergedSkill-skillId-0"
+        },
+        {
+          "@id": "usage-Composition-MergedSkill-provenance-1"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "def-Composition-MergedSkill"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Composition-PinRecord-name-0",
+      "@type": "AttributeUsage",
+      "declaredName": "name",
+      "isLibraryElement": false,
+      "type": "String"
+    },
+    "identity": {
+      "@id": "usage-Composition-PinRecord-name-0"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Composition-PinRecord-pin-1",
+      "@type": "AttributeUsage",
+      "declaredName": "pin",
+      "isLibraryElement": false,
+      "type": "Pin"
+    },
+    "identity": {
+      "@id": "usage-Composition-PinRecord-pin-1"
+    }
+  },
+  {
+    "payload": {
+      "@id": "def-Composition-PinRecord",
+      "@type": "ItemDefinition",
+      "declaredName": "PinRecord",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "usage-Composition-PinRecord-name-0"
+        },
+        {
+          "@id": "usage-Composition-PinRecord-pin-1"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "def-Composition-PinRecord"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Composition-CaptureDependencyPin-layer-0",
+      "@type": "ItemUsage",
+      "declaredName": "layer",
+      "isLibraryElement": false,
+      "type": "Layer",
+      "direction": "in"
+    },
+    "identity": {
+      "@id": "usage-Composition-CaptureDependencyPin-layer-0"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Composition-CaptureDependencyPin-pin-1",
+      "@type": "ItemUsage",
+      "declaredName": "pin",
+      "isLibraryElement": false,
+      "type": "PinRecord",
+      "direction": "out"
+    },
+    "identity": {
+      "@id": "usage-Composition-CaptureDependencyPin-pin-1"
+    }
+  },
+  {
+    "payload": {
+      "@id": "def-Composition-CaptureDependencyPin",
+      "@type": "ActionDefinition",
+      "declaredName": "CaptureDependencyPin",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "usage-Composition-CaptureDependencyPin-layer-0"
+        },
+        {
+          "@id": "usage-Composition-CaptureDependencyPin-pin-1"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "def-Composition-CaptureDependencyPin"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Composition-ComposeStack-request-0",
+      "@type": "ItemUsage",
+      "declaredName": "request",
+      "isLibraryElement": false,
+      "type": "ComposeRequest",
+      "direction": "in"
+    },
+    "identity": {
+      "@id": "usage-Composition-ComposeStack-request-0"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Composition-ComposeStack-merged-1",
+      "@type": "ItemUsage",
+      "declaredName": "merged",
+      "isLibraryElement": false,
+      "type": "MergedSkill",
+      "direction": "out"
+    },
+    "identity": {
+      "@id": "usage-Composition-ComposeStack-merged-1"
+    }
+  },
+  {
+    "payload": {
+      "@id": "def-Composition-ComposeStack",
+      "@type": "ActionDefinition",
+      "declaredName": "ComposeStack",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "usage-Composition-ComposeStack-request-0"
+        },
+        {
+          "@id": "usage-Composition-ComposeStack-merged-1"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "def-Composition-ComposeStack"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Composition-VerifyPin-expected-0",
+      "@type": "ItemUsage",
+      "declaredName": "expected",
+      "isLibraryElement": false,
+      "type": "PinRecord",
+      "direction": "in"
+    },
+    "identity": {
+      "@id": "usage-Composition-VerifyPin-expected-0"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Composition-VerifyPin-ok-1",
+      "@type": "ItemUsage",
+      "declaredName": "ok",
+      "isLibraryElement": false,
+      "type": "Boolean",
+      "direction": "out"
+    },
+    "identity": {
+      "@id": "usage-Composition-VerifyPin-ok-1"
+    }
+  },
+  {
+    "payload": {
+      "@id": "def-Composition-VerifyPin",
+      "@type": "ActionDefinition",
+      "declaredName": "VerifyPin",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "usage-Composition-VerifyPin-expected-0"
+        },
+        {
+          "@id": "usage-Composition-VerifyPin-ok-1"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "def-Composition-VerifyPin"
+    }
+  },
+  {
+    "payload": {
+      "@id": "pkg-Composition",
+      "@type": "Package",
+      "declaredName": "Composition",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "def-Composition-LayerKind"
+        },
+        {
+          "@id": "def-Composition-SourceKind"
+        },
+        {
+          "@id": "def-Composition-Pin"
+        },
+        {
+          "@id": "def-Composition-Operation"
+        },
+        {
+          "@id": "def-Composition-Layer"
+        },
+        {
+          "@id": "def-Composition-LayerStack"
+        },
+        {
+          "@id": "def-Composition-LayerSource"
+        },
+        {
+          "@id": "def-Composition-CompositionPort"
+        },
+        {
+          "@id": "def-Composition-ComposeRequest"
+        },
+        {
+          "@id": "def-Composition-MergedSkill"
+        },
+        {
+          "@id": "def-Composition-PinRecord"
+        },
+        {
+          "@id": "def-Composition-CaptureDependencyPin"
+        },
+        {
+          "@id": "def-Composition-ComposeStack"
+        },
+        {
+          "@id": "def-Composition-VerifyPin"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "pkg-Composition"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Registry-DiscoveryMode-value-0",
+      "@type": "AttributeUsage",
+      "declaredName": "value",
+      "isLibraryElement": false,
+      "type": "String"
+    },
+    "identity": {
+      "@id": "usage-Registry-DiscoveryMode-value-0"
+    }
+  },
+  {
+    "payload": {
+      "@id": "def-Registry-DiscoveryMode",
+      "@type": "AttributeDefinition",
+      "declaredName": "DiscoveryMode",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "usage-Registry-DiscoveryMode-value-0"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "def-Registry-DiscoveryMode"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Registry-ListingSecret-usernameEnv-0",
+      "@type": "AttributeUsage",
+      "declaredName": "usernameEnv",
+      "isLibraryElement": false,
+      "type": "String"
+    },
+    "identity": {
+      "@id": "usage-Registry-ListingSecret-usernameEnv-0"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Registry-ListingSecret-tokenEnv-1",
+      "@type": "AttributeUsage",
+      "declaredName": "tokenEnv",
+      "isLibraryElement": false,
+      "type": "String"
+    },
+    "identity": {
+      "@id": "usage-Registry-ListingSecret-tokenEnv-1"
+    }
+  },
+  {
+    "payload": {
+      "@id": "def-Registry-ListingSecret",
+      "@type": "AttributeDefinition",
+      "declaredName": "ListingSecret",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "usage-Registry-ListingSecret-usernameEnv-0"
+        },
+        {
+          "@id": "usage-Registry-ListingSecret-tokenEnv-1"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "def-Registry-ListingSecret"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Registry-RegistryEntry-name-0",
+      "@type": "AttributeUsage",
+      "declaredName": "name",
+      "isLibraryElement": false,
+      "type": "String"
+    },
+    "identity": {
+      "@id": "usage-Registry-RegistryEntry-name-0"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Registry-RegistryEntry-url-1",
+      "@type": "AttributeUsage",
+      "declaredName": "url",
+      "isLibraryElement": false,
+      "type": "String"
+    },
+    "identity": {
+      "@id": "usage-Registry-RegistryEntry-url-1"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Registry-RegistryEntry-discovery-2",
+      "@type": "AttributeUsage",
+      "declaredName": "discovery",
+      "isLibraryElement": false,
+      "type": "DiscoveryMode"
+    },
+    "identity": {
+      "@id": "usage-Registry-RegistryEntry-discovery-2"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Registry-RegistryEntry-repositories-3",
+      "@type": "AttributeUsage",
+      "declaredName": "repositories",
+      "isLibraryElement": false,
+      "type": "String",
+      "many": true
+    },
+    "identity": {
+      "@id": "usage-Registry-RegistryEntry-repositories-3"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Registry-RegistryEntry-namespaces-4",
+      "@type": "AttributeUsage",
+      "declaredName": "namespaces",
+      "isLibraryElement": false,
+      "type": "String",
+      "many": true
+    },
+    "identity": {
+      "@id": "usage-Registry-RegistryEntry-namespaces-4"
+    }
+  },
+  {
+    "payload": {
+      "@id": "def-Registry-RegistryEntry",
+      "@type": "AttributeDefinition",
+      "declaredName": "RegistryEntry",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "usage-Registry-RegistryEntry-name-0"
+        },
+        {
+          "@id": "usage-Registry-RegistryEntry-url-1"
+        },
+        {
+          "@id": "usage-Registry-RegistryEntry-discovery-2"
+        },
+        {
+          "@id": "usage-Registry-RegistryEntry-repositories-3"
+        },
+        {
+          "@id": "usage-Registry-RegistryEntry-namespaces-4"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "def-Registry-RegistryEntry"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Registry-RegistrationIndex-id-0",
+      "@type": "AttributeUsage",
+      "declaredName": "id",
+      "isLibraryElement": false,
+      "type": "String"
+    },
+    "identity": {
+      "@id": "usage-Registry-RegistrationIndex-id-0"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Registry-RegistrationIndex-entries-1",
+      "@type": "PartUsage",
+      "declaredName": "entries",
+      "isLibraryElement": false,
+      "type": "RegistryEntry",
+      "many": true
+    },
+    "identity": {
+      "@id": "usage-Registry-RegistrationIndex-entries-1"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Registry-RegistrationIndex-store-2",
+      "@type": "PortUsage",
+      "declaredName": "store",
+      "isLibraryElement": false,
+      "type": "RegistrationStore"
+    },
+    "identity": {
+      "@id": "usage-Registry-RegistrationIndex-store-2"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Registry-RegistrationIndex-catalog-3",
+      "@type": "PortUsage",
+      "declaredName": "catalog",
+      "isLibraryElement": false,
+      "type": "CatalogProbe"
+    },
+    "identity": {
+      "@id": "usage-Registry-RegistrationIndex-catalog-3"
+    }
+  },
+  {
+    "payload": {
+      "@id": "def-Registry-RegistrationIndex",
+      "@type": "PartDefinition",
+      "declaredName": "RegistrationIndex",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "usage-Registry-RegistrationIndex-id-0"
+        },
+        {
+          "@id": "usage-Registry-RegistrationIndex-entries-1"
+        },
+        {
+          "@id": "usage-Registry-RegistrationIndex-store-2"
+        },
+        {
+          "@id": "usage-Registry-RegistrationIndex-catalog-3"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "def-Registry-RegistrationIndex"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Registry-RegistrationStore-index-0",
+      "@type": "ItemUsage",
+      "declaredName": "index",
+      "isLibraryElement": false,
+      "type": "RegistrationIndex",
+      "direction": "in"
+    },
+    "identity": {
+      "@id": "usage-Registry-RegistrationStore-index-0"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Registry-RegistrationStore-ok-1",
+      "@type": "ItemUsage",
+      "declaredName": "ok",
+      "isLibraryElement": false,
+      "type": "Boolean",
+      "direction": "out"
+    },
+    "identity": {
+      "@id": "usage-Registry-RegistrationStore-ok-1"
+    }
+  },
+  {
+    "payload": {
+      "@id": "def-Registry-RegistrationStore",
+      "@type": "PortDefinition",
+      "declaredName": "RegistrationStore",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "usage-Registry-RegistrationStore-index-0"
+        },
+        {
+          "@id": "usage-Registry-RegistrationStore-ok-1"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "def-Registry-RegistrationStore"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Registry-CatalogProbe-entry-0",
+      "@type": "ItemUsage",
+      "declaredName": "entry",
+      "isLibraryElement": false,
+      "type": "RegistryEntry",
+      "direction": "in"
+    },
+    "identity": {
+      "@id": "usage-Registry-CatalogProbe-entry-0"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Registry-CatalogProbe-result-1",
+      "@type": "ItemUsage",
+      "declaredName": "result",
+      "isLibraryElement": false,
+      "type": "CatalogResult",
+      "direction": "out"
+    },
+    "identity": {
+      "@id": "usage-Registry-CatalogProbe-result-1"
+    }
+  },
+  {
+    "payload": {
+      "@id": "def-Registry-CatalogProbe",
+      "@type": "PortDefinition",
+      "declaredName": "CatalogProbe",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "usage-Registry-CatalogProbe-entry-0"
+        },
+        {
+          "@id": "usage-Registry-CatalogProbe-result-1"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "def-Registry-CatalogProbe"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Registry-ProxyPort-request-0",
+      "@type": "ItemUsage",
+      "declaredName": "request",
+      "isLibraryElement": false,
+      "type": "ProxyRequest",
+      "direction": "in"
+    },
+    "identity": {
+      "@id": "usage-Registry-ProxyPort-request-0"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Registry-ProxyPort-response-1",
+      "@type": "ItemUsage",
+      "declaredName": "response",
+      "isLibraryElement": false,
+      "type": "ProxyResponse",
+      "direction": "out"
+    },
+    "identity": {
+      "@id": "usage-Registry-ProxyPort-response-1"
+    }
+  },
+  {
+    "payload": {
+      "@id": "def-Registry-ProxyPort",
+      "@type": "PortDefinition",
+      "declaredName": "ProxyPort",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "usage-Registry-ProxyPort-request-0"
+        },
+        {
+          "@id": "usage-Registry-ProxyPort-response-1"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "def-Registry-ProxyPort"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Registry-ProxyRequest-method-0",
+      "@type": "AttributeUsage",
+      "declaredName": "method",
+      "isLibraryElement": false,
+      "type": "String"
+    },
+    "identity": {
+      "@id": "usage-Registry-ProxyRequest-method-0"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Registry-ProxyRequest-repo-1",
+      "@type": "AttributeUsage",
+      "declaredName": "repo",
+      "isLibraryElement": false,
+      "type": "String"
+    },
+    "identity": {
+      "@id": "usage-Registry-ProxyRequest-repo-1"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Registry-ProxyRequest-reference-2",
+      "@type": "AttributeUsage",
+      "declaredName": "reference",
+      "isLibraryElement": false,
+      "type": "String"
+    },
+    "identity": {
+      "@id": "usage-Registry-ProxyRequest-reference-2"
+    }
+  },
+  {
+    "payload": {
+      "@id": "def-Registry-ProxyRequest",
+      "@type": "ItemDefinition",
+      "declaredName": "ProxyRequest",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "usage-Registry-ProxyRequest-method-0"
+        },
+        {
+          "@id": "usage-Registry-ProxyRequest-repo-1"
+        },
+        {
+          "@id": "usage-Registry-ProxyRequest-reference-2"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "def-Registry-ProxyRequest"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Registry-ProxyResponse-status-0",
+      "@type": "AttributeUsage",
+      "declaredName": "status",
+      "isLibraryElement": false,
+      "type": "Integer"
+    },
+    "identity": {
+      "@id": "usage-Registry-ProxyResponse-status-0"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Registry-ProxyResponse-body-1",
+      "@type": "AttributeUsage",
+      "declaredName": "body",
+      "isLibraryElement": false,
+      "type": "String"
+    },
+    "identity": {
+      "@id": "usage-Registry-ProxyResponse-body-1"
+    }
+  },
+  {
+    "payload": {
+      "@id": "def-Registry-ProxyResponse",
+      "@type": "ItemDefinition",
+      "declaredName": "ProxyResponse",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "usage-Registry-ProxyResponse-status-0"
+        },
+        {
+          "@id": "usage-Registry-ProxyResponse-body-1"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "def-Registry-ProxyResponse"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Registry-CatalogResult-mode-0",
+      "@type": "AttributeUsage",
+      "declaredName": "mode",
+      "isLibraryElement": false,
+      "type": "DiscoveryMode"
+    },
+    "identity": {
+      "@id": "usage-Registry-CatalogResult-mode-0"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Registry-CatalogResult-repos-1",
+      "@type": "AttributeUsage",
+      "declaredName": "repos",
+      "isLibraryElement": false,
+      "type": "String",
+      "many": true
+    },
+    "identity": {
+      "@id": "usage-Registry-CatalogResult-repos-1"
+    }
+  },
+  {
+    "payload": {
+      "@id": "def-Registry-CatalogResult",
+      "@type": "ItemDefinition",
+      "declaredName": "CatalogResult",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "usage-Registry-CatalogResult-mode-0"
+        },
+        {
+          "@id": "usage-Registry-CatalogResult-repos-1"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "def-Registry-CatalogResult"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Registry-ProxyManifest-request-0",
+      "@type": "ItemUsage",
+      "declaredName": "request",
+      "isLibraryElement": false,
+      "type": "ProxyRequest",
+      "direction": "in"
+    },
+    "identity": {
+      "@id": "usage-Registry-ProxyManifest-request-0"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Registry-ProxyManifest-response-1",
+      "@type": "ItemUsage",
+      "declaredName": "response",
+      "isLibraryElement": false,
+      "type": "ProxyResponse",
+      "direction": "out"
+    },
+    "identity": {
+      "@id": "usage-Registry-ProxyManifest-response-1"
+    }
+  },
+  {
+    "payload": {
+      "@id": "def-Registry-ProxyManifest",
+      "@type": "ActionDefinition",
+      "declaredName": "ProxyManifest",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "usage-Registry-ProxyManifest-request-0"
+        },
+        {
+          "@id": "usage-Registry-ProxyManifest-response-1"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "def-Registry-ProxyManifest"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Registry-DetectDiscovery-entry-0",
+      "@type": "ItemUsage",
+      "declaredName": "entry",
+      "isLibraryElement": false,
+      "type": "RegistryEntry",
+      "direction": "in"
+    },
+    "identity": {
+      "@id": "usage-Registry-DetectDiscovery-entry-0"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Registry-DetectDiscovery-result-1",
+      "@type": "ItemUsage",
+      "declaredName": "result",
+      "isLibraryElement": false,
+      "type": "CatalogResult",
+      "direction": "out"
+    },
+    "identity": {
+      "@id": "usage-Registry-DetectDiscovery-result-1"
+    }
+  },
+  {
+    "payload": {
+      "@id": "def-Registry-DetectDiscovery",
+      "@type": "ActionDefinition",
+      "declaredName": "DetectDiscovery",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "usage-Registry-DetectDiscovery-entry-0"
+        },
+        {
+          "@id": "usage-Registry-DetectDiscovery-result-1"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "def-Registry-DetectDiscovery"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Registry-RegisterRegistry-entry-0",
+      "@type": "ItemUsage",
+      "declaredName": "entry",
+      "isLibraryElement": false,
+      "type": "RegistryEntry",
+      "direction": "in"
+    },
+    "identity": {
+      "@id": "usage-Registry-RegisterRegistry-entry-0"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Registry-RegisterRegistry-ok-1",
+      "@type": "ItemUsage",
+      "declaredName": "ok",
+      "isLibraryElement": false,
+      "type": "Boolean",
+      "direction": "out"
+    },
+    "identity": {
+      "@id": "usage-Registry-RegisterRegistry-ok-1"
+    }
+  },
+  {
+    "payload": {
+      "@id": "def-Registry-RegisterRegistry",
+      "@type": "ActionDefinition",
+      "declaredName": "RegisterRegistry",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "usage-Registry-RegisterRegistry-entry-0"
+        },
+        {
+          "@id": "usage-Registry-RegisterRegistry-ok-1"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "def-Registry-RegisterRegistry"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Registry-ListSkills-secret-0",
+      "@type": "ItemUsage",
+      "declaredName": "secret",
+      "isLibraryElement": false,
+      "type": "ListingSecret",
+      "direction": "in"
+    },
+    "identity": {
+      "@id": "usage-Registry-ListSkills-secret-0"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Registry-ListSkills-result-1",
+      "@type": "ItemUsage",
+      "declaredName": "result",
+      "isLibraryElement": false,
+      "type": "CatalogResult",
+      "direction": "out"
+    },
+    "identity": {
+      "@id": "usage-Registry-ListSkills-result-1"
+    }
+  },
+  {
+    "payload": {
+      "@id": "def-Registry-ListSkills",
+      "@type": "ActionDefinition",
+      "declaredName": "ListSkills",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "usage-Registry-ListSkills-secret-0"
+        },
+        {
+          "@id": "usage-Registry-ListSkills-result-1"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "def-Registry-ListSkills"
+    }
+  },
+  {
+    "payload": {
+      "@id": "pkg-Registry",
+      "@type": "Package",
+      "declaredName": "Registry",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "def-Registry-DiscoveryMode"
+        },
+        {
+          "@id": "def-Registry-ListingSecret"
+        },
+        {
+          "@id": "def-Registry-RegistryEntry"
+        },
+        {
+          "@id": "def-Registry-RegistrationIndex"
+        },
+        {
+          "@id": "def-Registry-RegistrationStore"
+        },
+        {
+          "@id": "def-Registry-CatalogProbe"
+        },
+        {
+          "@id": "def-Registry-ProxyPort"
+        },
+        {
+          "@id": "def-Registry-ProxyRequest"
+        },
+        {
+          "@id": "def-Registry-ProxyResponse"
+        },
+        {
+          "@id": "def-Registry-CatalogResult"
+        },
+        {
+          "@id": "def-Registry-ProxyManifest"
+        },
+        {
+          "@id": "def-Registry-DetectDiscovery"
+        },
+        {
+          "@id": "def-Registry-RegisterRegistry"
+        },
+        {
+          "@id": "def-Registry-ListSkills"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "pkg-Registry"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Signing-Signature-referrerDigest-0",
+      "@type": "AttributeUsage",
+      "declaredName": "referrerDigest",
+      "isLibraryElement": false,
+      "type": "String"
+    },
+    "identity": {
+      "@id": "usage-Signing-Signature-referrerDigest-0"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Signing-Signature-payload-1",
+      "@type": "AttributeUsage",
+      "declaredName": "payload",
+      "isLibraryElement": false,
+      "type": "String"
+    },
+    "identity": {
+      "@id": "usage-Signing-Signature-payload-1"
+    }
+  },
+  {
+    "payload": {
+      "@id": "def-Signing-Signature",
+      "@type": "AttributeDefinition",
+      "declaredName": "Signature",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "usage-Signing-Signature-referrerDigest-0"
+        },
+        {
+          "@id": "usage-Signing-Signature-payload-1"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "def-Signing-Signature"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Signing-VerifyPolicy-requireSignature-0",
+      "@type": "AttributeUsage",
+      "declaredName": "requireSignature",
+      "isLibraryElement": false,
+      "type": "Boolean"
+    },
+    "identity": {
+      "@id": "usage-Signing-VerifyPolicy-requireSignature-0"
+    }
+  },
+  {
+    "payload": {
+      "@id": "def-Signing-VerifyPolicy",
+      "@type": "AttributeDefinition",
+      "declaredName": "VerifyPolicy",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "usage-Signing-VerifyPolicy-requireSignature-0"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "def-Signing-VerifyPolicy"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Signing-VerificationSubject-id-0",
+      "@type": "AttributeUsage",
+      "declaredName": "id",
+      "isLibraryElement": false,
+      "type": "String"
+    },
+    "identity": {
+      "@id": "usage-Signing-VerificationSubject-id-0"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Signing-VerificationSubject-digest-1",
+      "@type": "AttributeUsage",
+      "declaredName": "digest",
+      "isLibraryElement": false,
+      "type": "String"
+    },
+    "identity": {
+      "@id": "usage-Signing-VerificationSubject-digest-1"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Signing-VerificationSubject-signatures-2",
+      "@type": "PartUsage",
+      "declaredName": "signatures",
+      "isLibraryElement": false,
+      "type": "Signature",
+      "many": true
+    },
+    "identity": {
+      "@id": "usage-Signing-VerificationSubject-signatures-2"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Signing-VerificationSubject-verify-3",
+      "@type": "PortUsage",
+      "declaredName": "verify",
+      "isLibraryElement": false,
+      "type": "SignaturePort"
+    },
+    "identity": {
+      "@id": "usage-Signing-VerificationSubject-verify-3"
+    }
+  },
+  {
+    "payload": {
+      "@id": "def-Signing-VerificationSubject",
+      "@type": "PartDefinition",
+      "declaredName": "VerificationSubject",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "usage-Signing-VerificationSubject-id-0"
+        },
+        {
+          "@id": "usage-Signing-VerificationSubject-digest-1"
+        },
+        {
+          "@id": "usage-Signing-VerificationSubject-signatures-2"
+        },
+        {
+          "@id": "usage-Signing-VerificationSubject-verify-3"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "def-Signing-VerificationSubject"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Signing-SignaturePort-request-0",
+      "@type": "ItemUsage",
+      "declaredName": "request",
+      "isLibraryElement": false,
+      "type": "VerifyRequest",
+      "direction": "in"
+    },
+    "identity": {
+      "@id": "usage-Signing-SignaturePort-request-0"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Signing-SignaturePort-result-1",
+      "@type": "ItemUsage",
+      "declaredName": "result",
+      "isLibraryElement": false,
+      "type": "VerifyResult",
+      "direction": "out"
+    },
+    "identity": {
+      "@id": "usage-Signing-SignaturePort-result-1"
+    }
+  },
+  {
+    "payload": {
+      "@id": "def-Signing-SignaturePort",
+      "@type": "PortDefinition",
+      "declaredName": "SignaturePort",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "usage-Signing-SignaturePort-request-0"
+        },
+        {
+          "@id": "usage-Signing-SignaturePort-result-1"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "def-Signing-SignaturePort"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Signing-VerifyRequest-subjectDigest-0",
+      "@type": "AttributeUsage",
+      "declaredName": "subjectDigest",
+      "isLibraryElement": false,
+      "type": "String"
+    },
+    "identity": {
+      "@id": "usage-Signing-VerifyRequest-subjectDigest-0"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Signing-VerifyRequest-policy-1",
+      "@type": "AttributeUsage",
+      "declaredName": "policy",
+      "isLibraryElement": false,
+      "type": "VerifyPolicy"
+    },
+    "identity": {
+      "@id": "usage-Signing-VerifyRequest-policy-1"
+    }
+  },
+  {
+    "payload": {
+      "@id": "def-Signing-VerifyRequest",
+      "@type": "ItemDefinition",
+      "declaredName": "VerifyRequest",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "usage-Signing-VerifyRequest-subjectDigest-0"
+        },
+        {
+          "@id": "usage-Signing-VerifyRequest-policy-1"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "def-Signing-VerifyRequest"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Signing-VerifyResult-verified-0",
+      "@type": "AttributeUsage",
+      "declaredName": "verified",
+      "isLibraryElement": false,
+      "type": "Boolean"
+    },
+    "identity": {
+      "@id": "usage-Signing-VerifyResult-verified-0"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Signing-VerifyResult-present-1",
+      "@type": "AttributeUsage",
+      "declaredName": "present",
+      "isLibraryElement": false,
+      "type": "Boolean"
+    },
+    "identity": {
+      "@id": "usage-Signing-VerifyResult-present-1"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Signing-VerifyResult-messages-2",
+      "@type": "AttributeUsage",
+      "declaredName": "messages",
+      "isLibraryElement": false,
+      "type": "String",
+      "many": true
+    },
+    "identity": {
+      "@id": "usage-Signing-VerifyResult-messages-2"
+    }
+  },
+  {
+    "payload": {
+      "@id": "def-Signing-VerifyResult",
+      "@type": "ItemDefinition",
+      "declaredName": "VerifyResult",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "usage-Signing-VerifyResult-verified-0"
+        },
+        {
+          "@id": "usage-Signing-VerifyResult-present-1"
+        },
+        {
+          "@id": "usage-Signing-VerifyResult-messages-2"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "def-Signing-VerifyResult"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Signing-VerifySignature-request-0",
+      "@type": "ItemUsage",
+      "declaredName": "request",
+      "isLibraryElement": false,
+      "type": "VerifyRequest",
+      "direction": "in"
+    },
+    "identity": {
+      "@id": "usage-Signing-VerifySignature-request-0"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Signing-VerifySignature-result-1",
+      "@type": "ItemUsage",
+      "declaredName": "result",
+      "isLibraryElement": false,
+      "type": "VerifyResult",
+      "direction": "out"
+    },
+    "identity": {
+      "@id": "usage-Signing-VerifySignature-result-1"
+    }
+  },
+  {
+    "payload": {
+      "@id": "def-Signing-VerifySignature",
+      "@type": "ActionDefinition",
+      "declaredName": "VerifySignature",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "usage-Signing-VerifySignature-request-0"
+        },
+        {
+          "@id": "usage-Signing-VerifySignature-result-1"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "def-Signing-VerifySignature"
+    }
+  },
+  {
+    "payload": {
+      "@id": "pkg-Signing",
+      "@type": "Package",
+      "declaredName": "Signing",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "def-Signing-Signature"
+        },
+        {
+          "@id": "def-Signing-VerifyPolicy"
+        },
+        {
+          "@id": "def-Signing-VerificationSubject"
+        },
+        {
+          "@id": "def-Signing-SignaturePort"
+        },
+        {
+          "@id": "def-Signing-VerifyRequest"
+        },
+        {
+          "@id": "def-Signing-VerifyResult"
+        },
+        {
+          "@id": "def-Signing-VerifySignature"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "pkg-Signing"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Stats-PullEvent-repo-0",
+      "@type": "AttributeUsage",
+      "declaredName": "repo",
+      "isLibraryElement": false,
+      "type": "String"
+    },
+    "identity": {
+      "@id": "usage-Stats-PullEvent-repo-0"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Stats-PullEvent-reference-1",
+      "@type": "AttributeUsage",
+      "declaredName": "reference",
+      "isLibraryElement": false,
+      "type": "String"
+    },
+    "identity": {
+      "@id": "usage-Stats-PullEvent-reference-1"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Stats-PullEvent-isManifestGet-2",
+      "@type": "AttributeUsage",
+      "declaredName": "isManifestGet",
+      "isLibraryElement": false,
+      "type": "Boolean"
+    },
+    "identity": {
+      "@id": "usage-Stats-PullEvent-isManifestGet-2"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Stats-PullEvent-timestamp-3",
+      "@type": "AttributeUsage",
+      "declaredName": "timestamp",
+      "isLibraryElement": false,
+      "type": "String"
+    },
+    "identity": {
+      "@id": "usage-Stats-PullEvent-timestamp-3"
+    }
+  },
+  {
+    "payload": {
+      "@id": "def-Stats-PullEvent",
+      "@type": "AttributeDefinition",
+      "declaredName": "PullEvent",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "usage-Stats-PullEvent-repo-0"
+        },
+        {
+          "@id": "usage-Stats-PullEvent-reference-1"
+        },
+        {
+          "@id": "usage-Stats-PullEvent-isManifestGet-2"
+        },
+        {
+          "@id": "usage-Stats-PullEvent-timestamp-3"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "def-Stats-PullEvent"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Stats-SinkKind-value-0",
+      "@type": "AttributeUsage",
+      "declaredName": "value",
+      "isLibraryElement": false,
+      "type": "String"
+    },
+    "identity": {
+      "@id": "usage-Stats-SinkKind-value-0"
+    }
+  },
+  {
+    "payload": {
+      "@id": "def-Stats-SinkKind",
+      "@type": "AttributeDefinition",
+      "declaredName": "SinkKind",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "usage-Stats-SinkKind-value-0"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "def-Stats-SinkKind"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Stats-DownloadCounter-id-0",
+      "@type": "AttributeUsage",
+      "declaredName": "id",
+      "isLibraryElement": false,
+      "type": "String"
+    },
+    "identity": {
+      "@id": "usage-Stats-DownloadCounter-id-0"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Stats-DownloadCounter-skill-1",
+      "@type": "AttributeUsage",
+      "declaredName": "skill",
+      "isLibraryElement": false,
+      "type": "String"
+    },
+    "identity": {
+      "@id": "usage-Stats-DownloadCounter-skill-1"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Stats-DownloadCounter-count-2",
+      "@type": "AttributeUsage",
+      "declaredName": "count",
+      "isLibraryElement": false,
+      "type": "Integer"
+    },
+    "identity": {
+      "@id": "usage-Stats-DownloadCounter-count-2"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Stats-DownloadCounter-sink-3",
+      "@type": "PortUsage",
+      "declaredName": "sink",
+      "isLibraryElement": false,
+      "type": "StatSink"
+    },
+    "identity": {
+      "@id": "usage-Stats-DownloadCounter-sink-3"
+    }
+  },
+  {
+    "payload": {
+      "@id": "def-Stats-DownloadCounter",
+      "@type": "PartDefinition",
+      "declaredName": "DownloadCounter",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "usage-Stats-DownloadCounter-id-0"
+        },
+        {
+          "@id": "usage-Stats-DownloadCounter-skill-1"
+        },
+        {
+          "@id": "usage-Stats-DownloadCounter-count-2"
+        },
+        {
+          "@id": "usage-Stats-DownloadCounter-sink-3"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "def-Stats-DownloadCounter"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Stats-StatSink-request-0",
+      "@type": "ItemUsage",
+      "declaredName": "request",
+      "isLibraryElement": false,
+      "type": "CountRequest",
+      "direction": "in"
+    },
+    "identity": {
+      "@id": "usage-Stats-StatSink-request-0"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Stats-StatSink-snapshot-1",
+      "@type": "ItemUsage",
+      "declaredName": "snapshot",
+      "isLibraryElement": false,
+      "type": "CountSnapshot",
+      "direction": "out"
+    },
+    "identity": {
+      "@id": "usage-Stats-StatSink-snapshot-1"
+    }
+  },
+  {
+    "payload": {
+      "@id": "def-Stats-StatSink",
+      "@type": "PortDefinition",
+      "declaredName": "StatSink",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "usage-Stats-StatSink-request-0"
+        },
+        {
+          "@id": "usage-Stats-StatSink-snapshot-1"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "def-Stats-StatSink"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Stats-CountRequest-event-0",
+      "@type": "AttributeUsage",
+      "declaredName": "event",
+      "isLibraryElement": false,
+      "type": "PullEvent"
+    },
+    "identity": {
+      "@id": "usage-Stats-CountRequest-event-0"
+    }
+  },
+  {
+    "payload": {
+      "@id": "def-Stats-CountRequest",
+      "@type": "ItemDefinition",
+      "declaredName": "CountRequest",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "usage-Stats-CountRequest-event-0"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "def-Stats-CountRequest"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Stats-CountSnapshot-skill-0",
+      "@type": "AttributeUsage",
+      "declaredName": "skill",
+      "isLibraryElement": false,
+      "type": "String"
+    },
+    "identity": {
+      "@id": "usage-Stats-CountSnapshot-skill-0"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Stats-CountSnapshot-total-1",
+      "@type": "AttributeUsage",
+      "declaredName": "total",
+      "isLibraryElement": false,
+      "type": "Integer"
+    },
+    "identity": {
+      "@id": "usage-Stats-CountSnapshot-total-1"
+    }
+  },
+  {
+    "payload": {
+      "@id": "def-Stats-CountSnapshot",
+      "@type": "ItemDefinition",
+      "declaredName": "CountSnapshot",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "usage-Stats-CountSnapshot-skill-0"
+        },
+        {
+          "@id": "usage-Stats-CountSnapshot-total-1"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "def-Stats-CountSnapshot"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Stats-RecordPull-request-0",
+      "@type": "ItemUsage",
+      "declaredName": "request",
+      "isLibraryElement": false,
+      "type": "CountRequest",
+      "direction": "in"
+    },
+    "identity": {
+      "@id": "usage-Stats-RecordPull-request-0"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Stats-RecordPull-snapshot-1",
+      "@type": "ItemUsage",
+      "declaredName": "snapshot",
+      "isLibraryElement": false,
+      "type": "CountSnapshot",
+      "direction": "out"
+    },
+    "identity": {
+      "@id": "usage-Stats-RecordPull-snapshot-1"
+    }
+  },
+  {
+    "payload": {
+      "@id": "def-Stats-RecordPull",
+      "@type": "ActionDefinition",
+      "declaredName": "RecordPull",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "usage-Stats-RecordPull-request-0"
+        },
+        {
+          "@id": "usage-Stats-RecordPull-snapshot-1"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "def-Stats-RecordPull"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Stats-ReadStatistics-skill-0",
+      "@type": "ItemUsage",
+      "declaredName": "skill",
+      "isLibraryElement": false,
+      "type": "String",
+      "direction": "in"
+    },
+    "identity": {
+      "@id": "usage-Stats-ReadStatistics-skill-0"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Stats-ReadStatistics-snapshot-1",
+      "@type": "ItemUsage",
+      "declaredName": "snapshot",
+      "isLibraryElement": false,
+      "type": "CountSnapshot",
+      "direction": "out"
+    },
+    "identity": {
+      "@id": "usage-Stats-ReadStatistics-snapshot-1"
+    }
+  },
+  {
+    "payload": {
+      "@id": "def-Stats-ReadStatistics",
+      "@type": "ActionDefinition",
+      "declaredName": "ReadStatistics",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "usage-Stats-ReadStatistics-skill-0"
+        },
+        {
+          "@id": "usage-Stats-ReadStatistics-snapshot-1"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "def-Stats-ReadStatistics"
+    }
+  },
+  {
+    "payload": {
+      "@id": "pkg-Stats",
+      "@type": "Package",
+      "declaredName": "Stats",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "def-Stats-PullEvent"
+        },
+        {
+          "@id": "def-Stats-SinkKind"
+        },
+        {
+          "@id": "def-Stats-DownloadCounter"
+        },
+        {
+          "@id": "def-Stats-StatSink"
+        },
+        {
+          "@id": "def-Stats-CountRequest"
+        },
+        {
+          "@id": "def-Stats-CountSnapshot"
+        },
+        {
+          "@id": "def-Stats-RecordPull"
+        },
+        {
+          "@id": "def-Stats-ReadStatistics"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "pkg-Stats"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Install-Target-value-0",
+      "@type": "AttributeUsage",
+      "declaredName": "value",
+      "isLibraryElement": false,
+      "type": "String"
+    },
+    "identity": {
+      "@id": "usage-Install-Target-value-0"
+    }
+  },
+  {
+    "payload": {
+      "@id": "def-Install-Target",
+      "@type": "AttributeDefinition",
+      "declaredName": "Target",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "usage-Install-Target-value-0"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "def-Install-Target"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Install-LockPin-ref-0",
+      "@type": "AttributeUsage",
+      "declaredName": "ref",
+      "isLibraryElement": false,
+      "type": "String"
+    },
+    "identity": {
+      "@id": "usage-Install-LockPin-ref-0"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Install-LockPin-digest-1",
+      "@type": "AttributeUsage",
+      "declaredName": "digest",
+      "isLibraryElement": false,
+      "type": "String"
+    },
+    "identity": {
+      "@id": "usage-Install-LockPin-digest-1"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Install-LockPin-tag-2",
+      "@type": "AttributeUsage",
+      "declaredName": "tag",
+      "isLibraryElement": false,
+      "type": "String"
+    },
+    "identity": {
+      "@id": "usage-Install-LockPin-tag-2"
+    }
+  },
+  {
+    "payload": {
+      "@id": "def-Install-LockPin",
+      "@type": "AttributeDefinition",
+      "declaredName": "LockPin",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "usage-Install-LockPin-ref-0"
+        },
+        {
+          "@id": "usage-Install-LockPin-digest-1"
+        },
+        {
+          "@id": "usage-Install-LockPin-tag-2"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "def-Install-LockPin"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Install-Revision-number-0",
+      "@type": "AttributeUsage",
+      "declaredName": "number",
+      "isLibraryElement": false,
+      "type": "Integer"
+    },
+    "identity": {
+      "@id": "usage-Install-Revision-number-0"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Install-Revision-version-1",
+      "@type": "AttributeUsage",
+      "declaredName": "version",
+      "isLibraryElement": false,
+      "type": "String"
+    },
+    "identity": {
+      "@id": "usage-Install-Revision-version-1"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Install-Revision-values-2",
+      "@type": "AttributeUsage",
+      "declaredName": "values",
+      "isLibraryElement": false,
+      "type": "String"
+    },
+    "identity": {
+      "@id": "usage-Install-Revision-values-2"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Install-Revision-pins-3",
+      "@type": "AttributeUsage",
+      "declaredName": "pins",
+      "isLibraryElement": false,
+      "type": "LockPin",
+      "many": true
+    },
+    "identity": {
+      "@id": "usage-Install-Revision-pins-3"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Install-Revision-blob-4",
+      "@type": "AttributeUsage",
+      "declaredName": "blob",
+      "isLibraryElement": false,
+      "type": "String"
+    },
+    "identity": {
+      "@id": "usage-Install-Revision-blob-4"
+    }
+  },
+  {
+    "payload": {
+      "@id": "def-Install-Revision",
+      "@type": "AttributeDefinition",
+      "declaredName": "Revision",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "usage-Install-Revision-number-0"
+        },
+        {
+          "@id": "usage-Install-Revision-version-1"
+        },
+        {
+          "@id": "usage-Install-Revision-values-2"
+        },
+        {
+          "@id": "usage-Install-Revision-pins-3"
+        },
+        {
+          "@id": "usage-Install-Revision-blob-4"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "def-Install-Revision"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Install-Release-id-0",
+      "@type": "AttributeUsage",
+      "declaredName": "id",
+      "isLibraryElement": false,
+      "type": "String"
+    },
+    "identity": {
+      "@id": "usage-Install-Release-id-0"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Install-Release-name-1",
+      "@type": "AttributeUsage",
+      "declaredName": "name",
+      "isLibraryElement": false,
+      "type": "String"
+    },
+    "identity": {
+      "@id": "usage-Install-Release-name-1"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Install-Release-target-2",
+      "@type": "AttributeUsage",
+      "declaredName": "target",
+      "isLibraryElement": false,
+      "type": "Target"
+    },
+    "identity": {
+      "@id": "usage-Install-Release-target-2"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Install-Release-namespace-3",
+      "@type": "AttributeUsage",
+      "declaredName": "namespace",
+      "isLibraryElement": false,
+      "type": "String"
+    },
+    "identity": {
+      "@id": "usage-Install-Release-namespace-3"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Install-Release-revisions-4",
+      "@type": "PartUsage",
+      "declaredName": "revisions",
+      "isLibraryElement": false,
+      "type": "Revision",
+      "many": true
+    },
+    "identity": {
+      "@id": "usage-Install-Release-revisions-4"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Install-Release-revisionStore-5",
+      "@type": "PortUsage",
+      "declaredName": "revisionStore",
+      "isLibraryElement": false,
+      "type": "RevisionStore"
+    },
+    "identity": {
+      "@id": "usage-Install-Release-revisionStore-5"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Install-Release-materializer-6",
+      "@type": "PortUsage",
+      "declaredName": "materializer",
+      "isLibraryElement": false,
+      "type": "MaterializePort"
+    },
+    "identity": {
+      "@id": "usage-Install-Release-materializer-6"
+    }
+  },
+  {
+    "payload": {
+      "@id": "def-Install-Release",
+      "@type": "PartDefinition",
+      "declaredName": "Release",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "usage-Install-Release-id-0"
+        },
+        {
+          "@id": "usage-Install-Release-name-1"
+        },
+        {
+          "@id": "usage-Install-Release-target-2"
+        },
+        {
+          "@id": "usage-Install-Release-namespace-3"
+        },
+        {
+          "@id": "usage-Install-Release-revisions-4"
+        },
+        {
+          "@id": "usage-Install-Release-revisionStore-5"
+        },
+        {
+          "@id": "usage-Install-Release-materializer-6"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "def-Install-Release"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Install-Lockfile-id-0",
+      "@type": "AttributeUsage",
+      "declaredName": "id",
+      "isLibraryElement": false,
+      "type": "String"
+    },
+    "identity": {
+      "@id": "usage-Install-Lockfile-id-0"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Install-Lockfile-pins-1",
+      "@type": "PartUsage",
+      "declaredName": "pins",
+      "isLibraryElement": false,
+      "type": "LockPin",
+      "many": true
+    },
+    "identity": {
+      "@id": "usage-Install-Lockfile-pins-1"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Install-Lockfile-history-2",
+      "@type": "PartUsage",
+      "declaredName": "history",
+      "isLibraryElement": false,
+      "type": "Revision",
+      "many": true
+    },
+    "identity": {
+      "@id": "usage-Install-Lockfile-history-2"
+    }
+  },
+  {
+    "payload": {
+      "@id": "def-Install-Lockfile",
+      "@type": "PartDefinition",
+      "declaredName": "Lockfile",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "usage-Install-Lockfile-id-0"
+        },
+        {
+          "@id": "usage-Install-Lockfile-pins-1"
+        },
+        {
+          "@id": "usage-Install-Lockfile-history-2"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "def-Install-Lockfile"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Install-RevisionStore-release-0",
+      "@type": "ItemUsage",
+      "declaredName": "release",
+      "isLibraryElement": false,
+      "type": "Release",
+      "direction": "in"
+    },
+    "identity": {
+      "@id": "usage-Install-RevisionStore-release-0"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Install-RevisionStore-ok-1",
+      "@type": "ItemUsage",
+      "declaredName": "ok",
+      "isLibraryElement": false,
+      "type": "Boolean",
+      "direction": "out"
+    },
+    "identity": {
+      "@id": "usage-Install-RevisionStore-ok-1"
+    }
+  },
+  {
+    "payload": {
+      "@id": "def-Install-RevisionStore",
+      "@type": "PortDefinition",
+      "declaredName": "RevisionStore",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "usage-Install-RevisionStore-release-0"
+        },
+        {
+          "@id": "usage-Install-RevisionStore-ok-1"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "def-Install-RevisionStore"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Install-MaterializePort-request-0",
+      "@type": "ItemUsage",
+      "declaredName": "request",
+      "isLibraryElement": false,
+      "type": "InstallRequest",
+      "direction": "in"
+    },
+    "identity": {
+      "@id": "usage-Install-MaterializePort-request-0"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Install-MaterializePort-result-1",
+      "@type": "ItemUsage",
+      "declaredName": "result",
+      "isLibraryElement": false,
+      "type": "InstallResult",
+      "direction": "out"
+    },
+    "identity": {
+      "@id": "usage-Install-MaterializePort-result-1"
+    }
+  },
+  {
+    "payload": {
+      "@id": "def-Install-MaterializePort",
+      "@type": "PortDefinition",
+      "declaredName": "MaterializePort",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "usage-Install-MaterializePort-request-0"
+        },
+        {
+          "@id": "usage-Install-MaterializePort-result-1"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "def-Install-MaterializePort"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Install-InstallRequest-releaseName-0",
+      "@type": "AttributeUsage",
+      "declaredName": "releaseName",
+      "isLibraryElement": false,
+      "type": "String"
+    },
+    "identity": {
+      "@id": "usage-Install-InstallRequest-releaseName-0"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Install-InstallRequest-skillId-1",
+      "@type": "AttributeUsage",
+      "declaredName": "skillId",
+      "isLibraryElement": false,
+      "type": "String"
+    },
+    "identity": {
+      "@id": "usage-Install-InstallRequest-skillId-1"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Install-InstallRequest-target-2",
+      "@type": "AttributeUsage",
+      "declaredName": "target",
+      "isLibraryElement": false,
+      "type": "Target"
+    },
+    "identity": {
+      "@id": "usage-Install-InstallRequest-target-2"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Install-InstallRequest-namespace-3",
+      "@type": "AttributeUsage",
+      "declaredName": "namespace",
+      "isLibraryElement": false,
+      "type": "String"
+    },
+    "identity": {
+      "@id": "usage-Install-InstallRequest-namespace-3"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Install-InstallRequest-values-4",
+      "@type": "AttributeUsage",
+      "declaredName": "values",
+      "isLibraryElement": false,
+      "type": "String"
+    },
+    "identity": {
+      "@id": "usage-Install-InstallRequest-values-4"
+    }
+  },
+  {
+    "payload": {
+      "@id": "def-Install-InstallRequest",
+      "@type": "ItemDefinition",
+      "declaredName": "InstallRequest",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "usage-Install-InstallRequest-releaseName-0"
+        },
+        {
+          "@id": "usage-Install-InstallRequest-skillId-1"
+        },
+        {
+          "@id": "usage-Install-InstallRequest-target-2"
+        },
+        {
+          "@id": "usage-Install-InstallRequest-namespace-3"
+        },
+        {
+          "@id": "usage-Install-InstallRequest-values-4"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "def-Install-InstallRequest"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Install-InstallResult-releaseName-0",
+      "@type": "AttributeUsage",
+      "declaredName": "releaseName",
+      "isLibraryElement": false,
+      "type": "String"
+    },
+    "identity": {
+      "@id": "usage-Install-InstallResult-releaseName-0"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Install-InstallResult-revision-1",
+      "@type": "AttributeUsage",
+      "declaredName": "revision",
+      "isLibraryElement": false,
+      "type": "Integer"
+    },
+    "identity": {
+      "@id": "usage-Install-InstallResult-revision-1"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Install-InstallResult-ok-2",
+      "@type": "AttributeUsage",
+      "declaredName": "ok",
+      "isLibraryElement": false,
+      "type": "Boolean"
+    },
+    "identity": {
+      "@id": "usage-Install-InstallResult-ok-2"
+    }
+  },
+  {
+    "payload": {
+      "@id": "def-Install-InstallResult",
+      "@type": "ItemDefinition",
+      "declaredName": "InstallResult",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "usage-Install-InstallResult-releaseName-0"
+        },
+        {
+          "@id": "usage-Install-InstallResult-revision-1"
+        },
+        {
+          "@id": "usage-Install-InstallResult-ok-2"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "def-Install-InstallResult"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Install-RollbackRequest-releaseName-0",
+      "@type": "AttributeUsage",
+      "declaredName": "releaseName",
+      "isLibraryElement": false,
+      "type": "String"
+    },
+    "identity": {
+      "@id": "usage-Install-RollbackRequest-releaseName-0"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Install-RollbackRequest-toRevision-1",
+      "@type": "AttributeUsage",
+      "declaredName": "toRevision",
+      "isLibraryElement": false,
+      "type": "Integer"
+    },
+    "identity": {
+      "@id": "usage-Install-RollbackRequest-toRevision-1"
+    }
+  },
+  {
+    "payload": {
+      "@id": "def-Install-RollbackRequest",
+      "@type": "ItemDefinition",
+      "declaredName": "RollbackRequest",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "usage-Install-RollbackRequest-releaseName-0"
+        },
+        {
+          "@id": "usage-Install-RollbackRequest-toRevision-1"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "def-Install-RollbackRequest"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Install-InstallSkill-request-0",
+      "@type": "ItemUsage",
+      "declaredName": "request",
+      "isLibraryElement": false,
+      "type": "InstallRequest",
+      "direction": "in"
+    },
+    "identity": {
+      "@id": "usage-Install-InstallSkill-request-0"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Install-InstallSkill-result-1",
+      "@type": "ItemUsage",
+      "declaredName": "result",
+      "isLibraryElement": false,
+      "type": "InstallResult",
+      "direction": "out"
+    },
+    "identity": {
+      "@id": "usage-Install-InstallSkill-result-1"
+    }
+  },
+  {
+    "payload": {
+      "@id": "def-Install-InstallSkill",
+      "@type": "ActionDefinition",
+      "declaredName": "InstallSkill",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "usage-Install-InstallSkill-request-0"
+        },
+        {
+          "@id": "usage-Install-InstallSkill-result-1"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "def-Install-InstallSkill"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Install-UpgradeSkill-request-0",
+      "@type": "ItemUsage",
+      "declaredName": "request",
+      "isLibraryElement": false,
+      "type": "InstallRequest",
+      "direction": "in"
+    },
+    "identity": {
+      "@id": "usage-Install-UpgradeSkill-request-0"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Install-UpgradeSkill-result-1",
+      "@type": "ItemUsage",
+      "declaredName": "result",
+      "isLibraryElement": false,
+      "type": "InstallResult",
+      "direction": "out"
+    },
+    "identity": {
+      "@id": "usage-Install-UpgradeSkill-result-1"
+    }
+  },
+  {
+    "payload": {
+      "@id": "def-Install-UpgradeSkill",
+      "@type": "ActionDefinition",
+      "declaredName": "UpgradeSkill",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "usage-Install-UpgradeSkill-request-0"
+        },
+        {
+          "@id": "usage-Install-UpgradeSkill-result-1"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "def-Install-UpgradeSkill"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Install-RollbackSkill-request-0",
+      "@type": "ItemUsage",
+      "declaredName": "request",
+      "isLibraryElement": false,
+      "type": "RollbackRequest",
+      "direction": "in"
+    },
+    "identity": {
+      "@id": "usage-Install-RollbackSkill-request-0"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Install-RollbackSkill-result-1",
+      "@type": "ItemUsage",
+      "declaredName": "result",
+      "isLibraryElement": false,
+      "type": "InstallResult",
+      "direction": "out"
+    },
+    "identity": {
+      "@id": "usage-Install-RollbackSkill-result-1"
+    }
+  },
+  {
+    "payload": {
+      "@id": "def-Install-RollbackSkill",
+      "@type": "ActionDefinition",
+      "declaredName": "RollbackSkill",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "usage-Install-RollbackSkill-request-0"
+        },
+        {
+          "@id": "usage-Install-RollbackSkill-result-1"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "def-Install-RollbackSkill"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Install-UninstallSkill-releaseName-0",
+      "@type": "ItemUsage",
+      "declaredName": "releaseName",
+      "isLibraryElement": false,
+      "type": "String",
+      "direction": "in"
+    },
+    "identity": {
+      "@id": "usage-Install-UninstallSkill-releaseName-0"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Install-UninstallSkill-ok-1",
+      "@type": "ItemUsage",
+      "declaredName": "ok",
+      "isLibraryElement": false,
+      "type": "Boolean",
+      "direction": "out"
+    },
+    "identity": {
+      "@id": "usage-Install-UninstallSkill-ok-1"
+    }
+  },
+  {
+    "payload": {
+      "@id": "def-Install-UninstallSkill",
+      "@type": "ActionDefinition",
+      "declaredName": "UninstallSkill",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "usage-Install-UninstallSkill-releaseName-0"
+        },
+        {
+          "@id": "usage-Install-UninstallSkill-ok-1"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "def-Install-UninstallSkill"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Install-ReadHistory-releaseName-0",
+      "@type": "ItemUsage",
+      "declaredName": "releaseName",
+      "isLibraryElement": false,
+      "type": "String",
+      "direction": "in"
+    },
+    "identity": {
+      "@id": "usage-Install-ReadHistory-releaseName-0"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Install-ReadHistory-result-1",
+      "@type": "ItemUsage",
+      "declaredName": "result",
+      "isLibraryElement": false,
+      "type": "InstallResult",
+      "direction": "out"
+    },
+    "identity": {
+      "@id": "usage-Install-ReadHistory-result-1"
+    }
+  },
+  {
+    "payload": {
+      "@id": "def-Install-ReadHistory",
+      "@type": "ActionDefinition",
+      "declaredName": "ReadHistory",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "usage-Install-ReadHistory-releaseName-0"
+        },
+        {
+          "@id": "usage-Install-ReadHistory-result-1"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "def-Install-ReadHistory"
+    }
+  },
+  {
+    "payload": {
+      "@id": "pkg-Install",
+      "@type": "Package",
+      "declaredName": "Install",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "def-Install-Target"
+        },
+        {
+          "@id": "def-Install-LockPin"
+        },
+        {
+          "@id": "def-Install-Revision"
+        },
+        {
+          "@id": "def-Install-Release"
+        },
+        {
+          "@id": "def-Install-Lockfile"
+        },
+        {
+          "@id": "def-Install-RevisionStore"
+        },
+        {
+          "@id": "def-Install-MaterializePort"
+        },
+        {
+          "@id": "def-Install-InstallRequest"
+        },
+        {
+          "@id": "def-Install-InstallResult"
+        },
+        {
+          "@id": "def-Install-RollbackRequest"
+        },
+        {
+          "@id": "def-Install-InstallSkill"
+        },
+        {
+          "@id": "def-Install-UpgradeSkill"
+        },
+        {
+          "@id": "def-Install-RollbackSkill"
+        },
+        {
+          "@id": "def-Install-UninstallSkill"
+        },
+        {
+          "@id": "def-Install-ReadHistory"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "pkg-Install"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Frontend-SkillCard-name-0",
+      "@type": "AttributeUsage",
+      "declaredName": "name",
+      "isLibraryElement": false,
+      "type": "String"
+    },
+    "identity": {
+      "@id": "usage-Frontend-SkillCard-name-0"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Frontend-SkillCard-version-1",
+      "@type": "AttributeUsage",
+      "declaredName": "version",
+      "isLibraryElement": false,
+      "type": "String"
+    },
+    "identity": {
+      "@id": "usage-Frontend-SkillCard-version-1"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Frontend-SkillCard-description-2",
+      "@type": "AttributeUsage",
+      "declaredName": "description",
+      "isLibraryElement": false,
+      "type": "String"
+    },
+    "identity": {
+      "@id": "usage-Frontend-SkillCard-description-2"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Frontend-SkillCard-registry-3",
+      "@type": "AttributeUsage",
+      "declaredName": "registry",
+      "isLibraryElement": false,
+      "type": "String"
+    },
+    "identity": {
+      "@id": "usage-Frontend-SkillCard-registry-3"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Frontend-SkillCard-downloads-4",
+      "@type": "AttributeUsage",
+      "declaredName": "downloads",
+      "isLibraryElement": false,
+      "type": "Integer"
+    },
+    "identity": {
+      "@id": "usage-Frontend-SkillCard-downloads-4"
+    }
+  },
+  {
+    "payload": {
+      "@id": "def-Frontend-SkillCard",
+      "@type": "AttributeDefinition",
+      "declaredName": "SkillCard",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "usage-Frontend-SkillCard-name-0"
+        },
+        {
+          "@id": "usage-Frontend-SkillCard-version-1"
+        },
+        {
+          "@id": "usage-Frontend-SkillCard-description-2"
+        },
+        {
+          "@id": "usage-Frontend-SkillCard-registry-3"
+        },
+        {
+          "@id": "usage-Frontend-SkillCard-downloads-4"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "def-Frontend-SkillCard"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Frontend-Filter-keyword-0",
+      "@type": "AttributeUsage",
+      "declaredName": "keyword",
+      "isLibraryElement": false,
+      "type": "String"
+    },
+    "identity": {
+      "@id": "usage-Frontend-Filter-keyword-0"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Frontend-Filter-registry-1",
+      "@type": "AttributeUsage",
+      "declaredName": "registry",
+      "isLibraryElement": false,
+      "type": "String"
+    },
+    "identity": {
+      "@id": "usage-Frontend-Filter-registry-1"
+    }
+  },
+  {
+    "payload": {
+      "@id": "def-Frontend-Filter",
+      "@type": "AttributeDefinition",
+      "declaredName": "Filter",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "usage-Frontend-Filter-keyword-0"
+        },
+        {
+          "@id": "usage-Frontend-Filter-registry-1"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "def-Frontend-Filter"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Frontend-Catalog-id-0",
+      "@type": "AttributeUsage",
+      "declaredName": "id",
+      "isLibraryElement": false,
+      "type": "String"
+    },
+    "identity": {
+      "@id": "usage-Frontend-Catalog-id-0"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Frontend-Catalog-cards-1",
+      "@type": "PartUsage",
+      "declaredName": "cards",
+      "isLibraryElement": false,
+      "type": "SkillCard",
+      "many": true
+    },
+    "identity": {
+      "@id": "usage-Frontend-Catalog-cards-1"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Frontend-Catalog-feed-2",
+      "@type": "PortUsage",
+      "declaredName": "feed",
+      "isLibraryElement": false,
+      "type": "CatalogFeed"
+    },
+    "identity": {
+      "@id": "usage-Frontend-Catalog-feed-2"
+    }
+  },
+  {
+    "payload": {
+      "@id": "def-Frontend-Catalog",
+      "@type": "PartDefinition",
+      "declaredName": "Catalog",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "usage-Frontend-Catalog-id-0"
+        },
+        {
+          "@id": "usage-Frontend-Catalog-cards-1"
+        },
+        {
+          "@id": "usage-Frontend-Catalog-feed-2"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "def-Frontend-Catalog"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Frontend-FrontendPort-request-0",
+      "@type": "ItemUsage",
+      "declaredName": "request",
+      "isLibraryElement": false,
+      "type": "ListingRequest",
+      "direction": "in"
+    },
+    "identity": {
+      "@id": "usage-Frontend-FrontendPort-request-0"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Frontend-FrontendPort-listing-1",
+      "@type": "ItemUsage",
+      "declaredName": "listing",
+      "isLibraryElement": false,
+      "type": "Listing",
+      "direction": "out"
+    },
+    "identity": {
+      "@id": "usage-Frontend-FrontendPort-listing-1"
+    }
+  },
+  {
+    "payload": {
+      "@id": "def-Frontend-FrontendPort",
+      "@type": "PortDefinition",
+      "declaredName": "FrontendPort",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "usage-Frontend-FrontendPort-request-0"
+        },
+        {
+          "@id": "usage-Frontend-FrontendPort-listing-1"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "def-Frontend-FrontendPort"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Frontend-CatalogFeed-filter-0",
+      "@type": "ItemUsage",
+      "declaredName": "filter",
+      "isLibraryElement": false,
+      "type": "Filter",
+      "direction": "in"
+    },
+    "identity": {
+      "@id": "usage-Frontend-CatalogFeed-filter-0"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Frontend-CatalogFeed-listing-1",
+      "@type": "ItemUsage",
+      "declaredName": "listing",
+      "isLibraryElement": false,
+      "type": "Listing",
+      "direction": "out"
+    },
+    "identity": {
+      "@id": "usage-Frontend-CatalogFeed-listing-1"
+    }
+  },
+  {
+    "payload": {
+      "@id": "def-Frontend-CatalogFeed",
+      "@type": "PortDefinition",
+      "declaredName": "CatalogFeed",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "usage-Frontend-CatalogFeed-filter-0"
+        },
+        {
+          "@id": "usage-Frontend-CatalogFeed-listing-1"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "def-Frontend-CatalogFeed"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Frontend-ListingRequest-filter-0",
+      "@type": "AttributeUsage",
+      "declaredName": "filter",
+      "isLibraryElement": false,
+      "type": "Filter"
+    },
+    "identity": {
+      "@id": "usage-Frontend-ListingRequest-filter-0"
+    }
+  },
+  {
+    "payload": {
+      "@id": "def-Frontend-ListingRequest",
+      "@type": "ItemDefinition",
+      "declaredName": "ListingRequest",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "usage-Frontend-ListingRequest-filter-0"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "def-Frontend-ListingRequest"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Frontend-Listing-cards-0",
+      "@type": "AttributeUsage",
+      "declaredName": "cards",
+      "isLibraryElement": false,
+      "type": "SkillCard",
+      "many": true
+    },
+    "identity": {
+      "@id": "usage-Frontend-Listing-cards-0"
+    }
+  },
+  {
+    "payload": {
+      "@id": "def-Frontend-Listing",
+      "@type": "ItemDefinition",
+      "declaredName": "Listing",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "usage-Frontend-Listing-cards-0"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "def-Frontend-Listing"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Frontend-ListCatalog-request-0",
+      "@type": "ItemUsage",
+      "declaredName": "request",
+      "isLibraryElement": false,
+      "type": "ListingRequest",
+      "direction": "in"
+    },
+    "identity": {
+      "@id": "usage-Frontend-ListCatalog-request-0"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Frontend-ListCatalog-listing-1",
+      "@type": "ItemUsage",
+      "declaredName": "listing",
+      "isLibraryElement": false,
+      "type": "Listing",
+      "direction": "out"
+    },
+    "identity": {
+      "@id": "usage-Frontend-ListCatalog-listing-1"
+    }
+  },
+  {
+    "payload": {
+      "@id": "def-Frontend-ListCatalog",
+      "@type": "ActionDefinition",
+      "declaredName": "ListCatalog",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "usage-Frontend-ListCatalog-request-0"
+        },
+        {
+          "@id": "usage-Frontend-ListCatalog-listing-1"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "def-Frontend-ListCatalog"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Frontend-FilterCatalog-request-0",
+      "@type": "ItemUsage",
+      "declaredName": "request",
+      "isLibraryElement": false,
+      "type": "ListingRequest",
+      "direction": "in"
+    },
+    "identity": {
+      "@id": "usage-Frontend-FilterCatalog-request-0"
+    }
+  },
+  {
+    "payload": {
+      "@id": "usage-Frontend-FilterCatalog-listing-1",
+      "@type": "ItemUsage",
+      "declaredName": "listing",
+      "isLibraryElement": false,
+      "type": "Listing",
+      "direction": "out"
+    },
+    "identity": {
+      "@id": "usage-Frontend-FilterCatalog-listing-1"
+    }
+  },
+  {
+    "payload": {
+      "@id": "def-Frontend-FilterCatalog",
+      "@type": "ActionDefinition",
+      "declaredName": "FilterCatalog",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "usage-Frontend-FilterCatalog-request-0"
+        },
+        {
+          "@id": "usage-Frontend-FilterCatalog-listing-1"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "def-Frontend-FilterCatalog"
+    }
+  },
+  {
+    "payload": {
+      "@id": "pkg-Frontend",
+      "@type": "Package",
+      "declaredName": "Frontend",
+      "isLibraryElement": false,
+      "ownedElement": [
+        {
+          "@id": "def-Frontend-SkillCard"
+        },
+        {
+          "@id": "def-Frontend-Filter"
+        },
+        {
+          "@id": "def-Frontend-Catalog"
+        },
+        {
+          "@id": "def-Frontend-FrontendPort"
+        },
+        {
+          "@id": "def-Frontend-CatalogFeed"
+        },
+        {
+          "@id": "def-Frontend-ListingRequest"
+        },
+        {
+          "@id": "def-Frontend-Listing"
+        },
+        {
+          "@id": "def-Frontend-ListCatalog"
+        },
+        {
+          "@id": "def-Frontend-FilterCatalog"
+        }
+      ]
+    },
+    "identity": {
+      "@id": "pkg-Frontend"
+    }
+  }
+]
