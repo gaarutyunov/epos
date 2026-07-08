@@ -170,15 +170,15 @@ func newSearchCmd(g *globals) *cobra.Command {
 func newLockCmd(g *globals) *cobra.Command {
 	return &cobra.Command{
 		Use:   "lock PATH",
-		Short: "Resolve and write the lockfile without materializing",
+		Short: "Resolve pulled-layer pins and write Epos.lock without materializing",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			a := g.newApp()
-			res, err := a.Compose(ctx(), args[0], false)
+			pins, err := a.Lock(ctx(), args[0])
 			if err != nil {
 				return err
 			}
-			fmt.Fprintf(a.Opts.Out, "resolved %d pinned layer(s)\n", len(res.Pins))
+			fmt.Fprintf(a.Opts.Out, "wrote Epos.lock with %d pinned layer(s)\n", len(pins))
 			return nil
 		},
 	}

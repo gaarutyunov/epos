@@ -271,6 +271,7 @@ func newHistoryCmd(g *globals) *cobra.Command {
 
 func newComposeCmd(g *globals) *cobra.Command {
 	var strict bool
+	var frozen bool
 	var outDir string
 	cmd := &cobra.Command{
 		Use:   "compose PATH",
@@ -278,6 +279,13 @@ func newComposeCmd(g *globals) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			a := g.newApp()
+			if frozen {
+				// Verify pulled-layer pins against the committed Epos.lock before
+				// composing; a mismatch is a hard error (SPEC §9.7).
+				if err := a.VerifyLock(ctx(), args[0]); err != nil {
+					return err
+				}
+			}
 			res, err := a.Compose(ctx(), args[0], strict)
 			if err != nil {
 				return err
@@ -295,6 +303,7 @@ func newComposeCmd(g *globals) *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&strict, "strict", false, "promote non-matching/failing operations to hard errors")
+	cmd.Flags().BoolVar(&frozen, "frozen", false, "verify pulled-layer pins against Epos.lock before composing")
 	cmd.Flags().StringVarP(&outDir, "output", "o", "", "write the merged skill to a directory")
 	return cmd
 }

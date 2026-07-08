@@ -11,6 +11,7 @@ import (
 	compin "github.com/gaarutyunov/epos/internal/composition/app/port/in"
 	compusecase "github.com/gaarutyunov/epos/internal/composition/app/usecase"
 	cdomain "github.com/gaarutyunov/epos/internal/composition/domain"
+	clock "github.com/gaarutyunov/epos/internal/composition/lock"
 	"github.com/gaarutyunov/epos/internal/infrastructure/git"
 	"github.com/gaarutyunov/epos/internal/infrastructure/oci"
 	"github.com/gaarutyunov/epos/internal/packaging/domain"
@@ -20,7 +21,17 @@ import (
 // per-file provenance, and the captured pins for pulled layers.
 type ComposeResult struct {
 	Merged *cdomain.Merged
-	Pins   []cdomain.Pin
+	// LayerPins are the pulled-layer pins in Epos.lock form (with kind), for
+	// persistence and verification (SPEC §9.7).
+	LayerPins []clock.LayerPin
+}
+
+// pinRecord builds an Epos.lock pin record from a resolved layer + its pin.
+func pinRecord(name, kind string, pin *cdomain.Pin) clock.LayerPin {
+	return clock.LayerPin{
+		Name: name, Kind: kind, SourceType: pin.SourceType.Value, Source: pin.Source,
+		Version: pin.Version, Digest: pin.Digest, Commit: pin.Commit, TreeSha: pin.TreeSha, Subpath: pin.Subpath,
+	}
 }
 
 // Compose builds the layer stack for a skill directory (origin/deps at the
@@ -37,15 +48,43 @@ func (a *App) Compose(ctx context.Context, skillDir string, strict bool) (*Compo
 	if _, err := interactor.ComposeStack(compin.ComposeStackInput{Request: cdomain.ComposeRequest{StackID: skillDir}}); err != nil {
 		return nil, err
 	}
-	return &ComposeResult{Merged: port.Merged(), Pins: pins}, nil
+	return &ComposeResult{Merged: port.Merged(), LayerPins: pins}, nil
+}
+
+// Lock resolves a skill's pulled-layer pins and writes Epos.lock without
+// materializing (SPEC §4.3, §9.7). It returns the written pin records.
+func (a *App) Lock(ctx context.Context, skillDir string) ([]clock.LayerPin, error) {
+	_, pins, err := a.BuildStack(ctx, skillDir)
+	if err != nil {
+		return nil, err
+	}
+	if err := clock.New(pins).Save(skillDir); err != nil {
+		return nil, err
+	}
+	return pins, nil
+}
+
+// VerifyLock re-resolves a skill's pulled-layer pins and verifies them against a
+// committed Epos.lock; any mismatch is a hard error (SPEC §9.7, --frozen/CI). It
+// is a no-op when no Epos.lock is present.
+func (a *App) VerifyLock(ctx context.Context, skillDir string) error {
+	lf, err := clock.Load(skillDir)
+	if err != nil || lf == nil {
+		return err
+	}
+	_, pins, err := a.BuildStack(ctx, skillDir)
+	if err != nil {
+		return err
+	}
+	return lf.Verify(pins)
 }
 
 // BuildStack resolves the ordered layer stack for a skill directory (SPEC §9.1,
 // §9.6): declared pulled dependencies (bottom→up in declaration order), then
 // local overlays under overlays/, then the consumer skill's own files (top).
-func (a *App) BuildStack(ctx context.Context, skillDir string) ([]cdomain.StackLayer, []cdomain.Pin, error) {
+func (a *App) BuildStack(ctx context.Context, skillDir string) ([]cdomain.StackLayer, []clock.LayerPin, error) {
 	var stack []cdomain.StackLayer
-	var pins []cdomain.Pin
+	var pins []clock.LayerPin
 
 	manData, err := os.ReadFile(filepath.Join(skillDir, "Epos.yaml"))
 	if err != nil {
@@ -63,7 +102,7 @@ func (a *App) BuildStack(ctx context.Context, skillDir string) ([]cdomain.StackL
 		}
 		stack = append(stack, *layer)
 		if pin != nil {
-			pins = append(pins, *pin)
+			pins = append(pins, pinRecord(layer.Name, layer.Kind, pin))
 		}
 	}
 

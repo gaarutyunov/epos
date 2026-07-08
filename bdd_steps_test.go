@@ -387,8 +387,8 @@ func (w *world) repoDependsGit(ref, subpath string) error {
 }
 
 func (w *world) gitPin() *pinView {
-	for _, p := range w.composeRes.Pins {
-		if p.SourceType.Value == "git" {
+	for _, p := range w.composeRes.LayerPins {
+		if p.SourceType == "git" {
 			return &pinView{commit: p.Commit, treeSha: p.TreeSha}
 		}
 	}
