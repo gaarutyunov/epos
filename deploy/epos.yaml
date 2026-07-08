@@ -1,0 +1,68 @@
+# Kubernetes deployment of the Epos Go service (proxy + discovery + frontend
+# backend) as a container image (SPEC §13.1). Backends are selected via the
+# mounted epos.yaml/registries.yaml config; the only secret is the optional
+# read-only listing credential, supplied as env vars from a Kubernetes Secret
+# (SPEC §6.2).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: epos
+  namespace: epos
+  labels: { app: epos }
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app: epos }
+  template:
+    metadata:
+      labels: { app: epos }
+    spec:
+      containers:
+        - name: epos
+          image: ghcr.io/gaarutyunov/epos:latest
+          args: ["serve", "--listen", ":8080", "--registries", "/etc/epos/registries.yaml"]
+          ports:
+            - { name: http, containerPort: 8080 }
+            - { name: metrics, containerPort: 9090 }
+          env:
+            # Read-only listing credentials — env-var references only (SPEC §6.2).
+            - name: GITLAB_LISTING_USER
+              valueFrom: { secretKeyRef: { name: epos-listing, key: gitlabUser } }
+            - name: GITLAB_LISTING_TOKEN
+              valueFrom: { secretKeyRef: { name: epos-listing, key: gitlabToken } }
+          volumeMounts:
+            - { name: config, mountPath: /etc/epos }
+          readinessProbe:
+            httpGet: { path: /, port: http }
+      volumes:
+        - name: config
+          configMap: { name: epos-config }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: epos
+  namespace: epos
+  labels: { app: epos }
+spec:
+  selector: { app: epos }
+  ports:
+    - { name: http, port: 80, targetPort: http }
+    - { name: metrics, port: 9090, targetPort: metrics }
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: epos
+  namespace: epos
+spec:
+  rules:
+    - host: epos.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: epos
+                port: { name: http }

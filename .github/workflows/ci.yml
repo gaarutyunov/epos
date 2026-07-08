@@ -1,0 +1,48 @@
+name: CI
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
+      - name: Build
+        run: go build ./... && go build -tags=integration ./...
+
+      - name: Vet
+        run: go vet ./... && go vet -tags=integration ./...
+
+      # Fast unit/component tests (real in-process OCI registry + real git,
+      # no Docker). The end-to-end journeys run under the integration tag below.
+      - name: Unit tests
+        run: go test ./...
+
+      # The BDD journeys run end-to-end against REAL dependencies started via
+      # testcontainers-go — zot (OCI), Gitea (git), k3s (cluster) — with no mocks
+      # (SPEC §15.3). The GitHub runner provides the Docker daemon (SPEC §15.6).
+      - name: Integration (godog + testcontainers)
+        run: go test ./... -tags=integration -timeout 40m
+
+  check-generated:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+      - name: Install sysgo
+        run: go install github.com/gaarutyunov/sysgo/cmd/sysgo@latest
+      # Assert the committed scaffold is in sync with model/epos.sysml
+      # (regenerate-and-diff drift check, SPEC §15.6).
+      - name: Regenerate and diff
+        run: |
+          export PATH="$(go env GOPATH)/bin:$PATH"
+          make check-generated
