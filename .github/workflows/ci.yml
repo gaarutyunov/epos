@@ -15,21 +15,21 @@ jobs:
           go-version: '1.24'
 
       - name: Build
-        run: go build ./...
+        run: go build ./... && go build -tags=integration ./...
 
       - name: Vet
-        run: go vet ./...
+        run: go vet ./... && go vet -tags=integration ./...
 
-      # Fast suite: unit tests + BDD journeys against an in-process OCI registry,
-      # real git repositories, and a fake Kubernetes API. No Docker required.
-      - name: Unit + BDD (in-process)
+      # Fast unit/component tests (real in-process OCI registry + real git,
+      # no Docker). The end-to-end journeys run under the integration tag below.
+      - name: Unit tests
         run: go test ./...
 
-      # Full-fidelity suite: the same journeys against real dependencies started
-      # via testcontainers-go — zot (OCI), Gitea (git), k3s (cluster). The GitHub
-      # runner provides a Docker daemon (SPEC §15.3, §15.6).
+      # The BDD journeys run end-to-end against REAL dependencies started via
+      # testcontainers-go — zot (OCI), Gitea (git), k3s (cluster) — with no mocks
+      # (SPEC §15.3). The GitHub runner provides the Docker daemon (SPEC §15.6).
       - name: Integration (godog + testcontainers)
-        run: go test ./... -tags=integration -timeout 30m
+        run: go test ./... -tags=integration -timeout 40m
 
   check-generated:
     runs-on: ubuntu-latest

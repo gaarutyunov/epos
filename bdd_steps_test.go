@@ -1,3 +1,5 @@
+//go:build integration
+
 package epos_test
 
 import (

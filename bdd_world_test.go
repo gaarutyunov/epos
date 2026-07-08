@@ -1,3 +1,5 @@
+//go:build integration
+
 package epos_test
 
 import (
@@ -305,8 +307,15 @@ func (w *world) initGitSkill(subpath, ref string, files map[string]string) (stri
 	if err := run("tag", ref); err != nil {
 		return "", err
 	}
-	w.gitRemote = repo
-	return repo, nil
+	// Publish the repository to the real HTTP git server (Gitea) and use its
+	// clone URL, so git-dependency resolution exercises real HTTP transport
+	// (SPEC §15.3), not a local path.
+	url, err := gitCloneURL(repo, "shared")
+	if err != nil {
+		return "", err
+	}
+	w.gitRemote = url
+	return url, nil
 }
 
 // InitializeScenario registers the Before hook and all step definitions.
