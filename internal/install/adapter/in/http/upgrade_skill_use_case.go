@@ -3,12 +3,16 @@
 package http
 
 import (
-	"github.com/gaarutyunov/epos/internal/install/app/port/in"
+	"encoding/json"
+	"io"
 	"net/http"
+
+	"github.com/gaarutyunov/epos/internal/install/app/port/in"
 )
 
-// UpgradeSkillUseCaseHandler is a driving adapter that exposes the UpgradeSkillUseCase port over
-// HTTP. This scaffold is written once; wire your router and decode requests here.
+// UpgradeSkillUseCaseHandler is a driving adapter that exposes the UpgradeSkillUseCase port over HTTP:
+// it decodes the request into the input DTO, invokes the use case, and encodes
+// the output DTO as JSON.
 type UpgradeSkillUseCaseHandler struct {
 	uc in.UpgradeSkillUseCase
 }
@@ -19,6 +23,20 @@ func NewUpgradeSkillUseCaseHandler(uc in.UpgradeSkillUseCase) *UpgradeSkillUseCa
 }
 
 // ServeHTTP handles an inbound request for the UpgradeSkillUseCase port.
-func (u *UpgradeSkillUseCaseHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	http.Error(w, "not implemented", http.StatusNotImplemented)
+func (h *UpgradeSkillUseCaseHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	var input in.UpgradeSkillInput
+	if r.Body != nil {
+		defer r.Body.Close()
+		if err := json.NewDecoder(r.Body).Decode(&input); err != nil && err != io.EOF {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+	}
+	output, err := h.uc.UpgradeSkill(input)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(output)
 }

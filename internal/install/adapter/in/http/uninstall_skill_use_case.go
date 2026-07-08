@@ -3,12 +3,16 @@
 package http
 
 import (
-	"github.com/gaarutyunov/epos/internal/install/app/port/in"
+	"encoding/json"
+	"io"
 	"net/http"
+
+	"github.com/gaarutyunov/epos/internal/install/app/port/in"
 )
 
-// UninstallSkillUseCaseHandler is a driving adapter that exposes the UninstallSkillUseCase port over
-// HTTP. This scaffold is written once; wire your router and decode requests here.
+// UninstallSkillUseCaseHandler is a driving adapter that exposes the UninstallSkillUseCase port over HTTP:
+// it decodes the request into the input DTO, invokes the use case, and encodes
+// the output DTO as JSON.
 type UninstallSkillUseCaseHandler struct {
 	uc in.UninstallSkillUseCase
 }
@@ -19,6 +23,20 @@ func NewUninstallSkillUseCaseHandler(uc in.UninstallSkillUseCase) *UninstallSkil
 }
 
 // ServeHTTP handles an inbound request for the UninstallSkillUseCase port.
-func (u *UninstallSkillUseCaseHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	http.Error(w, "not implemented", http.StatusNotImplemented)
+func (h *UninstallSkillUseCaseHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	var input in.UninstallSkillInput
+	if r.Body != nil {
+		defer r.Body.Close()
+		if err := json.NewDecoder(r.Body).Decode(&input); err != nil && err != io.EOF {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+	}
+	output, err := h.uc.UninstallSkill(input)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(output)
 }

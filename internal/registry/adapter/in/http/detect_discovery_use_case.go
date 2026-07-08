@@ -3,12 +3,16 @@
 package http
 
 import (
-	"github.com/gaarutyunov/epos/internal/registry/app/port/in"
+	"encoding/json"
+	"io"
 	"net/http"
+
+	"github.com/gaarutyunov/epos/internal/registry/app/port/in"
 )
 
-// DetectDiscoveryUseCaseHandler is a driving adapter that exposes the DetectDiscoveryUseCase port over
-// HTTP. This scaffold is written once; wire your router and decode requests here.
+// DetectDiscoveryUseCaseHandler is a driving adapter that exposes the DetectDiscoveryUseCase port over HTTP:
+// it decodes the request into the input DTO, invokes the use case, and encodes
+// the output DTO as JSON.
 type DetectDiscoveryUseCaseHandler struct {
 	uc in.DetectDiscoveryUseCase
 }
@@ -19,6 +23,20 @@ func NewDetectDiscoveryUseCaseHandler(uc in.DetectDiscoveryUseCase) *DetectDisco
 }
 
 // ServeHTTP handles an inbound request for the DetectDiscoveryUseCase port.
-func (d *DetectDiscoveryUseCaseHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	http.Error(w, "not implemented", http.StatusNotImplemented)
+func (h *DetectDiscoveryUseCaseHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	var input in.DetectDiscoveryInput
+	if r.Body != nil {
+		defer r.Body.Close()
+		if err := json.NewDecoder(r.Body).Decode(&input); err != nil && err != io.EOF {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+	}
+	output, err := h.uc.DetectDiscovery(input)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(output)
 }

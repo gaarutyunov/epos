@@ -4,11 +4,20 @@ package main
 
 import (
 	"log"
+
+	"github.com/gaarutyunov/epos/internal/frontend"
+	gw "github.com/gaarutyunov/epos/internal/frontend/adapter/out/gateway"
+	"github.com/gaarutyunov/epos/internal/frontend/app/usecase"
+	"github.com/gaarutyunov/epos/internal/infrastructure/oci"
+	"github.com/gaarutyunov/epos/internal/stats"
 )
 
-// main is the composition root for the Frontend bounded context. This is the
-// only place allowed to import every region and wire concrete adapters into
-// ports via constructor injection. This scaffold is written once.
+// main is the composition root for the Frontend bounded context.
 func main() {
-	log.Println("Frontend: composition root — wire adapters into ports here")
+	feed := gw.NewCatalogFeedImpl(&frontend.Feed{Client: &oci.Client{}, Stats: stats.New()})
+	list := usecase.NewListCatalogInteractor(feed)
+	filter := usecase.NewFilterCatalogInteractor(feed)
+	_ = list
+	_ = filter
+	log.Println("Frontend: composition root wired (catalog-feed port → interactors)")
 }

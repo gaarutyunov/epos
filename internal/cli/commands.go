@@ -205,7 +205,7 @@ func newStatusCmd(g *globals) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			fmt.Fprintf(a.Opts.Out, "release: %s\nrevision: %d\nversion: %s\ndigest: %s\n", args[0], rev.Revision, rev.Version, rev.Digest)
+			fmt.Fprintf(a.Opts.Out, "release: %s\nrevision: %d\nversion: %s\ndigest: %s\n", args[0], rev.Number, rev.Version, rev.Digest)
 			return nil
 		},
 	}
@@ -226,7 +226,7 @@ func newHistoryCmd(g *globals) *cobra.Command {
 				return err
 			}
 			for _, r := range revs {
-				fmt.Fprintf(a.Opts.Out, "revision %d\tversion %s\tdigest %s\n", r.Revision, r.Version, r.Digest)
+				fmt.Fprintf(a.Opts.Out, "revision %d\tversion %s\tdigest %s\n", r.Number, r.Version, r.Digest)
 			}
 			return nil
 		},

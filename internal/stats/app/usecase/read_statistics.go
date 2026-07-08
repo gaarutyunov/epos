@@ -3,21 +3,25 @@
 package usecase
 
 import (
-	"errors"
 	"github.com/gaarutyunov/epos/internal/stats/app/port/in"
+	"github.com/gaarutyunov/epos/internal/stats/app/port/out"
+	"github.com/gaarutyunov/epos/internal/stats/domain"
 )
 
-// ReadStatisticsInteractor implements the ReadStatistics use case. This scaffold is
-// written once; add orchestration logic here. sysgo will not overwrite it.
-type ReadStatisticsInteractor struct{}
+// ReadStatisticsInteractor implements the ReadStatistics use case: it reads a
+// skill's aggregate download total through the StatSink driven port.
+type ReadStatisticsInteractor struct {
+	sink out.StatSink
+}
 
 var _ in.ReadStatisticsUseCase = (*ReadStatisticsInteractor)(nil)
 
-// NewReadStatisticsInteractor constructs the interactor. Inject driven ports here.
-func NewReadStatisticsInteractor() *ReadStatisticsInteractor {
-	return &ReadStatisticsInteractor{}
+// NewReadStatisticsInteractor injects the StatSink driven port.
+func NewReadStatisticsInteractor(sink out.StatSink) *ReadStatisticsInteractor {
+	return &ReadStatisticsInteractor{sink: sink}
 }
 
 func (r *ReadStatisticsInteractor) ReadStatistics(input in.ReadStatisticsInput) (in.ReadStatisticsOutput, error) {
-	return in.ReadStatisticsOutput{}, errors.New("not implemented")
+	snap, err := r.sink.StatSink(domain.CountRequest{Event: domain.PullEvent{Repo: input.Skill}})
+	return in.ReadStatisticsOutput{Snapshot: snap}, err
 }

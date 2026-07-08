@@ -7,6 +7,9 @@ import (
 	"path/filepath"
 	"strings"
 
+	compgw "github.com/gaarutyunov/epos/internal/composition/adapter/out/gateway"
+	compin "github.com/gaarutyunov/epos/internal/composition/app/port/in"
+	compusecase "github.com/gaarutyunov/epos/internal/composition/app/usecase"
 	cdomain "github.com/gaarutyunov/epos/internal/composition/domain"
 	"github.com/gaarutyunov/epos/internal/infrastructure/git"
 	"github.com/gaarutyunov/epos/internal/infrastructure/oci"
@@ -28,11 +31,13 @@ func (a *App) Compose(ctx context.Context, skillDir string, strict bool) (*Compo
 	if err != nil {
 		return nil, err
 	}
-	merged, err := cdomain.Compose(stack, strict)
-	if err != nil {
+	// Drive the ComposeStack use case through the CompositionPort.
+	port := compgw.NewCompositionPortImpl(stack, strict)
+	interactor := compusecase.NewComposeStackInteractor(port)
+	if _, err := interactor.ComposeStack(compin.ComposeStackInput{Request: cdomain.ComposeRequest{StackID: skillDir}}); err != nil {
 		return nil, err
 	}
-	return &ComposeResult{Merged: merged, Pins: pins}, nil
+	return &ComposeResult{Merged: port.Merged(), Pins: pins}, nil
 }
 
 // BuildStack resolves the ordered layer stack for a skill directory (SPEC §9.1,

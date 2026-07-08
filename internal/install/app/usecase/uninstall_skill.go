@@ -3,21 +3,35 @@
 package usecase
 
 import (
-	"errors"
 	"github.com/gaarutyunov/epos/internal/install/app/port/in"
+	"github.com/gaarutyunov/epos/internal/install/app/port/out"
 )
 
-// UninstallSkillInteractor implements the UninstallSkill use case. This scaffold is
-// written once; add orchestration logic here. sysgo will not overwrite it.
-type UninstallSkillInteractor struct{}
+// UninstallSkillInteractor implements the UninstallSkill use case: remove the
+// materialized files/ConfigMaps and the revision history (SPEC §4.2).
+type UninstallSkillInteractor struct {
+	mat       out.Materializer
+	store     out.RevisionRepository
+	target    string
+	namespace string
+}
 
 var _ in.UninstallSkillUseCase = (*UninstallSkillInteractor)(nil)
 
-// NewUninstallSkillInteractor constructs the interactor. Inject driven ports here.
-func NewUninstallSkillInteractor() *UninstallSkillInteractor {
-	return &UninstallSkillInteractor{}
+// NewUninstallSkillInteractor injects the ports and target context.
+func NewUninstallSkillInteractor(mat out.Materializer, store out.RevisionRepository, target, namespace string) *UninstallSkillInteractor {
+	if target == "" {
+		target = "files"
+	}
+	return &UninstallSkillInteractor{mat: mat, store: store, target: target, namespace: namespace}
 }
 
 func (u *UninstallSkillInteractor) UninstallSkill(input in.UninstallSkillInput) (in.UninstallSkillOutput, error) {
-	return in.UninstallSkillOutput{}, errors.New("not implemented")
+	if err := u.mat.Remove(input.ReleaseName, u.target, u.namespace); err != nil {
+		return in.UninstallSkillOutput{Ok: false}, err
+	}
+	if err := u.store.Delete(input.ReleaseName, u.target, u.namespace); err != nil {
+		return in.UninstallSkillOutput{Ok: false}, err
+	}
+	return in.UninstallSkillOutput{Ok: true}, nil
 }

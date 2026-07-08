@@ -3,22 +3,24 @@
 package gateway
 
 import (
-	"errors"
 	"github.com/gaarutyunov/epos/internal/frontend/app/port/out"
 	"github.com/gaarutyunov/epos/internal/frontend/domain"
 )
 
-// FrontendPortImpl is a driven adapter implementing the FrontendPort gateway port.
-// This scaffold is written once; implement the external-system calls here.
-type FrontendPortImpl struct{}
+// FrontendPortImpl implements the Frontend boundary port by delegating to the
+// CatalogFeed (SPEC §12).
+type FrontendPortImpl struct {
+	feed out.CatalogFeed
+}
 
 var _ out.FrontendPort = (*FrontendPortImpl)(nil)
 
-// NewFrontendPortImpl constructs the gateway adapter. Inject your client here.
-func NewFrontendPortImpl() *FrontendPortImpl {
-	return &FrontendPortImpl{}
+// NewFrontendPortImpl injects the CatalogFeed driven port.
+func NewFrontendPortImpl(feed out.CatalogFeed) *FrontendPortImpl {
+	return &FrontendPortImpl{feed: feed}
 }
 
+// Frontend returns the filtered federated listing for a request.
 func (f *FrontendPortImpl) Frontend(request domain.ListingRequest) (domain.Listing, error) {
-	return domain.Listing{}, errors.New("not implemented")
+	return f.feed.CatalogFeed(request.Filter)
 }

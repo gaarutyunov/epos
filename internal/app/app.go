@@ -16,6 +16,9 @@ import (
 
 	"github.com/gaarutyunov/epos/internal/infrastructure/kube"
 	"github.com/gaarutyunov/epos/internal/infrastructure/oci"
+	pkggw "github.com/gaarutyunov/epos/internal/packaging/adapter/out/gateway"
+	pkgin "github.com/gaarutyunov/epos/internal/packaging/app/port/in"
+	pkgusecase "github.com/gaarutyunov/epos/internal/packaging/app/usecase"
 	"github.com/gaarutyunov/epos/internal/packaging/domain"
 	"github.com/gaarutyunov/epos/internal/signing/verify"
 )
@@ -100,32 +103,25 @@ func (a *App) Create(name string) error {
 	return nil
 }
 
-// Package builds the OCI artifact from a package directory and writes it as an
-// OCI image layout at <name>-<version>.epos, returning the layout dir and digest
-// (SPEC §4.1, §2.3).
+// Package validates and builds the OCI artifact for a package directory by
+// driving the PackageSkill use case through the PackagingPort (SPEC §4.1, §2.3),
+// returning the OCI-layout dir and manifest digest.
 func (a *App) Package(ctx context.Context, path string) (layoutDir, digest string, err error) {
 	if msgs, lerr := domain.LintDir(path); lerr != nil {
 		return "", "", lerr
 	} else if len(msgs) > 0 {
 		return "", "", fmt.Errorf("validation failed:\n  - %s", strings.Join(msgs, "\n  - "))
 	}
-	art, err := domain.BuildArtifact(path)
+	interactor := pkgusecase.NewPackageSkillInteractor(pkggw.NewPackagingPortImpl(a.Opts.WorkDir))
+	out, err := interactor.PackageSkill(pkgin.PackageSkillInput{Request: domain.PackageRequest{SourceDir: path}})
 	if err != nil {
 		return "", "", err
 	}
-	layoutDir = filepath.Join(a.Opts.WorkDir, fmt.Sprintf("%s-%s.epos", art.Manifest.Name, art.Manifest.Version))
-	if err := os.RemoveAll(layoutDir); err != nil {
-		return "", "", err
-	}
-	desc, err := oci.WriteLayout(ctx, layoutDir, domain.MediaTypeSkillConfig, art.Config.Data,
-		[]oci.Blob{{MediaType: art.Content.MediaType, Data: art.Content.Data}},
-		domain.MediaTypeSkillConfig, art.Tag,
-		map[string]string{"org.opencontainers.image.title": art.Manifest.Name, "org.opencontainers.image.version": art.Manifest.Version})
-	if err != nil {
-		return "", "", err
-	}
-	fmt.Fprintf(a.Opts.Out, "Packaged %s:%s → %s (%s)\n", art.Manifest.Name, art.Manifest.Version, layoutDir, desc.Digest)
-	return layoutDir, desc.Digest.String(), nil
+	art := out.Artifact
+	layoutDir = filepath.Join(a.Opts.WorkDir, fmt.Sprintf("%s-%s.epos", art.Ref.Repo, art.Ref.Tag))
+	digest = art.Digest.Algo + ":" + art.Digest.Value
+	fmt.Fprintf(a.Opts.Out, "Packaged %s:%s → %s (%s)\n", art.Ref.Repo, art.Ref.Tag, layoutDir, digest)
+	return layoutDir, digest, nil
 }
 
 // Lint validates metadata, template, and dangling references (SPEC §3.5). It

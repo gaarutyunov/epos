@@ -3,21 +3,24 @@
 package usecase
 
 import (
-	"errors"
 	"github.com/gaarutyunov/epos/internal/registry/app/port/in"
+	"github.com/gaarutyunov/epos/internal/registry/app/port/out"
 )
 
-// DetectDiscoveryInteractor implements the DetectDiscovery use case. This scaffold is
-// written once; add orchestration logic here. sysgo will not overwrite it.
-type DetectDiscoveryInteractor struct{}
+// DetectDiscoveryInteractor implements the DetectDiscovery use case via the
+// CatalogProbe driven port (SPEC §8.1.1).
+type DetectDiscoveryInteractor struct {
+	probe out.CatalogProbe
+}
 
 var _ in.DetectDiscoveryUseCase = (*DetectDiscoveryInteractor)(nil)
 
-// NewDetectDiscoveryInteractor constructs the interactor. Inject driven ports here.
-func NewDetectDiscoveryInteractor() *DetectDiscoveryInteractor {
-	return &DetectDiscoveryInteractor{}
+// NewDetectDiscoveryInteractor injects the CatalogProbe driven port.
+func NewDetectDiscoveryInteractor(probe out.CatalogProbe) *DetectDiscoveryInteractor {
+	return &DetectDiscoveryInteractor{probe: probe}
 }
 
 func (d *DetectDiscoveryInteractor) DetectDiscovery(input in.DetectDiscoveryInput) (in.DetectDiscoveryOutput, error) {
-	return in.DetectDiscoveryOutput{}, errors.New("not implemented")
+	res, err := d.probe.CatalogProbe(input.Entry)
+	return in.DetectDiscoveryOutput{Result: res}, err
 }

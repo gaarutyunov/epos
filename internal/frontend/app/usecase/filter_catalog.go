@@ -3,21 +3,24 @@
 package usecase
 
 import (
-	"errors"
 	"github.com/gaarutyunov/epos/internal/frontend/app/port/in"
+	"github.com/gaarutyunov/epos/internal/frontend/app/port/out"
 )
 
-// FilterCatalogInteractor implements the FilterCatalog use case. This scaffold is
-// written once; add orchestration logic here. sysgo will not overwrite it.
-type FilterCatalogInteractor struct{}
+// FilterCatalogInteractor implements the FilterCatalog use case via the
+// CatalogFeed driven port (SPEC §12.1).
+type FilterCatalogInteractor struct {
+	feed out.CatalogFeed
+}
 
 var _ in.FilterCatalogUseCase = (*FilterCatalogInteractor)(nil)
 
-// NewFilterCatalogInteractor constructs the interactor. Inject driven ports here.
-func NewFilterCatalogInteractor() *FilterCatalogInteractor {
-	return &FilterCatalogInteractor{}
+// NewFilterCatalogInteractor injects the CatalogFeed driven port.
+func NewFilterCatalogInteractor(feed out.CatalogFeed) *FilterCatalogInteractor {
+	return &FilterCatalogInteractor{feed: feed}
 }
 
 func (f *FilterCatalogInteractor) FilterCatalog(input in.FilterCatalogInput) (in.FilterCatalogOutput, error) {
-	return in.FilterCatalogOutput{}, errors.New("not implemented")
+	listing, err := f.feed.CatalogFeed(input.Request.Filter)
+	return in.FilterCatalogOutput{Listing: listing}, err
 }

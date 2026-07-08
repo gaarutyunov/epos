@@ -4,11 +4,16 @@ package main
 
 import (
 	"log"
+
+	"github.com/gaarutyunov/epos/internal/infrastructure/oci"
+	gw "github.com/gaarutyunov/epos/internal/signing/adapter/out/repository"
+	"github.com/gaarutyunov/epos/internal/signing/app/usecase"
 )
 
-// main is the composition root for the Signing bounded context. This is the
-// only place allowed to import every region and wire concrete adapters into
-// ports via constructor injection. This scaffold is written once.
+// main is the composition root for the Signing bounded context.
 func main() {
-	log.Println("Signing: composition root — wire adapters into ports here")
+	signature := gw.NewSignaturePortImpl(&oci.Client{}, "")
+	verify := usecase.NewVerifySignatureInteractor(signature)
+	_ = verify
+	log.Println("Signing: composition root wired (signature port → verify interactor)")
 }

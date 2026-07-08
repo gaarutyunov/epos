@@ -3,21 +3,24 @@
 package usecase
 
 import (
-	"errors"
 	"github.com/gaarutyunov/epos/internal/signing/app/port/in"
+	"github.com/gaarutyunov/epos/internal/signing/app/port/out"
 )
 
-// VerifySignatureInteractor implements the VerifySignature use case. This scaffold is
-// written once; add orchestration logic here. sysgo will not overwrite it.
-type VerifySignatureInteractor struct{}
+// VerifySignatureInteractor implements the VerifySignature use case: it verifies
+// a subject's cosign signatures through the SignaturePort driven port (SPEC §7).
+type VerifySignatureInteractor struct {
+	port out.SignaturePort
+}
 
 var _ in.VerifySignatureUseCase = (*VerifySignatureInteractor)(nil)
 
-// NewVerifySignatureInteractor constructs the interactor. Inject driven ports here.
-func NewVerifySignatureInteractor() *VerifySignatureInteractor {
-	return &VerifySignatureInteractor{}
+// NewVerifySignatureInteractor injects the SignaturePort driven port.
+func NewVerifySignatureInteractor(port out.SignaturePort) *VerifySignatureInteractor {
+	return &VerifySignatureInteractor{port: port}
 }
 
 func (v *VerifySignatureInteractor) VerifySignature(input in.VerifySignatureInput) (in.VerifySignatureOutput, error) {
-	return in.VerifySignatureOutput{}, errors.New("not implemented")
+	res, err := v.port.Signature(input.Request)
+	return in.VerifySignatureOutput{Result: res}, err
 }

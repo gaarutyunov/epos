@@ -3,21 +3,24 @@
 package usecase
 
 import (
-	"errors"
 	"github.com/gaarutyunov/epos/internal/composition/app/port/in"
+	"github.com/gaarutyunov/epos/internal/composition/app/port/out"
 )
 
-// ComposeStackInteractor implements the ComposeStack use case. This scaffold is
-// written once; add orchestration logic here. sysgo will not overwrite it.
-type ComposeStackInteractor struct{}
+// ComposeStackInteractor implements the ComposeStack use case via the
+// CompositionPort driven port (SPEC §9).
+type ComposeStackInteractor struct {
+	port out.CompositionPort
+}
 
 var _ in.ComposeStackUseCase = (*ComposeStackInteractor)(nil)
 
-// NewComposeStackInteractor constructs the interactor. Inject driven ports here.
-func NewComposeStackInteractor() *ComposeStackInteractor {
-	return &ComposeStackInteractor{}
+// NewComposeStackInteractor injects the CompositionPort driven port.
+func NewComposeStackInteractor(port out.CompositionPort) *ComposeStackInteractor {
+	return &ComposeStackInteractor{port: port}
 }
 
 func (c *ComposeStackInteractor) ComposeStack(input in.ComposeStackInput) (in.ComposeStackOutput, error) {
-	return in.ComposeStackOutput{}, errors.New("not implemented")
+	merged, err := c.port.Composition(input.Request)
+	return in.ComposeStackOutput{Merged: merged}, err
 }

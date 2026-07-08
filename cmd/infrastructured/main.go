@@ -4,11 +4,17 @@ package main
 
 import (
 	"log"
+
+	gw "github.com/gaarutyunov/epos/internal/infrastructure/adapter/out/gateway"
+	"github.com/gaarutyunov/epos/internal/infrastructure/oci"
 )
 
-// main is the composition root for the Infrastructure bounded context. This is the
-// only place allowed to import every region and wire concrete adapters into
-// ports via constructor injection. This scaffold is written once.
+// main is the composition root for the shared Infrastructure context: the
+// generic OCI/git/kube clients reused by every other context's adapters.
 func main() {
-	log.Println("Infrastructure: composition root — wire adapters into ports here")
+	ociAdapter := gw.NewOciClientImpl(&oci.Client{})
+	gitAdapter := gw.NewGitClientImpl(nil)
+	_ = ociAdapter
+	_ = gitAdapter
+	log.Println("Infrastructure: composition root wired (oci + git clients)")
 }

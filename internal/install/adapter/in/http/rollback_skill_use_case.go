@@ -3,12 +3,16 @@
 package http
 
 import (
-	"github.com/gaarutyunov/epos/internal/install/app/port/in"
+	"encoding/json"
+	"io"
 	"net/http"
+
+	"github.com/gaarutyunov/epos/internal/install/app/port/in"
 )
 
-// RollbackSkillUseCaseHandler is a driving adapter that exposes the RollbackSkillUseCase port over
-// HTTP. This scaffold is written once; wire your router and decode requests here.
+// RollbackSkillUseCaseHandler is a driving adapter that exposes the RollbackSkillUseCase port over HTTP:
+// it decodes the request into the input DTO, invokes the use case, and encodes
+// the output DTO as JSON.
 type RollbackSkillUseCaseHandler struct {
 	uc in.RollbackSkillUseCase
 }
@@ -20,5 +24,19 @@ func NewRollbackSkillUseCaseHandler(uc in.RollbackSkillUseCase) *RollbackSkillUs
 
 // ServeHTTP handles an inbound request for the RollbackSkillUseCase port.
 func (h *RollbackSkillUseCaseHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	http.Error(w, "not implemented", http.StatusNotImplemented)
+	var input in.RollbackSkillInput
+	if r.Body != nil {
+		defer r.Body.Close()
+		if err := json.NewDecoder(r.Body).Decode(&input); err != nil && err != io.EOF {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+	}
+	output, err := h.uc.RollbackSkill(input)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(output)
 }

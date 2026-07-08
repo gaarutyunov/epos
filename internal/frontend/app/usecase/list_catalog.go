@@ -3,21 +3,24 @@
 package usecase
 
 import (
-	"errors"
 	"github.com/gaarutyunov/epos/internal/frontend/app/port/in"
+	"github.com/gaarutyunov/epos/internal/frontend/app/port/out"
 )
 
-// ListCatalogInteractor implements the ListCatalog use case. This scaffold is
-// written once; add orchestration logic here. sysgo will not overwrite it.
-type ListCatalogInteractor struct{}
+// ListCatalogInteractor implements the ListCatalog use case via the CatalogFeed
+// driven port (SPEC §12).
+type ListCatalogInteractor struct {
+	feed out.CatalogFeed
+}
 
 var _ in.ListCatalogUseCase = (*ListCatalogInteractor)(nil)
 
-// NewListCatalogInteractor constructs the interactor. Inject driven ports here.
-func NewListCatalogInteractor() *ListCatalogInteractor {
-	return &ListCatalogInteractor{}
+// NewListCatalogInteractor injects the CatalogFeed driven port.
+func NewListCatalogInteractor(feed out.CatalogFeed) *ListCatalogInteractor {
+	return &ListCatalogInteractor{feed: feed}
 }
 
 func (l *ListCatalogInteractor) ListCatalog(input in.ListCatalogInput) (in.ListCatalogOutput, error) {
-	return in.ListCatalogOutput{}, errors.New("not implemented")
+	listing, err := l.feed.CatalogFeed(input.Request.Filter)
+	return in.ListCatalogOutput{Listing: listing}, err
 }

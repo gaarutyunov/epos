@@ -3,12 +3,16 @@
 package http
 
 import (
-	"github.com/gaarutyunov/epos/internal/composition/app/port/in"
+	"encoding/json"
+	"io"
 	"net/http"
+
+	"github.com/gaarutyunov/epos/internal/composition/app/port/in"
 )
 
-// VerifyPinUseCaseHandler is a driving adapter that exposes the VerifyPinUseCase port over
-// HTTP. This scaffold is written once; wire your router and decode requests here.
+// VerifyPinUseCaseHandler is a driving adapter that exposes the VerifyPinUseCase port over HTTP:
+// it decodes the request into the input DTO, invokes the use case, and encodes
+// the output DTO as JSON.
 type VerifyPinUseCaseHandler struct {
 	uc in.VerifyPinUseCase
 }
@@ -19,6 +23,20 @@ func NewVerifyPinUseCaseHandler(uc in.VerifyPinUseCase) *VerifyPinUseCaseHandler
 }
 
 // ServeHTTP handles an inbound request for the VerifyPinUseCase port.
-func (v *VerifyPinUseCaseHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	http.Error(w, "not implemented", http.StatusNotImplemented)
+func (h *VerifyPinUseCaseHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	var input in.VerifyPinInput
+	if r.Body != nil {
+		defer r.Body.Close()
+		if err := json.NewDecoder(r.Body).Decode(&input); err != nil && err != io.EOF {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+	}
+	output, err := h.uc.VerifyPin(input)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(output)
 }

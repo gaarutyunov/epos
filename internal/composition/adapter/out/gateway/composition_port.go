@@ -3,22 +3,36 @@
 package gateway
 
 import (
-	"errors"
 	"github.com/gaarutyunov/epos/internal/composition/app/port/out"
 	"github.com/gaarutyunov/epos/internal/composition/domain"
 )
 
-// CompositionPortImpl is a driven adapter implementing the CompositionPort gateway port.
-// This scaffold is written once; implement the external-system calls here.
-type CompositionPortImpl struct{}
+// CompositionPortImpl is the driven adapter implementing the CompositionPort:
+// it resolves an ordered layer stack into one merged skill via the composition
+// engine (later-overrides-earlier, operation-merge for SKILL.md, SPEC §9.5).
+type CompositionPortImpl struct {
+	stack  []domain.StackLayer
+	strict bool
+	last   *domain.Merged
+}
 
 var _ out.CompositionPort = (*CompositionPortImpl)(nil)
 
-// NewCompositionPortImpl constructs the gateway adapter. Inject your client here.
-func NewCompositionPortImpl() *CompositionPortImpl {
-	return &CompositionPortImpl{}
+// NewCompositionPortImpl binds the adapter to a resolved layer stack.
+func NewCompositionPortImpl(stack []domain.StackLayer, strict bool) *CompositionPortImpl {
+	return &CompositionPortImpl{stack: stack, strict: strict}
 }
 
+// Composition merges the stack and returns the merged-skill id + provenance.
 func (c *CompositionPortImpl) Composition(request domain.ComposeRequest) (domain.MergedSkill, error) {
-	return domain.MergedSkill{}, errors.New("not implemented")
+	merged, err := domain.Compose(c.stack, c.strict)
+	if err != nil {
+		return domain.MergedSkill{}, err
+	}
+	c.last = merged
+	return domain.MergedSkill{SkillID: request.StackID, Provenance: merged.ProvenanceLines()}, nil
 }
+
+// Merged returns the full merged file set from the last composition (the file
+// bytes are not carried in the coarse MergedSkill DTO).
+func (c *CompositionPortImpl) Merged() *domain.Merged { return c.last }

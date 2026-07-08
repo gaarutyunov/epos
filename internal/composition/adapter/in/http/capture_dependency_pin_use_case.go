@@ -3,12 +3,16 @@
 package http
 
 import (
-	"github.com/gaarutyunov/epos/internal/composition/app/port/in"
+	"encoding/json"
+	"io"
 	"net/http"
+
+	"github.com/gaarutyunov/epos/internal/composition/app/port/in"
 )
 
-// CaptureDependencyPinUseCaseHandler is a driving adapter that exposes the CaptureDependencyPinUseCase port over
-// HTTP. This scaffold is written once; wire your router and decode requests here.
+// CaptureDependencyPinUseCaseHandler is a driving adapter that exposes the CaptureDependencyPinUseCase port over HTTP:
+// it decodes the request into the input DTO, invokes the use case, and encodes
+// the output DTO as JSON.
 type CaptureDependencyPinUseCaseHandler struct {
 	uc in.CaptureDependencyPinUseCase
 }
@@ -19,6 +23,20 @@ func NewCaptureDependencyPinUseCaseHandler(uc in.CaptureDependencyPinUseCase) *C
 }
 
 // ServeHTTP handles an inbound request for the CaptureDependencyPinUseCase port.
-func (c *CaptureDependencyPinUseCaseHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	http.Error(w, "not implemented", http.StatusNotImplemented)
+func (h *CaptureDependencyPinUseCaseHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	var input in.CaptureDependencyPinInput
+	if r.Body != nil {
+		defer r.Body.Close()
+		if err := json.NewDecoder(r.Body).Decode(&input); err != nil && err != io.EOF {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+	}
+	output, err := h.uc.CaptureDependencyPin(input)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(output)
 }

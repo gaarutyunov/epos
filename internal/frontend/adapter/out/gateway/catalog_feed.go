@@ -3,22 +3,47 @@
 package gateway
 
 import (
-	"errors"
+	"context"
+
+	"github.com/gaarutyunov/epos/internal/frontend"
 	"github.com/gaarutyunov/epos/internal/frontend/app/port/out"
 	"github.com/gaarutyunov/epos/internal/frontend/domain"
 )
 
-// CatalogFeedImpl is a driven adapter implementing the CatalogFeed gateway port.
-// This scaffold is written once; implement the external-system calls here.
-type CatalogFeedImpl struct{}
+// CatalogFeedImpl is the driven adapter implementing the CatalogFeed port: it
+// gathers a federated skill listing across registries (discovery + stats) and
+// filters it (SPEC §12.2).
+type CatalogFeedImpl struct {
+	feed *frontend.Feed
+}
 
 var _ out.CatalogFeed = (*CatalogFeedImpl)(nil)
 
-// NewCatalogFeedImpl constructs the gateway adapter. Inject your client here.
-func NewCatalogFeedImpl() *CatalogFeedImpl {
-	return &CatalogFeedImpl{}
+// NewCatalogFeedImpl wraps a federated feed.
+func NewCatalogFeedImpl(feed *frontend.Feed) *CatalogFeedImpl {
+	return &CatalogFeedImpl{feed: feed}
 }
 
+// CatalogFeed gathers and filters the federated listing.
 func (c *CatalogFeedImpl) CatalogFeed(filter domain.Filter) (domain.Listing, error) {
-	return domain.Listing{}, errors.New("not implemented")
+	cat, err := c.feed.Gather(context.Background())
+	if err != nil {
+		return domain.Listing{}, err
+	}
+	cards := cat.Filter(frontend.Filter{Keyword: filter.Keyword, Registry: filter.Registry})
+	return toDomainListing(cards), nil
+}
+
+func toDomainListing(cards []frontend.SkillCard) domain.Listing {
+	out := domain.Listing{}
+	for _, c := range cards {
+		out.Cards = append(out.Cards, domain.SkillCard{
+			Name:        c.Name,
+			Version:     c.Version,
+			Description: c.Description,
+			Registry:    c.Registry,
+			Downloads:   int64(c.Downloads),
+		})
+	}
+	return out
 }

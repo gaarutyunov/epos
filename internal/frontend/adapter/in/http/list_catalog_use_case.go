@@ -3,12 +3,16 @@
 package http
 
 import (
-	"github.com/gaarutyunov/epos/internal/frontend/app/port/in"
+	"encoding/json"
+	"io"
 	"net/http"
+
+	"github.com/gaarutyunov/epos/internal/frontend/app/port/in"
 )
 
-// ListCatalogUseCaseHandler is a driving adapter that exposes the ListCatalogUseCase port over
-// HTTP. This scaffold is written once; wire your router and decode requests here.
+// ListCatalogUseCaseHandler is a driving adapter that exposes the ListCatalogUseCase port over HTTP:
+// it decodes the request into the input DTO, invokes the use case, and encodes
+// the output DTO as JSON.
 type ListCatalogUseCaseHandler struct {
 	uc in.ListCatalogUseCase
 }
@@ -19,6 +23,20 @@ func NewListCatalogUseCaseHandler(uc in.ListCatalogUseCase) *ListCatalogUseCaseH
 }
 
 // ServeHTTP handles an inbound request for the ListCatalogUseCase port.
-func (l *ListCatalogUseCaseHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	http.Error(w, "not implemented", http.StatusNotImplemented)
+func (h *ListCatalogUseCaseHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	var input in.ListCatalogInput
+	if r.Body != nil {
+		defer r.Body.Close()
+		if err := json.NewDecoder(r.Body).Decode(&input); err != nil && err != io.EOF {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+	}
+	output, err := h.uc.ListCatalog(input)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(output)
 }

@@ -3,21 +3,29 @@
 package usecase
 
 import (
-	"errors"
 	"github.com/gaarutyunov/epos/internal/packaging/app/port/in"
+	"github.com/gaarutyunov/epos/internal/packaging/domain"
 )
 
-// PushSkillInteractor implements the PushSkill use case. This scaffold is
-// written once; add orchestration logic here. sysgo will not overwrite it.
-type PushSkillInteractor struct{}
+// SkillPushFunc pushes a built skill artifact to an OCI reference, returning the
+// pushed descriptor. It is the driven seam supplied by the composition root
+// (the artifact's raw bytes are not carried in the coarse SkillArtifact DTO, so
+// pushing is delegated to a source-aware pusher).
+type SkillPushFunc func(ref domain.OciRef, artifact domain.SkillArtifact) (domain.PackagedArtifact, error)
+
+// PushSkillInteractor implements the PushSkill use case (SPEC §4.1).
+type PushSkillInteractor struct {
+	push SkillPushFunc
+}
 
 var _ in.PushSkillUseCase = (*PushSkillInteractor)(nil)
 
-// NewPushSkillInteractor constructs the interactor. Inject driven ports here.
-func NewPushSkillInteractor() *PushSkillInteractor {
-	return &PushSkillInteractor{}
+// NewPushSkillInteractor injects the push seam.
+func NewPushSkillInteractor(push SkillPushFunc) *PushSkillInteractor {
+	return &PushSkillInteractor{push: push}
 }
 
 func (p *PushSkillInteractor) PushSkill(input in.PushSkillInput) (in.PushSkillOutput, error) {
-	return in.PushSkillOutput{}, errors.New("not implemented")
+	pushed, err := p.push(input.Ref, input.Artifact)
+	return in.PushSkillOutput{Pushed: pushed}, err
 }

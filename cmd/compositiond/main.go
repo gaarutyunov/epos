@@ -4,11 +4,25 @@ package main
 
 import (
 	"log"
+
+	gw "github.com/gaarutyunov/epos/internal/composition/adapter/out/gateway"
+	"github.com/gaarutyunov/epos/internal/composition/app/usecase"
+	"github.com/gaarutyunov/epos/internal/composition/domain"
+	"github.com/gaarutyunov/epos/internal/infrastructure/git"
+	"github.com/gaarutyunov/epos/internal/infrastructure/oci"
 )
 
-// main is the composition root for the Composition bounded context. This is the
-// only place allowed to import every region and wire concrete adapters into
-// ports via constructor injection. This scaffold is written once.
+// main is the composition root for the Composition bounded context.
 func main() {
-	log.Println("Composition: composition root — wire adapters into ports here")
+	layerSource := gw.NewLayerSourceImpl(&oci.Client{}, &git.Client{})
+	compose := gw.NewCompositionPortImpl([]domain.StackLayer{}, false)
+
+	capturePin := usecase.NewCaptureDependencyPinInteractor(layerSource)
+	composeStack := usecase.NewComposeStackInteractor(compose)
+	verifyPin := usecase.NewVerifyPinInteractor(layerSource)
+
+	_ = capturePin
+	_ = composeStack
+	_ = verifyPin
+	log.Println("Composition: composition root wired (layer-source + composition ports → interactors)")
 }

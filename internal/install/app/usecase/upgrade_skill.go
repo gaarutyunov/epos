@@ -3,21 +3,36 @@
 package usecase
 
 import (
-	"errors"
 	"github.com/gaarutyunov/epos/internal/install/app/port/in"
+	"github.com/gaarutyunov/epos/internal/install/app/port/out"
 )
 
-// UpgradeSkillInteractor implements the UpgradeSkill use case. This scaffold is
-// written once; add orchestration logic here. sysgo will not overwrite it.
-type UpgradeSkillInteractor struct{}
+// UpgradeSkillInteractor implements the UpgradeSkill use case: fetch a newer
+// version, re-materialize, and append a new revision (no three-way merge, SPEC
+// §4.2).
+type UpgradeSkillInteractor struct {
+	mat   out.Materializer
+	store out.RevisionRepository
+}
 
 var _ in.UpgradeSkillUseCase = (*UpgradeSkillInteractor)(nil)
 
-// NewUpgradeSkillInteractor constructs the interactor. Inject driven ports here.
-func NewUpgradeSkillInteractor() *UpgradeSkillInteractor {
-	return &UpgradeSkillInteractor{}
+// NewUpgradeSkillInteractor injects the MaterializePort and RevisionStore ports.
+func NewUpgradeSkillInteractor(mat out.Materializer, store out.RevisionRepository) *UpgradeSkillInteractor {
+	return &UpgradeSkillInteractor{mat: mat, store: store}
 }
 
 func (u *UpgradeSkillInteractor) UpgradeSkill(input in.UpgradeSkillInput) (in.UpgradeSkillOutput, error) {
-	return in.UpgradeSkillOutput{}, errors.New("not implemented")
+	req := input.Request
+	res, err := u.mat.Materialize(req)
+	if err != nil {
+		return in.UpgradeSkillOutput{}, err
+	}
+	files := u.mat.LastFiles()
+	n, err := u.store.Append(req.ReleaseName, req.Target.Value, req.Namespace, versionOf(files), u.mat.LastDigest(), files)
+	if err != nil {
+		return in.UpgradeSkillOutput{}, err
+	}
+	res.Revision = int64(n)
+	return in.UpgradeSkillOutput{Result: res}, nil
 }

@@ -3,21 +3,35 @@
 package usecase
 
 import (
-	"errors"
 	"github.com/gaarutyunov/epos/internal/registry/app/port/in"
+	"github.com/gaarutyunov/epos/internal/registry/app/port/out"
+	"github.com/gaarutyunov/epos/internal/registry/domain"
 )
 
-// ListSkillsInteractor implements the ListSkills use case. This scaffold is
-// written once; add orchestration logic here. sysgo will not overwrite it.
-type ListSkillsInteractor struct{}
+// ListSkillsInteractor implements the ListSkills use case: it enumerates skills
+// across the registered registries using the read-only listing credential, via
+// the CatalogProbe driven port (SPEC §8.1).
+type ListSkillsInteractor struct {
+	probe   out.CatalogProbe
+	entries []domain.RegistryEntry
+}
 
 var _ in.ListSkillsUseCase = (*ListSkillsInteractor)(nil)
 
-// NewListSkillsInteractor constructs the interactor. Inject driven ports here.
-func NewListSkillsInteractor() *ListSkillsInteractor {
-	return &ListSkillsInteractor{}
+// NewListSkillsInteractor injects the CatalogProbe driven port and the set of
+// registries to enumerate.
+func NewListSkillsInteractor(probe out.CatalogProbe, entries []domain.RegistryEntry) *ListSkillsInteractor {
+	return &ListSkillsInteractor{probe: probe, entries: entries}
 }
 
 func (l *ListSkillsInteractor) ListSkills(input in.ListSkillsInput) (in.ListSkillsOutput, error) {
-	return in.ListSkillsOutput{}, errors.New("not implemented")
+	result := domain.CatalogResult{Mode: domain.DiscoveryMode{Value: "registered"}}
+	for _, entry := range l.entries {
+		res, err := l.probe.CatalogProbe(entry)
+		if err != nil {
+			continue
+		}
+		result.Repos = append(result.Repos, res.Repos...)
+	}
+	return in.ListSkillsOutput{Result: result}, nil
 }

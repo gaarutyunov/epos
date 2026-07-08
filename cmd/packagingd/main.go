@@ -4,11 +4,25 @@ package main
 
 import (
 	"log"
+
+	gw "github.com/gaarutyunov/epos/internal/packaging/adapter/out/gateway"
+	"github.com/gaarutyunov/epos/internal/packaging/app/usecase"
+	"github.com/gaarutyunov/epos/internal/packaging/domain"
 )
 
-// main is the composition root for the Packaging bounded context. This is the
-// only place allowed to import every region and wire concrete adapters into
-// ports via constructor injection. This scaffold is written once.
+// main is the composition root for the Packaging bounded context.
 func main() {
-	log.Println("Packaging: composition root — wire adapters into ports here")
+	packaging := gw.NewPackagingPortImpl(".")
+	validation := gw.NewValidationPortImpl()
+
+	pkg := usecase.NewPackageSkillInteractor(packaging)
+	val := usecase.NewValidateSkillInteractor(validation)
+	push := usecase.NewPushSkillInteractor(func(domain.OciRef, domain.SkillArtifact) (domain.PackagedArtifact, error) {
+		return domain.PackagedArtifact{}, nil
+	})
+
+	_ = pkg
+	_ = val
+	_ = push
+	log.Println("Packaging: composition root wired (packaging + validation ports → interactors)")
 }

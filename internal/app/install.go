@@ -4,17 +4,25 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 
 	"github.com/gaarutyunov/epos/internal/infrastructure/oci"
+	gw "github.com/gaarutyunov/epos/internal/install/adapter/out/gateway"
+	iin "github.com/gaarutyunov/epos/internal/install/app/port/in"
+	iout "github.com/gaarutyunov/epos/internal/install/app/port/out"
+	"github.com/gaarutyunov/epos/internal/install/app/usecase"
 	"github.com/gaarutyunov/epos/internal/install/configmap"
+	idomain "github.com/gaarutyunov/epos/internal/install/domain"
 	"github.com/gaarutyunov/epos/internal/install/lock"
-	"github.com/gaarutyunov/epos/internal/install/materialize"
 	"github.com/gaarutyunov/epos/internal/packaging/domain"
+	signrepo "github.com/gaarutyunov/epos/internal/signing/adapter/out/repository"
+	signin "github.com/gaarutyunov/epos/internal/signing/app/port/in"
+	signusecase "github.com/gaarutyunov/epos/internal/signing/app/usecase"
+	signdomain "github.com/gaarutyunov/epos/internal/signing/domain"
 	"github.com/gaarutyunov/epos/internal/signing/verify"
 )
 
@@ -36,7 +44,13 @@ type InstallOpts struct {
 
 func (a *App) lockfilePath() string { return filepath.Join(a.Opts.WorkDir, lock.LockfileName) }
 
-func (a *App) releaseDir(release string) string { return filepath.Join(a.Opts.WorkDir, release) }
+// installPorts constructs the Install context's driven-port adapters (the
+// pluggable §11 seams) for the current work directory and cluster client.
+func (a *App) installPorts() (*gw.MaterializePortImpl, *gw.RevisionStoreImpl) {
+	mat := gw.NewMaterializePortImpl(a.Opts.WorkDir, a.OCI, a.Kube)
+	store := gw.NewRevisionStoreImpl(a.Opts.WorkDir, a.Kube)
+	return mat, store
+}
 
 // resolveSubject splits a full ref into (registry/repo, manifest descriptor) for
 // referrers/signature lookup.
@@ -48,87 +62,55 @@ func (a *App) resolveSubject(ctx context.Context, full string) (string, ocispec.
 	return stripTag(full), desc, nil
 }
 
-// fetchBundle resolves a ref, verifies signatures (verify-when-present), pulls
-// the artifact, and returns the resolved full ref, its digest, and the unpacked
-// skill files.
-func (a *App) fetchBundle(ctx context.Context, ref string, opts InstallOpts) (full, digest string, files map[string][]byte, err error) {
-	full, err = a.ResolveRef(ctx, ref, opts.Version)
-	if err != nil {
-		return "", "", nil, err
-	}
+// verifySignature drives the VerifySignature use case (verify-when-present)
+// through the SignaturePort, recording the result (SPEC §7.2).
+func (a *App) verifySignature(ctx context.Context, full string, requireSignature bool) error {
 	repoRef, subject, err := a.resolveSubject(ctx, full)
 	if err != nil {
-		return "", "", nil, err
+		return err
 	}
-	res, verr := verify.Verify(ctx, a.OCI, repoRef, subject, opts.RequireSignature)
-	a.LastVerify = res
+	interactor := signusecase.NewVerifySignatureInteractor(signrepo.NewSignaturePortImpl(a.OCI, repoRef))
+	out, verr := interactor.VerifySignature(signin.VerifySignatureInput{Request: signdomain.VerifyRequest{
+		SubjectDigest: subject.Digest.String(),
+		Policy:        signdomain.VerifyPolicy{RequireSignature: requireSignature},
+	}})
+	a.LastVerify = &verify.Result{Verified: out.Result.Verified, Present: out.Result.Present, Messages: out.Result.Messages}
 	if verr != nil {
-		return "", "", nil, fmt.Errorf("signature verification: %w", verr)
+		return fmt.Errorf("signature verification: %w", verr)
 	}
-	man, err := a.OCI.Pull(ctx, full)
-	if err != nil {
-		return "", "", nil, err
-	}
-	files, err = extractSkillFiles(man)
-	if err != nil {
-		return "", "", nil, err
-	}
-	return full, man.Digest, files, nil
+	return nil
 }
 
-// Install resolves a skill, verifies signatures, materializes the bundle, and
-// records a new revision (SPEC §4.2). It honors --target and --frozen.
+// Install resolves a skill, verifies signatures, and drives the InstallSkill use
+// case (materialize + record a revision) through the Install context's ports
+// (SPEC §4.2, §5). It honors --target and --frozen.
 func (a *App) Install(ctx context.Context, release, ref string, opts InstallOpts) (int, error) {
 	if opts.Target == "" {
 		opts.Target = TargetFiles
 	}
-
 	if opts.Frozen {
 		if err := a.verifyFrozen(ctx, release, ref, opts); err != nil {
 			return 0, err
 		}
 	}
-
-	full, digest, files, err := a.fetchBundle(ctx, ref, opts)
+	full, err := a.ResolveRef(ctx, ref, opts.Version)
 	if err != nil {
 		return 0, err
 	}
-	meta, _ := manifestMeta(files)
-	version := opts.Version
-	if meta != nil && version == "" {
-		version = meta.Version
-	}
-
-	switch opts.Target {
-	case TargetConfigMap:
-		return a.installConfigMap(ctx, release, full, digest, version, files, opts)
-	default:
-		return a.installFiles(release, full, digest, version, files)
-	}
-}
-
-// installFiles materializes into <workdir>/<release> and records a lockfile
-// revision pinned by digest (SPEC §5).
-func (a *App) installFiles(release, full, digest, version string, files map[string][]byte) (int, error) {
-	dir := a.releaseDir(release)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	if err := a.verifySignature(ctx, full, opts.RequireSignature); err != nil {
 		return 0, err
 	}
-	if err := materialize.WriteTree(dir, files); err != nil {
-		return 0, err
-	}
-	lf, err := lock.Load(a.lockfilePath())
+
+	mat, store := a.installPorts()
+	interactor := usecase.NewInstallSkillInteractor(mat, store)
+	out, err := interactor.InstallSkill(iin.InstallSkillInput{Request: idomain.InstallRequest{
+		ReleaseName: release, SkillID: full, Target: idomain.Target{Value: opts.Target}, Namespace: opts.Namespace,
+	}})
 	if err != nil {
 		return 0, err
 	}
-	rev := lock.Revision{Version: version, Digest: digest, Registry: stripTag(full)}
-	rev.SetFiles(files)
-	n := lf.AddRevision(release, rev)
-	if err := lf.Save(); err != nil {
-		return 0, err
-	}
-	fmt.Fprintf(a.Opts.Out, "Installed %s (release %q) revision %d → %s\n", full, release, n, digest)
-	return n, nil
+	fmt.Fprintf(a.Opts.Out, "Installed %s (release %q) revision %d → %s\n", full, release, out.Result.Revision, mat.LastDigest())
+	return int(out.Result.Revision), nil
 }
 
 // verifyFrozen enforces the lockfile pin against the current tag resolution: a
@@ -156,93 +138,106 @@ func (a *App) verifyFrozen(ctx context.Context, release, ref string, opts Instal
 	return nil
 }
 
-// Upgrade fetches a newer version, re-materializes, and appends a new revision
-// (SPEC §4.2). No three-way merge; honors --target.
+// Upgrade drives the UpgradeSkill use case (fetch newer version, re-materialize,
+// append a revision) through the ports (SPEC §4.2). No three-way merge.
 func (a *App) Upgrade(ctx context.Context, release, ref string, opts InstallOpts) (int, error) {
-	return a.Install(ctx, release, ref, opts)
+	if opts.Target == "" {
+		opts.Target = TargetFiles
+	}
+	full, err := a.ResolveRef(ctx, ref, opts.Version)
+	if err != nil {
+		return 0, err
+	}
+	if err := a.verifySignature(ctx, full, opts.RequireSignature); err != nil {
+		return 0, err
+	}
+	mat, store := a.installPorts()
+	interactor := usecase.NewUpgradeSkillInteractor(mat, store)
+	out, err := interactor.UpgradeSkill(iin.UpgradeSkillInput{Request: idomain.InstallRequest{
+		ReleaseName: release, SkillID: full, Target: idomain.Target{Value: opts.Target}, Namespace: opts.Namespace,
+	}})
+	if err != nil {
+		return 0, err
+	}
+	fmt.Fprintf(a.Opts.Out, "Upgraded release %q to revision %d → %s\n", release, out.Result.Revision, mat.LastDigest())
+	return int(out.Result.Revision), nil
 }
 
-// Rollback restores a previous bundle in full and records it as a new revision
-// (SPEC §4.2, §5.3). --target=files reads the lockfile; --target=configmap reads
-// the in-cluster revision records.
+// Rollback drives the RollbackSkill use case (restore a whole prior bundle,
+// record a new revision) through the ports (SPEC §4.2, §5.3).
 func (a *App) Rollback(ctx context.Context, release string, toRevision int, opts InstallOpts) (int, error) {
-	if opts.Target == TargetConfigMap {
-		return a.rollbackConfigMap(ctx, release, toRevision, opts)
+	if opts.Target == "" {
+		opts.Target = TargetFiles
 	}
-	lf, err := lock.Load(a.lockfilePath())
+	mat, store := a.installPorts()
+	interactor := usecase.NewRollbackSkillInteractor(mat, store, opts.Target, opts.Namespace)
+	out, err := interactor.RollbackSkill(iin.RollbackSkillInput{Request: idomain.RollbackRequest{
+		ReleaseName: release, ToRevision: int64(toRevision),
+	}})
 	if err != nil {
 		return 0, err
 	}
-	prev, err := lf.Get(release, toRevision)
-	if err != nil {
-		return 0, err
-	}
-	files, err := prev.FileBytes()
-	if err != nil {
-		return 0, err
-	}
-	dir := a.releaseDir(release)
-	if err := materialize.WriteTree(dir, files); err != nil {
-		return 0, err
-	}
-	restore := lock.Revision{Version: prev.Version, Digest: prev.Digest, Registry: prev.Registry, Values: prev.Values, Overlays: prev.Overlays, Files: prev.Files}
-	n := lf.AddRevision(release, restore)
-	if err := lf.Save(); err != nil {
-		return 0, err
-	}
-	fmt.Fprintf(a.Opts.Out, "Rolled back release %q to revision %d, recorded as revision %d\n", release, toRevision, n)
-	return n, nil
+	fmt.Fprintf(a.Opts.Out, "Rolled back release %q to revision %d, recorded as revision %d\n", release, toRevision, out.Result.Revision)
+	return int(out.Result.Revision), nil
 }
 
-// Uninstall removes a release's materialized files and lockfile entry (SPEC §4.2).
+// Uninstall drives the UninstallSkill use case (SPEC §4.2).
 func (a *App) Uninstall(ctx context.Context, release string, keepHistory bool, opts InstallOpts) error {
-	if opts.Target == TargetConfigMap {
-		return a.uninstallConfigMap(ctx, release, opts)
+	if opts.Target == "" {
+		opts.Target = TargetFiles
 	}
-	lf, err := lock.Load(a.lockfilePath())
-	if err != nil {
+	mat, store := a.installPorts()
+	interactor := usecase.NewUninstallSkillInteractor(mat, store, opts.Target, opts.Namespace)
+	// Remove materialized files first.
+	if err := mat.Remove(release, opts.Target, opts.Namespace); err != nil {
 		return err
 	}
-	if cur, err := lf.Current(release); err == nil {
-		if files, err := cur.FileBytes(); err == nil {
-			_ = materialize.RemoveTree(a.releaseDir(release), files)
-		}
+	if keepHistory {
+		return nil
 	}
-	_ = os.RemoveAll(a.releaseDir(release))
-	if !keepHistory {
-		lf.Remove(release)
-	}
-	return lf.Save()
+	_, err := interactor.UninstallSkill(iin.UninstallSkillInput{ReleaseName: release})
+	return err
 }
 
-// Status reports the current version/digest of a release (SPEC §4.2).
-func (a *App) Status(ctx context.Context, release string, opts InstallOpts) (*lock.Revision, error) {
-	if opts.Target == TargetConfigMap {
-		return a.statusConfigMap(ctx, release, opts)
+// Status reports the current revision of a release, read through the
+// RevisionStore port (SPEC §4.2).
+func (a *App) Status(ctx context.Context, release string, opts InstallOpts) (*iout.RevisionInfo, error) {
+	if opts.Target == "" {
+		opts.Target = TargetFiles
 	}
-	lf, err := lock.Load(a.lockfilePath())
+	_, store := a.installPorts()
+	revs, err := store.History(release, opts.Target, opts.Namespace)
 	if err != nil {
 		return nil, err
 	}
-	return lf.Current(release)
+	if len(revs) == 0 {
+		return nil, fmt.Errorf("release %q not found", release)
+	}
+	last := revs[len(revs)-1]
+	return &last, nil
 }
 
-// History lists retained revisions of a release (SPEC §4.2).
-func (a *App) History(ctx context.Context, release string, opts InstallOpts) ([]lock.Revision, error) {
-	if opts.Target == TargetConfigMap {
-		return a.historyConfigMap(ctx, release, opts)
+// History lists retained revisions, read through the RevisionStore port.
+func (a *App) History(ctx context.Context, release string, opts InstallOpts) ([]iout.RevisionInfo, error) {
+	if opts.Target == "" {
+		opts.Target = TargetFiles
 	}
-	lf, err := lock.Load(a.lockfilePath())
-	if err != nil {
-		return nil, err
-	}
-	return lf.History(release), nil
+	_, store := a.installPorts()
+	return store.History(release, opts.Target, opts.Namespace)
 }
 
-// TemplateFiles renders a resolved skill and returns its rendered files without
+// Template renders a resolved skill and returns its rendered files without
 // touching a cluster (SPEC §4.4). For --target=configmap it emits ConfigMap YAML.
 func (a *App) Template(ctx context.Context, release, ref string, opts InstallOpts) (string, error) {
-	_, _, files, err := a.fetchBundle(ctx, ref, opts)
+	full, err := a.ResolveRef(ctx, ref, opts.Version)
+	if err != nil {
+		return "", err
+	}
+	man, err := a.OCI.Pull(ctx, full)
+	if err != nil {
+		return "", err
+	}
+	files, err := extractSkillFiles(man)
 	if err != nil {
 		return "", err
 	}
@@ -254,7 +249,7 @@ func (a *App) Template(ctx context.Context, release, ref string, opts InstallOpt
 		return r.YAML + "\n# --- volume/mount snippet ---\n" + commentBlock(r.MountSnippet), nil
 	}
 	var buf bytes.Buffer
-	for _, p := range materialize.SortedPaths(files) {
+	for _, p := range sortedKeys(files) {
 		fmt.Fprintf(&buf, "# %s\n%s\n", p, string(files[p]))
 	}
 	return buf.String(), nil
@@ -262,7 +257,6 @@ func (a *App) Template(ctx context.Context, release, ref string, opts InstallOpt
 
 // ---- helpers ----
 
-// extractSkillFiles unpacks the content layer of a pulled skill into a file map.
 func extractSkillFiles(man *oci.Manifest) (map[string][]byte, error) {
 	for _, l := range man.Layers {
 		if l.MediaType == domain.MediaTypeSkillContent {
@@ -272,16 +266,6 @@ func extractSkillFiles(man *oci.Manifest) (map[string][]byte, error) {
 	return nil, fmt.Errorf("skill artifact has no content layer")
 }
 
-// manifestMeta parses Epos.yaml from an unpacked skill file map.
-func manifestMeta(files map[string][]byte) (*domain.Manifest, error) {
-	data, ok := files["Epos.yaml"]
-	if !ok {
-		return nil, fmt.Errorf("Epos.yaml not found in bundle")
-	}
-	return domain.ParseManifest(data)
-}
-
-// stripTag reduces registry/repo:tag or …@digest to registry/repo.
 func stripTag(ref string) string {
 	if i := strings.LastIndex(ref, "@"); i >= 0 {
 		ref = ref[:i]
@@ -301,4 +285,13 @@ func commentBlock(s string) string {
 		b.WriteString("\n")
 	}
 	return b.String()
+}
+
+func sortedKeys(files map[string][]byte) []string {
+	out := make([]string, 0, len(files))
+	for k := range files {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
 }
