@@ -11,7 +11,10 @@ import (
 	"github.com/gaarutyunov/epos/internal/config"
 	"github.com/gaarutyunov/epos/internal/frontend"
 	"github.com/gaarutyunov/epos/internal/infrastructure/oci"
-	"github.com/gaarutyunov/epos/internal/registry/discovery"
+	reggw "github.com/gaarutyunov/epos/internal/registry/adapter/out/gateway"
+	regin "github.com/gaarutyunov/epos/internal/registry/app/port/in"
+	regusecase "github.com/gaarutyunov/epos/internal/registry/app/usecase"
+	regdomain "github.com/gaarutyunov/epos/internal/registry/domain"
 	"github.com/gaarutyunov/epos/internal/registry/proxy"
 	"github.com/gaarutyunov/epos/internal/stats"
 )
@@ -137,13 +140,21 @@ func newSearchCmd(g *globals) *cobra.Command {
 			} else if g.registry != "" {
 				regs = []config.Registry{{Name: "default", URL: schemeFor(g.plainHTTP) + g.registry}}
 			}
-			d := &discovery.Discoverer{Client: client}
+			// Drive the DetectDiscovery use case through the CatalogProbe port.
+			probe := reggw.NewCatalogProbeImpl(client)
+			detect := regusecase.NewDetectDiscoveryInteractor(probe)
 			for _, reg := range regs {
-				res, err := d.Discover(ctx(), reg)
+				out, err := detect.DetectDiscovery(regin.DetectDiscoveryInput{Entry: regdomain.RegistryEntry{
+					Name:         reg.Name,
+					URL:          reg.URL,
+					Discovery:    regdomain.DiscoveryMode{Value: reg.Discovery},
+					Repositories: reg.Repositories,
+					Namespaces:   reg.Namespaces,
+				}})
 				if err != nil {
 					continue
 				}
-				for _, repo := range res.Repos {
+				for _, repo := range out.Result.Repos {
 					if term == "" || contains(repo, term) {
 						fmt.Fprintln(a.Opts.Out, reg.Name, repo)
 					}

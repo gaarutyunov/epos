@@ -143,9 +143,14 @@ func LoadValuesFile(path string) (map[string]any, error) {
 	if err != nil {
 		return nil, err
 	}
+	return LoadValuesFromBytes(data)
+}
+
+// LoadValuesFromBytes parses YAML values bytes into a map.
+func LoadValuesFromBytes(data []byte) (map[string]any, error) {
 	var m map[string]any
 	if err := yaml.Unmarshal(data, &m); err != nil {
-		return nil, fmt.Errorf("parse values %s: %w", path, err)
+		return nil, fmt.Errorf("parse values: %w", err)
 	}
 	if m == nil {
 		m = map[string]any{}
