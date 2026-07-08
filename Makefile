@@ -8,7 +8,11 @@ SYSGO ?= sysgo
 MODEL := model/epos.sysml
 MODEL_JSON := model/model.json
 
-.PHONY: all build test model generate check-generated lint tidy epos
+.PHONY: all build test model generate check-generated lint vulncheck release-snapshot tidy epos
+
+GOLANGCI_LINT ?= go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.12.2
+GOVULNCHECK   ?= go run golang.org/x/vuln/cmd/govulncheck@latest
+GORELEASER    ?= go run github.com/goreleaser/goreleaser/v2@latest
 
 all: build
 
@@ -50,6 +54,18 @@ test:
 ## test-integration: run the BDD journeys against real containers (zot/gitea/k3s)
 test-integration:
 	go test ./... -tags=integration
+
+## lint: run golangci-lint (config in .golangci.yml)
+lint:
+	$(GOLANGCI_LINT) run ./...
+
+## vulncheck: scan dependencies and code for known vulnerabilities
+vulncheck:
+	$(GOVULNCHECK) ./...
+
+## release-snapshot: build a local, unpublished release with goreleaser
+release-snapshot:
+	$(GORELEASER) release --snapshot --clean
 
 ## tidy: sync go.mod/go.sum
 tidy:

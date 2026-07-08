@@ -6,6 +6,7 @@ import (
 	"compress/gzip"
 	"crypto/sha256"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -179,7 +180,7 @@ func UnpackTarGz(tgz []byte) (map[string][]byte, error) {
 	out := map[string][]byte{}
 	for {
 		hdr, err := tr.Next()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
@@ -211,7 +212,7 @@ func UnpackContent(tgz []byte, dstDir string) error {
 	tr := tar.NewReader(gz)
 	for {
 		hdr, err := tr.Next()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {

@@ -1,0 +1,44 @@
+# golangci-lint configuration (v2 schema).
+# Generated Go scaffolding (files carrying the standard "Code generated ... DO
+# NOT EDIT." header) is excluded automatically via the `generated: lax` rule.
+version: "2"
+
+run:
+  # Lint the integration-tagged code paths too, so the tags don't hide issues.
+  build-tags:
+    - integration
+
+linters:
+  # `standard` = errcheck, govet, ineffassign, staticcheck, unused.
+  default: standard
+  enable:
+    - bodyclose
+    - errorlint
+    - misspell
+    - unconvert
+  settings:
+    misspell:
+      locale: US
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    rules:
+      # Test files favour brevity over exhaustive error handling.
+      - path: (.+)_test\.go
+        linters:
+          - bodyclose
+          - errcheck
+          - errorlint
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/gaarutyunov/epos

@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/gaarutyunov/epos/internal/app"
+	"github.com/gaarutyunov/epos/internal/buildinfo"
 )
 
 // globals holds persistent flags shared across commands.
@@ -30,8 +31,9 @@ type globals struct {
 func NewRootCmd() *cobra.Command {
 	g := &globals{}
 	root := &cobra.Command{
-		Use:   "epos",
-		Short: "Helm for Agent Skills — package, distribute, compose, and install Skills",
+		Use:     "epos",
+		Version: buildinfo.Version,
+		Short:   "Helm for Agent Skills — package, distribute, compose, and install Skills",
 		Long: "Epos packages, distributes, and installs AI-agent Skills as OCI artifacts.\n\n" +
 			"Lifecycle verbs are reinterpreted for Skills: with --target=files (default) " +
 			"install/upgrade/rollback/status/history concern materialized files and lockfile " +
@@ -44,6 +46,9 @@ func NewRootCmd() *cobra.Command {
 			g.err = cmd.ErrOrStderr()
 		},
 	}
+
+	root.SetVersionTemplate(
+		"epos {{.Version}} (commit " + buildinfo.Commit + ", built " + buildinfo.Date + ")\n")
 
 	pf := root.PersistentFlags()
 	pf.StringVar(&g.registry, "registry", envOr("EPOS_DEFAULT_REGISTRY", ""), "default registry for bare skill names")

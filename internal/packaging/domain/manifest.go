@@ -26,7 +26,7 @@ type Dependency struct {
 	Subpath string `json:"subpath,omitempty"` // git subpath
 }
 
-// Manifest is the parsed Epos.yaml metadata (SPEC §2.2), the Chart.yaml analogue.
+// Manifest is the parsed Epos.yaml metadata (SPEC §2.2), the Chart.yaml analog.
 type Manifest struct {
 	APIVersion   string            `json:"apiVersion"`
 	Name         string            `json:"name"`

@@ -28,8 +28,8 @@ func ValidateManifest(m *Manifest, dirName string) []string {
 	var msgs []string
 
 	// name
-	switch {
-	case m.Name == "":
+	switch m.Name {
+	case "":
 		msgs = append(msgs, "name is required")
 	default:
 		lower := strings.ToLower(m.Name)

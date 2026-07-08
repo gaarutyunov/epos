@@ -124,7 +124,7 @@ func (a *App) resolveDependency(ctx context.Context, dep domain.Dependency) (*cd
 		return layer, pin, nil
 
 	default:
-		return nil, nil, fmt.Errorf("dependency %q declares neither oci: nor git:", dep.Name)
+		return nil, nil, fmt.Errorf("dependency %q declares neither an oci nor a git source", dep.Name)
 	}
 }
 
