@@ -1,0 +1,30 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/gaarutyunov/sysgo/main/schema/sysgo.schema.json
+#
+# sysgo configuration for Epos. The Go project structure is GENERATED from the
+# consolidated SysML v2 model (model/epos.sysml) by the real sysgo binary — the
+# model is the structure (SPEC §15.1). Do not hand-edit the generated tree;
+# regenerate with `make generate`.
+module: github.com/gaarutyunov/epos
+
+source:
+  # model.json is produced from model/epos.sysml by real SysML tooling:
+  #   scripts/sysml2json.sh  model/epos.sysml model/model.json   (OMG Pilot serializer)
+  # or, where that download is unavailable, the equivalent offline converter:
+  #   scripts/sysml2json.py  model/epos.sysml model/model.json
+  file: ./model/model.json
+
+generate:
+  domain: true
+  usecases: true
+  ports: true
+  adapters: scaffold
+  events: true
+  tests: false
+  importlint: true
+
+# Driven (outbound) ports live in app/port/out; driving ports in app/port/in.
+# Domain ports are context-owned; only generic clients live in Infrastructure.
+ports:
+  driven-dir: app/port/out
+  driving-dir: app/port/in
+  repository-in-domain: false

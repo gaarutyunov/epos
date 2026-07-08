@@ -1,0 +1,37 @@
+apiVersion: epos/v1
+kind: Config
+
+server:
+  listen: ":8080"
+  metricsListen: ":9090"        # Prometheus /metrics endpoint
+
+# Pluggable durable-state backend (SPEC §11).
+# Top-level `backend` sets the default for BOTH concerns; either may override.
+backend:
+  type: memory                  # memory | configmap | secret | postgres
+  # configmap/secret:
+  # namespace: epos
+  # name: epos-state
+  # postgres:
+  # dsnEnv: EPOS_PG_DSN         # DSN referenced by env var, never inlined
+
+registrationIndex:              # optional per-concern override of `backend`
+  # type: configmap
+  # namespace: epos
+  # name: epos-registrations
+
+revisionHistory:                # optional per-concern override of `backend`
+  # type: postgres
+  # dsnEnv: EPOS_PG_DSN
+  retention: 10                 # N revisions retained per skill (SPEC §5.3)
+
+# Stats is ALWAYS its own block (append-only events != current-state store).
+stats:
+  type: prometheus              # prometheus | clickhouse
+  prometheus:
+    perSkill: false             # enable per-skill series only for small catalogs
+  # clickhouse:
+  #   dsnEnv: EPOS_CLICKHOUSE_DSN
+
+signing:
+  requireSignature: false       # global enforcement; per-registry may tighten
