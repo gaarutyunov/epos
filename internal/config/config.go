@@ -6,6 +6,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"sigs.k8s.io/yaml"
 )
@@ -25,6 +26,20 @@ type Registry struct {
 	Discovery    string   `json:"discovery,omitempty"` // "" (auto) | catalog | registered
 	Repositories []string `json:"repositories,omitempty"`
 	Namespaces   []string `json:"namespaces,omitempty"`
+	// RequireSignature is the per-registry signing policy: when true, artifacts
+	// from this registry must carry a valid signature, tightening the global
+	// default (SPEC §7.2).
+	RequireSignature bool `json:"requireSignature,omitempty"`
+}
+
+// Host returns the registry URL without its scheme, for matching against a
+// registry/repo reference.
+func (r *Registry) Host() string {
+	h := r.URL
+	for _, p := range []string{"https://", "http://"} {
+		h = strings.TrimPrefix(h, p)
+	}
+	return strings.TrimSuffix(h, "/")
 }
 
 // Username resolves the read-only listing username from its env var (never
@@ -118,7 +133,48 @@ func LoadEposConfig(path string) (*EposConfig, error) {
 	if err := yaml.Unmarshal(data, &c); err != nil {
 		return nil, fmt.Errorf("parse %s: %w", path, err)
 	}
+	if err := c.Validate(); err != nil {
+		return nil, fmt.Errorf("%s: %w", path, err)
+	}
 	return &c, nil
+}
+
+// Backend type values (SPEC §8.3.1, §11).
+const (
+	BackendMemory    = "memory"
+	BackendConfigMap = "configmap"
+	BackendSecret    = "secret"
+	BackendPostgres  = "postgres"
+)
+
+// Validate reports configuration that would be silently ignored, so an operator
+// is not misled by a backend that is declared but not honored. Backends beyond
+// those Epos implements are a hard error rather than a silent no-op (SPEC §11).
+func (c *EposConfig) Validate() error {
+	// The registration index implements memory today; the revision history
+	// implements the local lockfile (files target) and in-cluster ConfigMap
+	// (configmap target). Postgres/Secret/ClickHouse are reserved (SPEC §11).
+	check := func(concern string, b Backend, allowed ...string) error {
+		if b.Type == "" {
+			return nil
+		}
+		for _, a := range allowed {
+			if b.Type == a {
+				return nil
+			}
+		}
+		return fmt.Errorf("%s backend %q is not implemented in v1 (supported: %s)", concern, b.Type, strings.Join(allowed, ", "))
+	}
+	if err := check("registrationIndex", c.RegistrationBackend(), BackendMemory, BackendConfigMap); err != nil {
+		return err
+	}
+	if err := check("revisionHistory", c.RevisionBackend(), BackendMemory, BackendConfigMap); err != nil {
+		return err
+	}
+	if c.Stats.Type != "" && c.Stats.Type != "prometheus" && c.Stats.Type != "clickhouse" {
+		return fmt.Errorf("stats backend %q is unknown (supported: prometheus, clickhouse)", c.Stats.Type)
+	}
+	return nil
 }
 
 // RegistrationBackend returns the effective registration-index backend: the

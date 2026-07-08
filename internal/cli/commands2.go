@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -112,32 +113,64 @@ func newDependencyCmd(g *globals) *cobra.Command {
 }
 
 func newProxyCmd(g *globals) *cobra.Command {
-	var upstream, listen string
+	var upstream, listen, metricsListen string
+	var perSkill bool
 	cmd := &cobra.Command{
 		Use:   "proxy",
 		Short: "Run the transparent pass-through registry proxy",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			p, err := proxy.New(upstream, stats.New())
+			counter := stats.New()
+			p, err := proxy.New(upstream, counter)
 			if err != nil {
 				return err
 			}
-			fmt.Fprintf(os.Stderr, "epos proxy: %s → %s\n", listen, upstream)
-			return http.ListenAndServe(listen, p) //nolint:gosec // operator-provided listen addr
+			// Expose Prometheus metrics: on a separate listener if configured,
+			// else under /metrics on the proxy listener (SPEC §10.1).
+			if metricsListen != "" && metricsListen != listen {
+				go func() {
+					mux := http.NewServeMux()
+					mux.Handle("/metrics", stats.MetricsHandler(counter, perSkill))
+					_ = http.ListenAndServe(metricsListen, mux) //nolint:gosec
+				}()
+				fmt.Fprintf(os.Stderr, "epos proxy: %s → %s (metrics %s)\n", listen, upstream, metricsListen)
+				return http.ListenAndServe(listen, p) //nolint:gosec // operator-provided listen addr
+			}
+			mux := http.NewServeMux()
+			mux.Handle("/metrics", stats.MetricsHandler(counter, perSkill))
+			mux.Handle("/", p)
+			fmt.Fprintf(os.Stderr, "epos proxy: %s → %s (metrics on /metrics)\n", listen, upstream)
+			return http.ListenAndServe(listen, mux) //nolint:gosec // operator-provided listen addr
 		},
 	}
 	cmd.Flags().StringVar(&upstream, "upstream", "", "upstream registry URL")
 	cmd.Flags().StringVar(&listen, "listen", ":8080", "listen address")
+	cmd.Flags().StringVar(&metricsListen, "metrics-listen", "", "separate Prometheus /metrics listen address (default: /metrics on --listen)")
+	cmd.Flags().BoolVar(&perSkill, "per-skill-metrics", false, "export per-skill pull series (small catalogs only, SPEC §10.1)")
 	_ = cmd.MarkFlagRequired("upstream")
 	return cmd
 }
 
 func newServeCmd(g *globals) *cobra.Command {
-	var listen, registriesFile string
+	var listen, registriesFile, configFile string
+	var refresh time.Duration
+	var perSkill bool
 	cmd := &cobra.Command{
 		Use:   "serve",
 		Short: "Run the federated frontend",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client := &oci.Client{PlainHTTP: g.plainHTTP}
+			// Load epos.yaml (validated) for the stats per-skill export setting
+			// (SPEC §8.3.1, §10.1). A bad backend type is a hard error, not a
+			// silent no-op.
+			if configFile != "" {
+				cfg, err := config.LoadEposConfig(configFile)
+				if err != nil {
+					return err
+				}
+				if cfg.Stats.Prometheus.PerSkill {
+					perSkill = true
+				}
+			}
 			var regs []config.Registry
 			if registriesFile != "" {
 				rc, err := config.LoadRegistries(registriesFile)
@@ -145,18 +178,47 @@ func newServeCmd(g *globals) *cobra.Command {
 					return err
 				}
 				regs = rc.Registries
+				// Honor the configured re-probe/refresh interval unless overridden
+				// by the flag (SPEC §8.1.1, §12.2).
+				if refresh == 0 && rc.DiscoveryRefreshInterval != "" {
+					if d, err := time.ParseDuration(rc.DiscoveryRefreshInterval); err == nil {
+						refresh = d
+					}
+				}
 			}
-			feed := &frontend.Feed{Registries: regs, Client: client, Stats: stats.New()}
+			counter := stats.New()
+			feed := &frontend.Feed{Registries: regs, Client: client, Stats: counter}
 			cat, err := feed.Gather(ctx())
 			if err != nil {
 				return err
 			}
-			fmt.Fprintf(os.Stderr, "epos serve: %s\n", listen)
-			return http.ListenAndServe(listen, frontend.NewServer(cat).Handler()) //nolint:gosec
+			srv := frontend.NewServer(cat)
+			// Background refresh: periodically re-gather the federated index and
+			// re-probe discovery capability, swapping the served catalog (§8.1.1,
+			// §12.2). Disabled when refresh <= 0.
+			if refresh > 0 {
+				go func() {
+					t := time.NewTicker(refresh)
+					defer t.Stop()
+					for range t.C {
+						if updated, err := feed.Gather(ctx()); err == nil {
+							srv.SetCatalog(updated)
+						}
+					}
+				}()
+			}
+			mux := http.NewServeMux()
+			mux.Handle("/metrics", stats.MetricsHandler(counter, perSkill))
+			mux.Handle("/", srv.Handler())
+			fmt.Fprintf(os.Stderr, "epos serve: %s (refresh %s)\n", listen, refresh)
+			return http.ListenAndServe(listen, mux) //nolint:gosec
 		},
 	}
 	cmd.Flags().StringVar(&listen, "listen", ":8080", "listen address")
 	cmd.Flags().StringVar(&registriesFile, "registries", "", "registries.yaml path")
+	cmd.Flags().StringVar(&configFile, "config", "", "epos.yaml path (stats/backend settings)")
+	cmd.Flags().DurationVar(&refresh, "refresh", 0, "federated-index refresh interval (default: registries.yaml discoveryRefreshInterval)")
+	cmd.Flags().BoolVar(&perSkill, "per-skill-metrics", false, "export per-skill pull series on /metrics")
 	return cmd
 }
 

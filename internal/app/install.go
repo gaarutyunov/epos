@@ -116,7 +116,7 @@ func (a *App) Install(ctx context.Context, release, ref string, opts InstallOpts
 	if err != nil {
 		return 0, err
 	}
-	if err := a.verifySignature(ctx, full, opts.RequireSignature || a.Opts.RequireSignature); err != nil {
+	if err := a.verifySignature(ctx, full, a.requireSignatureFor(full, opts.RequireSignature)); err != nil {
 		return 0, err
 	}
 
@@ -172,7 +172,7 @@ func (a *App) Upgrade(ctx context.Context, release, ref string, opts InstallOpts
 	if err != nil {
 		return 0, err
 	}
-	if err := a.verifySignature(ctx, full, opts.RequireSignature || a.Opts.RequireSignature); err != nil {
+	if err := a.verifySignature(ctx, full, a.requireSignatureFor(full, opts.RequireSignature)); err != nil {
 		return 0, err
 	}
 	mat, store := a.installPorts()

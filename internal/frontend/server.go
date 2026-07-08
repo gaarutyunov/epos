@@ -3,15 +3,32 @@ package frontend
 import (
 	"encoding/json"
 	"net/http"
+	"sync"
 )
 
 // Server serves the single-page federated listing and its JSON API (SPEC §12.3).
+// The catalog is swappable so a background refresh loop can replace the in-memory
+// index without downtime (SPEC §12.2).
 type Server struct {
+	mu      sync.RWMutex
 	catalog *Catalog
 }
 
 // NewServer wraps a catalog in an HTTP server.
 func NewServer(catalog *Catalog) *Server { return &Server{catalog: catalog} }
+
+// SetCatalog atomically replaces the served catalog (periodic refresh, §12.2).
+func (s *Server) SetCatalog(c *Catalog) {
+	s.mu.Lock()
+	s.catalog = c
+	s.mu.Unlock()
+}
+
+func (s *Server) current() *Catalog {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.catalog
+}
 
 // Handler returns the HTTP handler: GET /api/skills?keyword=&registry= returns
 // the filtered listing as JSON; GET / serves the SPA shell.
@@ -20,7 +37,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/api/skills", func(w http.ResponseWriter, r *http.Request) {
 		f := Filter{Keyword: r.URL.Query().Get("keyword"), Registry: r.URL.Query().Get("registry")}
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(s.catalog.Filter(f))
+		_ = json.NewEncoder(w).Encode(s.current().Filter(f))
 	})
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/" {

@@ -104,6 +104,19 @@ func (g *globals) newApp() *app.App {
 		opts.Retention = cfg.RevisionBackend().Retention
 		opts.RequireSignature = cfg.Signing.RequireSignature
 	}
+	// Load registries.yaml for per-registry signing policy (SPEC §7.2): a ref
+	// whose host matches an entry with requireSignature: true must be signed.
+	if rc, err := config.LoadRegistries(filepath.Join(wd, "registries.yaml")); err == nil {
+		regs := rc.Registries
+		opts.SigningPolicy = func(full string) bool {
+			for i := range regs {
+				if regs[i].RequireSignature && strings.HasPrefix(full, regs[i].Host()+"/") {
+					return true
+				}
+			}
+			return false
+		}
+	}
 	return app.New(opts)
 }
 

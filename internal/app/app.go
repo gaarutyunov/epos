@@ -49,6 +49,19 @@ type Options struct {
 	// signing.requireSignature; a per-command --require-signature also enables it
 	// (SPEC §7.2).
 	RequireSignature bool
+	// SigningPolicy resolves the per-registry signing policy for a full ref: it
+	// returns true when the matching registries.yaml entry sets
+	// requireSignature, tightening the global default (SPEC §7.2). May be nil.
+	SigningPolicy func(fullRef string) bool
+}
+
+// requireSignatureFor combines the per-command flag, the global default, and the
+// per-registry policy for a resolved ref (SPEC §7.2).
+func (a *App) requireSignatureFor(full string, flag bool) bool {
+	if flag || a.Opts.RequireSignature {
+		return true
+	}
+	return a.Opts.SigningPolicy != nil && a.Opts.SigningPolicy(full)
 }
 
 // App is the application service.
