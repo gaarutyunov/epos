@@ -163,13 +163,6 @@ func (w *world) writeSkill(name, version, description string, extra map[string]s
 	return dir
 }
 
-// publishSkill builds and pushes a skill to the registry, returning its digest.
-func (w *world) publishSkill(name, version string, extra map[string]string) (string, error) {
-	dir := w.writeSkill(name, version, "Extract and manipulate "+name, extra)
-	ref := w.registry + "/" + name + ":" + version
-	return w.app.Push(context.Background(), dir, ref)
-}
-
 // ---- epos command dispatch ----
 
 // runEpos parses an `epos …` command line and dispatches to the application

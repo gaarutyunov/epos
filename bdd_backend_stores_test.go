@@ -10,7 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/docker/go-connections/nat"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -431,14 +430,12 @@ func nodePortEndpoint(ctx context.Context, spec string) (string, string, error) 
 	if err != nil {
 		return "", "", err
 	}
-	mapped, err := k3sContainer.MappedPort(ctx, portFromSpec(spec))
+	mapped, err := k3sContainer.MappedPort(ctx, spec)
 	if err != nil {
 		return "", "", err
 	}
 	return host, mapped.Port(), nil
 }
-
-func portFromSpec(spec string) nat.Port { return nat.Port(spec) }
 
 // waitForDB opens a database/sql handle and retries Ping until the server
 // accepts connections (the pod may be Ready before the server finishes its
