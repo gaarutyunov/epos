@@ -1,7 +1,9 @@
 name: Lint & Security
 on:
+  # Lint and vulnerability scanning gate every pull request, regardless of the
+  # target branch (feature branches stack on one another here), plus pushes to
+  # main.
   pull_request:
-    branches: [main]
   push:
     branches: [main]
 
