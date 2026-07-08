@@ -14,10 +14,10 @@ import (
 // loaded directly from features/ — never duplicated or paraphrased here.
 //
 // The step definitions drive the real epos application service against real
-// dependencies: an in-process OCI registry (a genuine OCI registry, no mocks),
-// real git repositories via the git binary, and a Kubernetes API (a fake
-// clientset in the default build; a real k3s cluster under the `containers`
-// build tag for CI, SPEC §15.3).
+// dependencies started via testcontainers: a real zot OCI registry, a real
+// Gitea git server over HTTP, and a real k3s Kubernetes cluster (SPEC §15.3).
+// The whole suite is gated by the `integration` build tag (//go:build
+// integration); `go test ./...` without it runs only in-package unit tests.
 func TestFeatures(t *testing.T) {
 	suite := godog.TestSuite{
 		ScenarioInitializer: InitializeScenario,
