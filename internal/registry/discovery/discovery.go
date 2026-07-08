@@ -5,6 +5,9 @@ package discovery
 
 import (
 	"context"
+	"fmt"
+	"io"
+	"strings"
 
 	"github.com/gaarutyunov/epos/internal/config"
 	"github.com/gaarutyunov/epos/internal/infrastructure/oci"
@@ -21,6 +24,15 @@ type Result struct {
 // Discoverer probes and enumerates registries using a read-only listing client.
 type Discoverer struct {
 	Client *oci.Client
+	// Warn receives capability warnings (e.g. namespaces ignored on a
+	// non-enumerable registry, SPEC §8.3.2). Nil discards them.
+	Warn io.Writer
+}
+
+func (d *Discoverer) warnf(format string, a ...any) {
+	if d.Warn != nil {
+		fmt.Fprintf(d.Warn, "warning: "+format+"\n", a...)
+	}
 }
 
 // Probe auto-detects a registry's discovery mode (SPEC §8.1.1): catalog on a
@@ -49,19 +61,60 @@ func (d *Discoverer) Discover(ctx context.Context, entry config.Registry) (*Resu
 		if err != nil {
 			// Lost catalog capability between probe and list: fall back.
 			res.Mode = config.DiscoveryRegistered
-			res.Repos = append(res.Repos, entry.Repositories...)
+			if len(entry.Namespaces) > 0 {
+				d.warnf("registry %q: namespaces are ignored (registry is not enumerable); add explicit repositories", entry.Name)
+			}
+			res.Repos = dedup(entry.Repositories)
 			return res, nil
 		}
 		for _, repo := range repos {
+			// Namespaces, where the registry supports listing, act as prefix
+			// filters (enumerated where supported, SPEC §8.3.2).
+			if !underNamespaces(repo, entry.Namespaces) {
+				continue
+			}
 			if d.isSkill(ctx, entry, repo) {
 				res.Repos = append(res.Repos, repo)
 			}
 		}
+		// Declared repositories are always merged in (guaranteed floor, §8.3.2).
+		res.Repos = dedup(append(res.Repos, entry.Repositories...))
 	default:
-		// Registered: the declared repositories are the guaranteed-working floor.
-		res.Repos = append(res.Repos, entry.Repositories...)
+		// Registered: the declared repositories are the guaranteed-working floor;
+		// namespaces cannot be enumerated on a non-catalog registry.
+		if len(entry.Namespaces) > 0 {
+			d.warnf("registry %q: namespaces are ignored (registry is not enumerable in registered mode); add explicit repositories", entry.Name)
+		}
+		res.Repos = dedup(entry.Repositories)
 	}
 	return res, nil
+}
+
+// underNamespaces reports whether repo falls under one of the namespace prefixes.
+// An empty namespace list matches everything (no filtering).
+func underNamespaces(repo string, namespaces []string) bool {
+	if len(namespaces) == 0 {
+		return true
+	}
+	for _, ns := range namespaces {
+		if repo == ns || strings.HasPrefix(repo, strings.TrimSuffix(ns, "/")+"/") {
+			return true
+		}
+	}
+	return false
+}
+
+// dedup removes duplicate repo paths, preserving first-seen order.
+func dedup(repos []string) []string {
+	seen := map[string]bool{}
+	var out []string
+	for _, r := range repos {
+		if !seen[r] {
+			seen[r] = true
+			out = append(out, r)
+		}
+	}
+	return out
 }
 
 // isSkill reports whether a repo's latest tag is an Epos skill, by inspecting

@@ -51,10 +51,17 @@ func (a *App) Compose(ctx context.Context, skillDir string, strict bool) (*Compo
 	return &ComposeResult{Merged: port.Merged(), LayerPins: pins}, nil
 }
 
+// ResolvePins resolves a skill's pulled-layer pins without writing anything
+// (used by `dependency list`).
+func (a *App) ResolvePins(ctx context.Context, skillDir string) ([]clock.LayerPin, error) {
+	_, pins, err := a.BuildStack(ctx, skillDir)
+	return pins, err
+}
+
 // Lock resolves a skill's pulled-layer pins and writes Epos.lock without
 // materializing (SPEC §4.3, §9.7). It returns the written pin records.
 func (a *App) Lock(ctx context.Context, skillDir string) ([]clock.LayerPin, error) {
-	_, pins, err := a.BuildStack(ctx, skillDir)
+	pins, err := a.ResolvePins(ctx, skillDir)
 	if err != nil {
 		return nil, err
 	}

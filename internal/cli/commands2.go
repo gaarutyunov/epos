@@ -24,6 +24,19 @@ func newOverlayCmd(g *globals) *cobra.Command {
 		Use:   "overlay",
 		Short: "Create, package, and push declarative overlays",
 	}
+	pkg := &cobra.Command{
+		Use:   "package [DIR]",
+		Short: "Build an overlay OCI artifact locally without pushing",
+		Args:  cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			dir := g.workdirOrCwd()
+			if len(args) == 1 {
+				dir = args[0]
+			}
+			_, err := g.newApp().OverlayPackage(ctx(), dir)
+			return err
+		},
+	}
 	push := &cobra.Command{
 		Use:   "push [DIR] REF",
 		Short: "Publish an overlay as an OCI artifact",
@@ -40,7 +53,61 @@ func newOverlayCmd(g *globals) *cobra.Command {
 			return err
 		},
 	}
-	cmd.AddCommand(push)
+	cmd.AddCommand(pkg, push)
+	return cmd
+}
+
+// newDependencyCmd implements `epos dependency ...`: resolve, capture (pin), and
+// compose skill dependencies (OCI + git) declared in Epos.yaml (SPEC §4.1, §9).
+func newDependencyCmd(g *globals) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "dependency",
+		Aliases: []string{"dep", "dependencies"},
+		Short:   "Resolve, pin, and compose skill dependencies (OCI + git)",
+	}
+	lockCmd := &cobra.Command{
+		Use:   "lock PATH",
+		Short: "Resolve pulled-layer pins and write Epos.lock (parity with `epos lock`)",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			a := g.newApp()
+			pins, err := a.Lock(ctx(), args[0])
+			if err != nil {
+				return err
+			}
+			fmt.Fprintf(a.Opts.Out, "wrote Epos.lock with %d pinned layer(s)\n", len(pins))
+			return nil
+		},
+	}
+	listCmd := &cobra.Command{
+		Use:   "list PATH",
+		Short: "List the resolved dependency/overlay layer pins",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			a := g.newApp()
+			pins, err := a.ResolvePins(ctx(), args[0])
+			if err != nil {
+				return err
+			}
+			for _, p := range pins {
+				id := p.Digest
+				if id == "" {
+					id = p.Commit + ":" + p.TreeSha
+				}
+				fmt.Fprintf(a.Opts.Out, "%s\t%s\t%s\t%s\n", p.Name, p.Kind, p.SourceType, id)
+			}
+			return nil
+		},
+	}
+	verifyCmd := &cobra.Command{
+		Use:   "verify PATH",
+		Short: "Verify resolved pulled-layer pins against Epos.lock (hard error on mismatch)",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return g.newApp().VerifyLock(ctx(), args[0])
+		},
+	}
+	cmd.AddCommand(lockCmd, listCmd, verifyCmd)
 	return cmd
 }
 
@@ -142,6 +209,7 @@ func newSearchCmd(g *globals) *cobra.Command {
 			}
 			// Drive the DetectDiscovery use case through the CatalogProbe port.
 			probe := reggw.NewCatalogProbeImpl(client)
+			probe.Warn = a.Opts.Err
 			detect := regusecase.NewDetectDiscoveryInteractor(probe)
 			for _, reg := range regs {
 				out, err := detect.DetectDiscovery(regin.DetectDiscoveryInput{Entry: regdomain.RegistryEntry{

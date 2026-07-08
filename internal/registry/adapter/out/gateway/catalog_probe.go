@@ -4,6 +4,7 @@ package gateway
 
 import (
 	"context"
+	"io"
 
 	"github.com/gaarutyunov/epos/internal/config"
 	"github.com/gaarutyunov/epos/internal/infrastructure/oci"
@@ -17,6 +18,8 @@ import (
 // (SPEC §8.1). It uses the shared OCI client.
 type CatalogProbeImpl struct {
 	client *oci.Client
+	// Warn receives capability warnings (namespaces ignored, §8.3.2). Nil discards.
+	Warn io.Writer
 }
 
 var _ out.CatalogProbe = (*CatalogProbeImpl)(nil)
@@ -38,7 +41,7 @@ func (c *CatalogProbeImpl) CatalogProbe(entry domain.RegistryEntry) (domain.Cata
 		Repositories: entry.Repositories,
 		Namespaces:   entry.Namespaces,
 	}
-	d := &discovery.Discoverer{Client: c.client}
+	d := &discovery.Discoverer{Client: c.client, Warn: c.Warn}
 	res, err := d.Discover(context.Background(), reg)
 	if err != nil {
 		return domain.CatalogResult{}, err

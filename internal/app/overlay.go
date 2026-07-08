@@ -29,22 +29,53 @@ func contentFiles(man *oci.Manifest) (map[string][]byte, error) {
 	return map[string][]byte{}, nil
 }
 
+// buildOverlayArtifact reads and validates an overlay directory, returning its
+// config blob (Overlay.yaml), content tarball, and parsed metadata (SPEC §9.9).
+func (a *App) buildOverlayArtifact(overlayDir string) (ovData, tgz []byte, ov *cdomain.OverlayManifest, err error) {
+	ovData, err = os.ReadFile(filepath.Join(overlayDir, "Overlay.yaml"))
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("read Overlay.yaml: %w", err)
+	}
+	ov, err = cdomain.ParseOverlay(ovData)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	if msgs := ov.Validate(); len(msgs) > 0 {
+		return nil, nil, nil, fmt.Errorf("invalid overlay: %v", msgs)
+	}
+	tgz, err = tarDir(overlayDir)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	return ovData, tgz, ov, nil
+}
+
+// OverlayPackage builds a published overlay OCI artifact from a local overlay
+// directory into an on-disk OCI layout, without pushing (SPEC §9.9, the analogue
+// of `epos package`). Returns the layout directory.
+func (a *App) OverlayPackage(ctx context.Context, overlayDir string) (string, error) {
+	ovData, tgz, ov, err := a.buildOverlayArtifact(overlayDir)
+	if err != nil {
+		return "", err
+	}
+	tag := domain.OCITag(ov.Version)
+	layoutDir := filepath.Join(a.Opts.WorkDir, fmt.Sprintf("%s-%s.overlay", ov.Name, tag))
+	desc, err := oci.WriteLayout(ctx, layoutDir, domain.MediaTypeOverlayConfig, ovData,
+		[]oci.Blob{{MediaType: domain.MediaTypeOverlayContent, Data: tgz}},
+		domain.MediaTypeOverlayConfig, tag,
+		map[string]string{"org.opencontainers.image.title": ov.Name, "org.opencontainers.image.version": ov.Version})
+	if err != nil {
+		return "", err
+	}
+	fmt.Fprintf(a.Opts.Out, "Packaged overlay %s:%s → %s (%s)\n", ov.Name, tag, layoutDir, desc.Digest)
+	return layoutDir, nil
+}
+
 // OverlayPush builds a published overlay OCI artifact from a local overlay
 // directory and pushes it via ORAS (SPEC §9.9): a config blob (Overlay.yaml +
 // operations) and a single tar+gzip content layer bundling files/.
 func (a *App) OverlayPush(ctx context.Context, overlayDir, ref string) (string, error) {
-	ovData, err := os.ReadFile(filepath.Join(overlayDir, "Overlay.yaml"))
-	if err != nil {
-		return "", fmt.Errorf("read Overlay.yaml: %w", err)
-	}
-	ov, err := cdomain.ParseOverlay(ovData)
-	if err != nil {
-		return "", err
-	}
-	if msgs := ov.Validate(); len(msgs) > 0 {
-		return "", fmt.Errorf("invalid overlay: %v", msgs)
-	}
-	tgz, err := tarDir(overlayDir)
+	ovData, tgz, ov, err := a.buildOverlayArtifact(overlayDir)
 	if err != nil {
 		return "", err
 	}

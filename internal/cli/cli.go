@@ -72,6 +72,7 @@ func NewRootCmd() *cobra.Command {
 		newStatusCmd(g),
 		newHistoryCmd(g),
 		newOverlayCmd(g),
+		newDependencyCmd(g),
 		newComposeCmd(g),
 		newProxyCmd(g),
 		newServeCmd(g),
