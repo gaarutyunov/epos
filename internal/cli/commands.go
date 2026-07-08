@@ -7,6 +7,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/gaarutyunov/epos/internal/app"
+	"github.com/gaarutyunov/epos/internal/render"
 )
 
 func newCreateCmd(g *globals) *cobra.Command {
@@ -113,7 +114,11 @@ func newTemplateCmd(g *globals) *cobra.Command {
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			a := g.newApp()
-			out, err := a.Template(ctx(), args[0], args[1], o.toOpts())
+			opts, err := o.toOpts()
+			if err != nil {
+				return err
+			}
+			out, err := a.Template(ctx(), args[0], args[1], opts)
 			if err != nil {
 				return err
 			}
@@ -132,7 +137,11 @@ func newInstallCmd(g *globals) *cobra.Command {
 		Short: "Resolve REF to a digest and materialize the Skill bundle",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			_, err := g.newApp().Install(ctx(), args[0], args[1], o.toOpts())
+			opts, err := o.toOpts()
+			if err != nil {
+				return err
+			}
+			_, err = g.newApp().Install(ctx(), args[0], args[1], opts)
 			return err
 		},
 	}
@@ -149,7 +158,11 @@ func newUpgradeCmd(g *globals) *cobra.Command {
 		Short: "Fetch a newer version, re-materialize, and append a new revision",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			_, err := g.newApp().Upgrade(ctx(), args[0], args[1], o.toOpts())
+			opts, err := o.toOpts()
+			if err != nil {
+				return err
+			}
+			_, err = g.newApp().Upgrade(ctx(), args[0], args[1], opts)
 			return err
 		},
 	}
@@ -169,7 +182,11 @@ func newRollbackCmd(g *globals) *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("REVISION must be an integer: %w", err)
 			}
-			_, err = g.newApp().Rollback(ctx(), args[0], rev, o.toOpts())
+			opts, err := o.toOpts()
+			if err != nil {
+				return err
+			}
+			_, err = g.newApp().Rollback(ctx(), args[0], rev, opts)
 			return err
 		},
 	}
@@ -185,7 +202,11 @@ func newUninstallCmd(g *globals) *cobra.Command {
 		Short: "Remove a Skill's materialized files and its lockfile entry",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return g.newApp().Uninstall(ctx(), args[0], keepHistory, o.toOpts())
+			opts, err := o.toOpts()
+			if err != nil {
+				return err
+			}
+			return g.newApp().Uninstall(ctx(), args[0], keepHistory, opts)
 		},
 	}
 	o.bind(cmd)
@@ -201,11 +222,20 @@ func newStatusCmd(g *globals) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			a := g.newApp()
-			rev, err := a.Status(ctx(), args[0], o.toOpts())
+			opts, err := o.toOpts()
+			if err != nil {
+				return err
+			}
+			rev, err := a.Status(ctx(), args[0], opts)
 			if err != nil {
 				return err
 			}
 			fmt.Fprintf(a.Opts.Out, "release: %s\nrevision: %d\nversion: %s\ndigest: %s\n", args[0], rev.Number, rev.Version, rev.Digest)
+			if len(rev.Overlays) > 0 {
+				for _, ov := range rev.Overlays {
+					fmt.Fprintf(a.Opts.Out, "overlay: %s@%s\n", ov.Name, ov.Digest)
+				}
+			}
 			return nil
 		},
 	}
@@ -221,7 +251,11 @@ func newHistoryCmd(g *globals) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			a := g.newApp()
-			revs, err := a.History(ctx(), args[0], o.toOpts())
+			opts, err := o.toOpts()
+			if err != nil {
+				return err
+			}
+			revs, err := a.History(ctx(), args[0], opts)
 			if err != nil {
 				return err
 			}
@@ -273,6 +307,11 @@ type installFlags struct {
 	mountPath  string
 	frozen     bool
 	requireSig bool
+	// Value-override flags (Helm precedence, SPEC §3.3).
+	valuesFiles []string
+	setValues   []string
+	setStrings  []string
+	setFiles    []string
 }
 
 func (o *installFlags) bind(cmd *cobra.Command) {
@@ -280,9 +319,52 @@ func (o *installFlags) bind(cmd *cobra.Command) {
 	cmd.Flags().StringVarP(&o.namespace, "namespace", "n", "", "cluster namespace (configmap target)")
 	cmd.Flags().StringVar(&o.version, "version", "", "explicit version to resolve")
 	cmd.Flags().StringVar(&o.mountPath, "mount-path", "", "mount path for the configmap projection")
+	cmd.Flags().StringArrayVarP(&o.valuesFiles, "values", "f", nil, "values file(s), applied in order (repeatable)")
+	cmd.Flags().StringArrayVar(&o.setValues, "set", nil, "set a value (key=value, dotted keys, repeatable)")
+	cmd.Flags().StringArrayVar(&o.setStrings, "set-string", nil, "set a string value (key=value, repeatable)")
+	cmd.Flags().StringArrayVar(&o.setFiles, "set-file", nil, "set a value from a file's contents (key=path, repeatable)")
 }
 
-func (o *installFlags) toOpts() app.InstallOpts {
+// mergeValues resolves the -f/--set/--set-string/--set-file overrides into one
+// value map with Helm precedence (files in order, then --set overrides, SPEC §3.3).
+func (o *installFlags) mergeValues() (map[string]any, error) {
+	merged := map[string]any{}
+	for _, f := range o.valuesFiles {
+		vals, err := render.LoadValuesFile(f)
+		if err != nil {
+			return nil, err
+		}
+		merged = render.MergeValues(merged, vals)
+	}
+	for _, s := range o.setValues {
+		ov, err := render.SetOverride(s)
+		if err != nil {
+			return nil, err
+		}
+		merged = render.MergeValues(merged, ov)
+	}
+	for _, s := range o.setStrings {
+		ov, err := render.SetStringOverride(s)
+		if err != nil {
+			return nil, err
+		}
+		merged = render.MergeValues(merged, ov)
+	}
+	for _, s := range o.setFiles {
+		ov, err := render.SetFileOverride(s)
+		if err != nil {
+			return nil, err
+		}
+		merged = render.MergeValues(merged, ov)
+	}
+	return merged, nil
+}
+
+func (o *installFlags) toOpts() (app.InstallOpts, error) {
+	values, err := o.mergeValues()
+	if err != nil {
+		return app.InstallOpts{}, err
+	}
 	return app.InstallOpts{
 		Target:           o.target,
 		Namespace:        o.namespace,
@@ -290,5 +372,6 @@ func (o *installFlags) toOpts() app.InstallOpts {
 		MountPath:        o.mountPath,
 		Frozen:           o.frozen,
 		RequireSignature: o.requireSig,
-	}
+		Values:           values,
+	}, nil
 }

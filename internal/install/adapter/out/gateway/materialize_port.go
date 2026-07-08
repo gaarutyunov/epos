@@ -8,6 +8,8 @@ import (
 	"os"
 	"path/filepath"
 
+	"encoding/json"
+
 	"github.com/gaarutyunov/epos/internal/infrastructure/kube"
 	"github.com/gaarutyunov/epos/internal/infrastructure/oci"
 	"github.com/gaarutyunov/epos/internal/install/app/port/out"
@@ -15,6 +17,7 @@ import (
 	"github.com/gaarutyunov/epos/internal/install/domain"
 	"github.com/gaarutyunov/epos/internal/install/materialize"
 	pkgdomain "github.com/gaarutyunov/epos/internal/packaging/domain"
+	"github.com/gaarutyunov/epos/internal/render"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -28,6 +31,7 @@ type MaterializePortImpl struct {
 	kube    *kube.Client
 	last    map[string][]byte
 	lastDig string
+	lastVal map[string]any
 }
 
 var _ out.MaterializePort = (*MaterializePortImpl)(nil)
@@ -53,8 +57,23 @@ func (m *MaterializePortImpl) Materialize(request domain.InstallRequest) (domain
 			}
 		}
 	}
+
+	// Render SKILL.md with the package values.yaml merged with the request's
+	// -f/--set overrides, so the materialized/projected skill is the *rendered*
+	// skill (SPEC §3, §14.1), and capture the effective values for the revision
+	// snapshot (§5.3).
+	overrides := map[string]any{}
+	if request.Values != "" {
+		_ = json.Unmarshal([]byte(request.Values), &overrides)
+	}
+	rendered, effective, err := render.Bundle(files, overrides)
+	if err != nil {
+		return domain.InstallResult{}, err
+	}
+	files = rendered
 	m.last = files
 	m.lastDig = man.Digest
+	m.lastVal = effective
 
 	if err := m.Write(request.ReleaseName, request.Target.Value, request.Namespace, files); err != nil {
 		return domain.InstallResult{}, err
@@ -92,6 +111,10 @@ func (m *MaterializePortImpl) LastFiles() map[string][]byte { return m.last }
 
 // LastDigest returns the manifest digest from the most recent Materialize call.
 func (m *MaterializePortImpl) LastDigest() string { return m.lastDig }
+
+// LastValues returns the effective merged values from the most recent
+// Materialize call (SPEC §5.3).
+func (m *MaterializePortImpl) LastValues() map[string]any { return m.lastVal }
 
 // Remove deletes a release's materialized files (uninstall, files target).
 func (m *MaterializePortImpl) Remove(release, target, namespace string) error {

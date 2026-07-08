@@ -3,8 +3,8 @@ package app
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
-	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -42,6 +42,22 @@ type InstallOpts struct {
 	RequireSignature bool
 	Version          string
 	MountPath        string
+	// Values are the merged -f/--set override values (Helm precedence already
+	// applied by the CLI, SPEC §3.3). They are layered over the package
+	// values.yaml at render time and snapshotted into the revision (§5.3).
+	Values map[string]any
+}
+
+// valuesJSON marshals the override values to the JSON carried on InstallRequest.
+func (o InstallOpts) valuesJSON() string {
+	if len(o.Values) == 0 {
+		return ""
+	}
+	b, err := json.Marshal(o.Values)
+	if err != nil {
+		return ""
+	}
+	return string(b)
 }
 
 func (a *App) lockfilePath() string { return filepath.Join(a.Opts.WorkDir, lock.LockfileName) }
@@ -106,7 +122,7 @@ func (a *App) Install(ctx context.Context, release, ref string, opts InstallOpts
 	mat, store := a.installPorts()
 	interactor := usecase.NewInstallSkillInteractor(mat, store)
 	out, err := interactor.InstallSkill(iin.InstallSkillInput{Request: idomain.InstallRequest{
-		ReleaseName: release, SkillID: full, Target: idomain.Target{Value: opts.Target}, Namespace: opts.Namespace,
+		ReleaseName: release, SkillID: full, Target: idomain.Target{Value: opts.Target}, Namespace: opts.Namespace, Values: opts.valuesJSON(),
 	}})
 	if err != nil {
 		return 0, err
@@ -156,7 +172,7 @@ func (a *App) Upgrade(ctx context.Context, release, ref string, opts InstallOpts
 	mat, store := a.installPorts()
 	interactor := usecase.NewUpgradeSkillInteractor(mat, store)
 	out, err := interactor.UpgradeSkill(iin.UpgradeSkillInput{Request: idomain.InstallRequest{
-		ReleaseName: release, SkillID: full, Target: idomain.Target{Value: opts.Target}, Namespace: opts.Namespace,
+		ReleaseName: release, SkillID: full, Target: idomain.Target{Value: opts.Target}, Namespace: opts.Namespace, Values: opts.valuesJSON(),
 	}})
 	if err != nil {
 		return 0, err
@@ -244,8 +260,9 @@ func (a *App) Template(ctx context.Context, release, ref string, opts InstallOpt
 		return "", err
 	}
 	// Render SKILL.md through the templating engine with the package values
-	// (Go text/template + Sprig + includeReference, SPEC §3).
-	files, err = renderBundle(files)
+	// merged with -f/--set overrides (Go text/template + Sprig + includeReference,
+	// SPEC §3, §3.3).
+	files, _, err = render.Bundle(files, opts.Values)
 	if err != nil {
 		return "", err
 	}
@@ -261,54 +278,6 @@ func (a *App) Template(ctx context.Context, release, ref string, opts InstallOpt
 		fmt.Fprintf(&buf, "# %s\n%s\n", p, string(files[p]))
 	}
 	return buf.String(), nil
-}
-
-// renderBundle renders the bundle's SKILL.md through the templating engine with
-// its values.yaml (SPEC §3), returning the file set with SKILL.md rendered. It
-// materializes SKILL.md to a temp tree so templates/ helpers and includeReference
-// resolve, then keeps SKILL.md plus every supporting file the output references
-// (§3.4 selective materialization); unreferenced files fall away.
-func renderBundle(files map[string][]byte) (map[string][]byte, error) {
-	if _, ok := files["SKILL.md"]; !ok {
-		return files, nil
-	}
-	tmp, err := os.MkdirTemp("", "epos-render-*")
-	if err != nil {
-		return nil, err
-	}
-	defer os.RemoveAll(tmp)
-	for rel, data := range files {
-		full := filepath.Join(tmp, filepath.FromSlash(rel))
-		if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
-			return nil, err
-		}
-		if err := os.WriteFile(full, data, 0o644); err != nil {
-			return nil, err
-		}
-	}
-	values := map[string]any{}
-	if v, ok := files["values.yaml"]; ok {
-		if vals, err := render.LoadValuesFromBytes(v); err == nil {
-			values = vals
-		}
-	}
-	res, err := render.New().RenderDir(tmp, values)
-	if err != nil {
-		return nil, err
-	}
-
-	out := map[string][]byte{"SKILL.md": []byte(res.SkillMD)}
-	for _, keep := range []string{"Epos.yaml", "values.yaml"} {
-		if v, ok := files[keep]; ok {
-			out[keep] = v
-		}
-	}
-	for _, ref := range res.Used {
-		if v, ok := files[ref]; ok {
-			out[ref] = v
-		}
-	}
-	return out, nil
 }
 
 // ---- helpers ----

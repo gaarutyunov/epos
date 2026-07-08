@@ -36,7 +36,9 @@ func (r *RollbackSkillInteractor) RollbackSkill(input in.RollbackSkillInput) (in
 	if err := r.mat.Write(req.ReleaseName, r.target, r.namespace, prev.Files); err != nil {
 		return in.RollbackSkillOutput{}, err
 	}
-	n, err := r.store.Append(req.ReleaseName, r.target, r.namespace, prev.Version, prev.Digest, prev.Files)
+	n, err := r.store.Append(req.ReleaseName, r.target, r.namespace, out.RevisionSpec{
+		Version: prev.Version, Digest: prev.Digest, Registry: prev.Registry, Values: prev.Values, Overlays: prev.Overlays, Files: prev.Files,
+	})
 	if err != nil {
 		return in.RollbackSkillOutput{}, err
 	}

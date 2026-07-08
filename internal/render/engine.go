@@ -126,6 +126,56 @@ func referenceTitle(path string) string {
 	return strings.Title(base) //nolint:staticcheck // simple ASCII title for labels
 }
 
+// Bundle renders a skill file set's SKILL.md with the package values.yaml
+// overridden by `overrides` (already-merged -f/--set values, Helm precedence,
+// SPEC §3.3), and returns the file set with SKILL.md rendered plus only the
+// supporting files the output references (§3.4 selective materialization). It
+// also returns the effective merged values that were applied (for the revision
+// snapshot, §5.3). A file set without SKILL.md passes through unchanged.
+func Bundle(files map[string][]byte, overrides map[string]any) (map[string][]byte, map[string]any, error) {
+	base := map[string]any{}
+	if v, ok := files["values.yaml"]; ok {
+		if vals, err := LoadValuesFromBytes(v); err == nil {
+			base = vals
+		}
+	}
+	effective := MergeValues(base, overrides)
+	if _, ok := files["SKILL.md"]; !ok {
+		return files, effective, nil
+	}
+
+	tmp, err := os.MkdirTemp("", "epos-render-*")
+	if err != nil {
+		return nil, nil, err
+	}
+	defer os.RemoveAll(tmp)
+	for rel, data := range files {
+		full := filepath.Join(tmp, filepath.FromSlash(rel))
+		if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
+			return nil, nil, err
+		}
+		if err := os.WriteFile(full, data, 0o644); err != nil {
+			return nil, nil, err
+		}
+	}
+	res, err := New().RenderDir(tmp, effective)
+	if err != nil {
+		return nil, nil, err
+	}
+	out := map[string][]byte{"SKILL.md": []byte(res.SkillMD)}
+	for _, keep := range []string{"Epos.yaml", "values.yaml"} {
+		if v, ok := files[keep]; ok {
+			out[keep] = v
+		}
+	}
+	for _, ref := range res.Used {
+		if v, ok := files[ref]; ok {
+			out[ref] = v
+		}
+	}
+	return out, effective, nil
+}
+
 // MergeValues merges value layers with Helm precedence: base values.yaml, then
 // each -f file in order, then --set overrides. Maps deep-merge; lists replace
 // wholesale; a null value deletes the key (SPEC §3.3).
@@ -178,6 +228,47 @@ func SetOverride(assignment string) (map[string]any, error) {
 		}
 	}
 	return root, nil
+}
+
+// SetStringOverride parses a dotted --set-string key=value, always treating the
+// value as a string (no bool/number coercion) (SPEC §3.3).
+func SetStringOverride(assignment string) (map[string]any, error) {
+	i := strings.Index(assignment, "=")
+	if i < 0 {
+		return nil, fmt.Errorf("invalid --set-string %q: expected key=value", assignment)
+	}
+	return nestAssign(assignment[:i], assignment[i+1:]), nil
+}
+
+// SetFileOverride parses a dotted --set-file key=path, using the file's contents
+// as the (string) value (SPEC §3.3).
+func SetFileOverride(assignment string) (map[string]any, error) {
+	i := strings.Index(assignment, "=")
+	if i < 0 {
+		return nil, fmt.Errorf("invalid --set-file %q: expected key=path", assignment)
+	}
+	data, err := os.ReadFile(assignment[i+1:])
+	if err != nil {
+		return nil, err
+	}
+	return nestAssign(assignment[:i], string(data)), nil
+}
+
+// nestAssign builds a nested map from a dotted key and a final value.
+func nestAssign(key string, val any) map[string]any {
+	parts := strings.Split(key, ".")
+	root := map[string]any{}
+	cur := root
+	for j, p := range parts {
+		if j == len(parts)-1 {
+			cur[p] = val
+		} else {
+			next := map[string]any{}
+			cur[p] = next
+			cur = next
+		}
+	}
+	return root
 }
 
 func coerce(s string) any {

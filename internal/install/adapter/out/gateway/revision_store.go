@@ -23,8 +23,9 @@ import (
 // git-committed lockfile for the files target, and self-contained in-cluster
 // ConfigMap records for the configmap target (SPEC §5.4, §14.6).
 type RevisionStoreImpl struct {
-	workDir string
-	kube    *kube.Client
+	workDir   string
+	kube      *kube.Client
+	retention int
 }
 
 var _ out.RevisionRepository = (*RevisionStoreImpl)(nil)
@@ -34,6 +35,10 @@ var _ out.RevisionRepository = (*RevisionStoreImpl)(nil)
 func NewRevisionStoreImpl(workDir string, k *kube.Client) *RevisionStoreImpl {
 	return &RevisionStoreImpl{workDir: workDir, kube: k}
 }
+
+// SetRetention configures the retained-revision count from config (SPEC §5.3);
+// 0 leaves the lockfile default in place.
+func (r *RevisionStoreImpl) SetRetention(n int) { r.retention = n }
 
 func (r *RevisionStoreImpl) lockfilePath() string {
 	return filepath.Join(r.workDir, lock.LockfileName)
@@ -46,7 +51,9 @@ func (r *RevisionStoreImpl) RevisionStore(release domain.Release) (bool, error) 
 		if err != nil {
 			return false, err
 		}
-		if _, err := r.Append(release.Name, release.Target.Value, release.Namespace, b.Version, b.Digest, b.Files); err != nil {
+		if _, err := r.Append(release.Name, release.Target.Value, release.Namespace, out.RevisionSpec{
+			Version: b.Version, Digest: b.Digest, Registry: b.Registry, Values: b.Values, Files: b.Files,
+		}); err != nil {
 			return false, err
 		}
 	}
@@ -54,21 +61,36 @@ func (r *RevisionStoreImpl) RevisionStore(release domain.Release) (bool, error) 
 }
 
 // Append records one revision bundle and returns its assigned number.
-func (r *RevisionStoreImpl) Append(release, target, namespace, version, digest string, files map[string][]byte) (int, error) {
+func (r *RevisionStoreImpl) Append(release, target, namespace string, spec out.RevisionSpec) (int, error) {
 	if target == "configmap" {
-		return r.appendCluster(release, namespace, version, digest, files)
+		return r.appendCluster(release, namespace, spec)
 	}
 	lf, err := lock.Load(r.lockfilePath())
 	if err != nil {
 		return 0, err
 	}
-	lr := lock.Revision{Version: version, Digest: digest, Registry: release}
-	lr.SetFiles(files)
+	if r.retention > 0 {
+		lf.SetRetention(r.retention)
+	}
+	lr := lock.Revision{Version: spec.Version, Digest: spec.Digest, Registry: spec.Registry, Values: spec.Values, Overlays: toLockPins(spec.Overlays)}
+	lr.SetFiles(spec.Files)
 	n := lf.AddRevision(release, lr)
 	if err := lf.Save(); err != nil {
 		return 0, err
 	}
 	return n, nil
+}
+
+// toLockPins converts port overlay pins to lockfile overlay pins.
+func toLockPins(pins []out.OverlayPin) []lock.OverlayPin {
+	if len(pins) == 0 {
+		return nil
+	}
+	out := make([]lock.OverlayPin, len(pins))
+	for i, p := range pins {
+		out[i] = lock.OverlayPin{Name: p.Name, Digest: p.Digest}
+	}
+	return out
 }
 
 // History returns the retained revisions of a release (oldest first).
@@ -83,9 +105,21 @@ func (r *RevisionStoreImpl) History(release, target, namespace string) ([]out.Re
 	var infos []out.RevisionInfo
 	for _, rev := range lf.History(release) {
 		files, _ := rev.FileBytes()
-		infos = append(infos, out.RevisionInfo{Number: rev.Revision, Version: rev.Version, Digest: rev.Digest, Files: files})
+		infos = append(infos, out.RevisionInfo{Number: rev.Revision, Version: rev.Version, Digest: rev.Digest, Registry: rev.Registry, Values: rev.Values, Overlays: fromLockPins(rev.Overlays), Files: files})
 	}
 	return infos, nil
+}
+
+// fromLockPins converts lockfile overlay pins to port overlay pins.
+func fromLockPins(pins []lock.OverlayPin) []out.OverlayPin {
+	if len(pins) == 0 {
+		return nil
+	}
+	o := make([]out.OverlayPin, len(pins))
+	for i, p := range pins {
+		o[i] = out.OverlayPin{Name: p.Name, Digest: p.Digest}
+	}
+	return o
 }
 
 // Get returns a specific retained revision.
@@ -102,7 +136,7 @@ func (r *RevisionStoreImpl) Get(release, target, namespace string, number int) (
 		return out.RevisionInfo{}, err
 	}
 	files, _ := rev.FileBytes()
-	return out.RevisionInfo{Number: rev.Revision, Version: rev.Version, Digest: rev.Digest, Files: files}, nil
+	return out.RevisionInfo{Number: rev.Revision, Version: rev.Version, Digest: rev.Digest, Registry: rev.Registry, Values: rev.Values, Overlays: fromLockPins(rev.Overlays), Files: files}, nil
 }
 
 // Delete removes a release's revision history.
@@ -129,7 +163,7 @@ func (r *RevisionStoreImpl) Delete(release, target, namespace string) error {
 
 // ---- in-cluster revision records (configmap target, SPEC §14.6) ----
 
-func (r *RevisionStoreImpl) appendCluster(release, namespace, version, digest string, files map[string][]byte) (int, error) {
+func (r *RevisionStoreImpl) appendCluster(release, namespace string, spec out.RevisionSpec) (int, error) {
 	if r.kube == nil {
 		return 0, fmt.Errorf("configmap revision history requires a cluster client")
 	}
@@ -141,7 +175,10 @@ func (r *RevisionStoreImpl) appendCluster(release, namespace, version, digest st
 	if len(nums) > 0 {
 		next = nums[len(nums)-1] + 1
 	}
-	blob, err := encodeBundle(bundle{Version: version, Digest: digest, Files: files})
+	blob, err := encodeBundle(bundle{
+		Version: spec.Version, Digest: spec.Digest, Registry: spec.Registry,
+		Values: spec.Values, Overlays: toBundlePins(spec.Overlays), Files: spec.Files,
+	})
 	if err != nil {
 		return 0, err
 	}
@@ -201,5 +238,5 @@ func (r *RevisionStoreImpl) getCluster(release, namespace string, number int) (o
 	if err != nil {
 		return out.RevisionInfo{}, err
 	}
-	return out.RevisionInfo{Number: number, Version: b.Version, Digest: b.Digest, Files: b.Files}, nil
+	return out.RevisionInfo{Number: number, Version: b.Version, Digest: b.Digest, Registry: b.Registry, Values: b.Values, Overlays: fromBundlePins(b.Overlays), Files: b.Files}, nil
 }

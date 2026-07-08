@@ -29,7 +29,9 @@ func (i *InstallSkillInteractor) InstallSkill(input in.InstallSkillInput) (in.In
 		return in.InstallSkillOutput{}, err
 	}
 	files := i.mat.LastFiles()
-	n, err := i.store.Append(req.ReleaseName, req.Target.Value, req.Namespace, versionOf(files), i.mat.LastDigest(), files)
+	n, err := i.store.Append(req.ReleaseName, req.Target.Value, req.Namespace, out.RevisionSpec{
+		Version: versionOf(files), Digest: i.mat.LastDigest(), Registry: req.SkillID, Values: i.mat.LastValues(), Files: files,
+	})
 	if err != nil {
 		return in.InstallSkillOutput{}, err
 	}

@@ -29,7 +29,9 @@ func (u *UpgradeSkillInteractor) UpgradeSkill(input in.UpgradeSkillInput) (in.Up
 		return in.UpgradeSkillOutput{}, err
 	}
 	files := u.mat.LastFiles()
-	n, err := u.store.Append(req.ReleaseName, req.Target.Value, req.Namespace, versionOf(files), u.mat.LastDigest(), files)
+	n, err := u.store.Append(req.ReleaseName, req.Target.Value, req.Namespace, out.RevisionSpec{
+		Version: versionOf(files), Digest: u.mat.LastDigest(), Registry: req.SkillID, Values: u.mat.LastValues(), Files: files,
+	})
 	if err != nil {
 		return in.UpgradeSkillOutput{}, err
 	}

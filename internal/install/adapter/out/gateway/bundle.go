@@ -7,16 +7,51 @@ import (
 	"compress/gzip"
 	"encoding/base64"
 	"encoding/json"
+
+	"github.com/gaarutyunov/epos/internal/install/app/port/out"
 )
 
+// bundlePin is an overlay pin recorded in an in-cluster revision (SPEC §9.7).
+type bundlePin struct {
+	Name   string `json:"name"`
+	Digest string `json:"digest"`
+}
+
 // bundle is the self-contained revision payload encoded into domain.Revision.Blob
-// (Helm-style JSON → gzip → base64, SPEC §14.6). It carries the rendered files so
-// rollback restores the whole bundle.
+// (Helm-style JSON → gzip → base64, SPEC §14.6). It carries the rendered files,
+// the resolved values, and the pinned overlays so rollback restores the whole
+// bundle (§5.3, §14.6).
 type bundle struct {
-	Version string            `json:"version"`
-	Digest  string            `json:"digest"`
-	Values  string            `json:"values"`
-	Files   map[string][]byte `json:"files"`
+	Version  string            `json:"version"`
+	Digest   string            `json:"digest"`
+	Registry string            `json:"registry,omitempty"`
+	Values   map[string]any    `json:"values,omitempty"`
+	Overlays []bundlePin       `json:"overlays,omitempty"`
+	Files    map[string][]byte `json:"files"`
+}
+
+// toBundlePins converts port overlay pins to bundle pins.
+func toBundlePins(pins []out.OverlayPin) []bundlePin {
+	if len(pins) == 0 {
+		return nil
+	}
+	o := make([]bundlePin, len(pins))
+	for i, p := range pins {
+		o[i] = bundlePin{Name: p.Name, Digest: p.Digest}
+	}
+	return o
+}
+
+// fromBundlePins converts bundle pins to port overlay pins.
+func fromBundlePins(pins []bundlePin) []out.OverlayPin {
+	if len(pins) == 0 {
+		return nil
+	}
+	o := make([]out.OverlayPin, len(pins))
+	for i, p := range pins {
+		o[i] = out.OverlayPin{Name: p.Name, Digest: p.Digest}
+	}
+	return o
 }
 
 func encodeBundle(b bundle) (string, error) {
