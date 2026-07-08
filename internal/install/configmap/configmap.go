@@ -76,6 +76,13 @@ func Render(name, namespace, mountPath string, files map[string][]byte) (*Render
 				cmName = name + "-" + sanitizeSuffix(sub.name)
 			}
 			cm := buildConfigMap(cmName, namespace, sub.files)
+			// A single subtree (or file) that still exceeds the ceiling cannot be
+			// projected into one ConfigMap; the etcd/API server would reject it.
+			// Fail loudly rather than emit an object that is silently over budget
+			// (SPEC §14.2, §14.7).
+			if objectSize(cm) > SizeCeiling {
+				return nil, fmt.Errorf("subtree %q renders to %d bytes, over the %d-byte ConfigMap ceiling even after per-subtree split; split the skill's %q directory or reduce binary assets (SPEC §14.7)", sub.name, objectSize(cm), SizeCeiling, sub.name)
+			}
 			r.ConfigMaps = append(r.ConfigMaps, cm)
 			r.Items[cmName] = itemsFor(sub.files)
 		}

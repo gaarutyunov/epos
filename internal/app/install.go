@@ -67,6 +67,7 @@ func (a *App) lockfilePath() string { return filepath.Join(a.Opts.WorkDir, lock.
 func (a *App) installPorts() (*gw.MaterializePortImpl, *gw.RevisionStoreImpl) {
 	mat := gw.NewMaterializePortImpl(a.Opts.WorkDir, a.OCI, a.Kube)
 	store := gw.NewRevisionStoreImpl(a.Opts.WorkDir, a.Kube)
+	store.SetRetention(a.Opts.Retention)
 	return mat, store
 }
 
@@ -106,16 +107,16 @@ func (a *App) Install(ctx context.Context, release, ref string, opts InstallOpts
 	if opts.Target == "" {
 		opts.Target = TargetFiles
 	}
-	if opts.Frozen {
-		if err := a.verifyFrozen(ctx, release, ref, opts); err != nil {
-			return 0, err
-		}
+	// A tag/digest mismatch against the lockfile pin is ALWAYS a hard error, not
+	// only under --frozen (SPEC §5.2): a pinned release must never silently swap.
+	if err := a.verifyPin(ctx, release, ref, opts); err != nil {
+		return 0, err
 	}
 	full, err := a.ResolveRef(ctx, ref, opts.Version)
 	if err != nil {
 		return 0, err
 	}
-	if err := a.verifySignature(ctx, full, opts.RequireSignature); err != nil {
+	if err := a.verifySignature(ctx, full, opts.RequireSignature || a.Opts.RequireSignature); err != nil {
 		return 0, err
 	}
 
@@ -131,15 +132,20 @@ func (a *App) Install(ctx context.Context, release, ref string, opts InstallOpts
 	return int(out.Result.Revision), nil
 }
 
-// verifyFrozen enforces the lockfile pin against the current tag resolution: a
-// tag/digest mismatch is a hard error (SPEC §5.2), never a silent swap.
-func (a *App) verifyFrozen(ctx context.Context, release, ref string, opts InstallOpts) error {
+// verifyPin enforces the lockfile pin against the current tag resolution: a
+// tag/digest mismatch is a hard error (SPEC §5.2), never a silent swap. This
+// runs on every install. Under --frozen it additionally requires that the
+// release already be pinned (strict CI/frozen install, SPEC §4.3).
+func (a *App) verifyPin(ctx context.Context, release, ref string, opts InstallOpts) error {
 	lf, err := lock.Load(a.lockfilePath())
 	if err != nil {
 		return err
 	}
 	cur, err := lf.Current(release)
 	if err != nil {
+		if opts.Frozen {
+			return fmt.Errorf("--frozen: release %q is not pinned in %s", release, lock.LockfileName)
+		}
 		return nil // nothing pinned yet
 	}
 	full, err := a.ResolveRef(ctx, ref, opts.Version)
@@ -166,7 +172,7 @@ func (a *App) Upgrade(ctx context.Context, release, ref string, opts InstallOpts
 	if err != nil {
 		return 0, err
 	}
-	if err := a.verifySignature(ctx, full, opts.RequireSignature); err != nil {
+	if err := a.verifySignature(ctx, full, opts.RequireSignature || a.Opts.RequireSignature); err != nil {
 		return 0, err
 	}
 	mat, store := a.installPorts()

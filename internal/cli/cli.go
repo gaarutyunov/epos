@@ -8,9 +8,12 @@ import (
 	"os"
 	"strings"
 
+	"path/filepath"
+
 	"github.com/spf13/cobra"
 
 	"github.com/gaarutyunov/epos/internal/app"
+	"github.com/gaarutyunov/epos/internal/config"
 )
 
 // globals holds persistent flags shared across commands.
@@ -84,7 +87,7 @@ func (g *globals) newApp() *app.App {
 	if wd == "" {
 		wd, _ = os.Getwd()
 	}
-	return app.New(app.Options{
+	opts := app.Options{
 		DefaultRegistry: g.registry,
 		PlainHTTP:       g.plainHTTP,
 		Username:        g.username,
@@ -93,7 +96,14 @@ func (g *globals) newApp() *app.App {
 		Kubeconfig:      g.kubeconfig,
 		Out:             g.out,
 		Err:             g.err,
-	})
+	}
+	// Load epos.yaml from the working directory if present (SPEC §8.3.1): its
+	// revisionHistory.retention and signing.requireSignature govern install.
+	if cfg, err := config.LoadEposConfig(filepath.Join(wd, "epos.yaml")); err == nil {
+		opts.Retention = cfg.RevisionBackend().Retention
+		opts.RequireSignature = cfg.Signing.RequireSignature
+	}
+	return app.New(opts)
 }
 
 func ctx() context.Context { return context.Background() }

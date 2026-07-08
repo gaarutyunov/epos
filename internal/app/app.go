@@ -41,6 +41,14 @@ type Options struct {
 	// Out/Err are the CLI's output streams.
 	Out io.Writer
 	Err io.Writer
+
+	// Retention is the number of lockfile revisions retained per release, from
+	// epos.yaml revisionHistory.retention (0 = the built-in default, SPEC §5.3).
+	Retention int
+	// RequireSignature is the global signing-enforcement default from epos.yaml
+	// signing.requireSignature; a per-command --require-signature also enables it
+	// (SPEC §7.2).
+	RequireSignature bool
 }
 
 // App is the application service.

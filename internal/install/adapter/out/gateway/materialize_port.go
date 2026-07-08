@@ -116,10 +116,24 @@ func (m *MaterializePortImpl) LastDigest() string { return m.lastDig }
 // Materialize call (SPEC §5.3).
 func (m *MaterializePortImpl) LastValues() map[string]any { return m.lastVal }
 
-// Remove deletes a release's materialized files (uninstall, files target).
+// Remove deletes a release's materialized files (uninstall, files target) or the
+// projected mountable ConfigMap(s) (configmap target, SPEC §4.2/§14). The
+// in-cluster revision records are removed separately via the revision store.
 func (m *MaterializePortImpl) Remove(release, target, namespace string) error {
 	if target == "configmap" {
-		return nil // cluster ConfigMaps are removed via the revision store
+		if m.kube == nil {
+			return fmt.Errorf("configmap target requires a cluster client")
+		}
+		cms, err := m.kube.ListConfigMaps(context.Background(), namespace, "epos.dev/release="+release)
+		if err != nil {
+			return err
+		}
+		for i := range cms {
+			if err := m.kube.DeleteConfigMap(context.Background(), namespace, cms[i].Name); err != nil {
+				return err
+			}
+		}
+		return nil
 	}
 	return removeDir(filepath.Join(m.workDir, release))
 }
