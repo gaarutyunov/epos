@@ -16,7 +16,7 @@ jobs:
           fetch-depth: 0
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.24'
+          go-version: '1.25'
 
       # Provides the syft binary used by the goreleaser `sboms` stage.
       - name: Install syft
