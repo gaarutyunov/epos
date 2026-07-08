@@ -71,9 +71,10 @@ func zotConfig() io.Reader {
 // ---- cluster: k3s (started once, reused across scenarios) ----
 
 var (
-	k3sOnce   sync.Once
-	k3sClient kubernetes.Interface
-	k3sErr    error
+	k3sOnce      sync.Once
+	k3sClient    kubernetes.Interface
+	k3sContainer *k3s.K3sContainer
+	k3sErr       error
 )
 
 func newKubeClient(_ *world) *kube.Client {
@@ -85,13 +86,25 @@ func newKubeClient(_ *world) *kube.Client {
 	return kube.NewFromInterface(k3sClient)
 }
 
+// withExposedPorts is a testcontainers customizer that publishes additional
+// container ports — used to surface the in-cluster NodePorts of the Postgres and
+// ClickHouse services (SPEC §11, §16) to the host test process.
+func withExposedPorts(ports ...string) testcontainers.CustomizeRequestOption {
+	return func(req *testcontainers.GenericContainerRequest) error {
+		req.ExposedPorts = append(req.ExposedPorts, ports...)
+		return nil
+	}
+}
+
 func startK3s() {
 	ctx := context.Background()
-	container, err := k3s.Run(ctx, "rancher/k3s:v1.31.2-k3s1")
+	container, err := k3s.Run(ctx, "rancher/k3s:v1.31.2-k3s1",
+		withExposedPorts(pgNodePortSpec, chNodePortSpec))
 	if err != nil {
 		k3sErr = fmt.Errorf("start k3s: %w", err)
 		return
 	}
+	k3sContainer = container
 	kubeconfig, err := container.GetKubeConfig(ctx)
 	if err != nil {
 		k3sErr = fmt.Errorf("k3s kubeconfig: %w", err)
