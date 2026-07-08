@@ -142,7 +142,7 @@ func (a *App) Push(ctx context.Context, path, ref string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	full := a.qualify(ref)
+	full := rewritePushTag(a.qualify(ref))
 	desc, err := a.OCI.Push(ctx, full, domain.MediaTypeSkillConfig, art.Config.Data,
 		[]oci.Blob{{MediaType: art.Content.MediaType, Data: art.Content.Data}},
 		domain.MediaTypeSkillConfig,
@@ -246,6 +246,22 @@ func (a *App) highestTag(ctx context.Context, repoRef string) (string, error) {
 	}
 	sort.Slice(versions, func(i, j int) bool { return versions[i].LessThan(versions[j]) })
 	return byVer[versions[len(versions)-1]], nil
+}
+
+// rewritePushTag applies the SemVer build-metadata tag rewrite ('+'->'_') to the
+// tag component of a push reference, so `repo:1.4.2+build.5` pushes to the
+// OCI-safe tag `1.4.2_build.5` (SPEC §2.2). Digest refs and untagged refs pass
+// through unchanged.
+func rewritePushTag(full string) string {
+	if strings.Contains(full, "@") {
+		return full
+	}
+	slash := strings.LastIndex(full, "/")
+	c := strings.LastIndex(full, ":")
+	if c <= slash {
+		return full // no tag
+	}
+	return full[:c+1] + domain.OCITag(full[c+1:])
 }
 
 // hasTag reports whether a registry/repo reference already carries a :tag.

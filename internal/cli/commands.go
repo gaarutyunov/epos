@@ -251,6 +251,9 @@ func newComposeCmd(g *globals) *cobra.Command {
 			for _, line := range res.Merged.ProvenanceLines() {
 				fmt.Fprintln(a.Opts.Out, line)
 			}
+			for _, w := range res.Merged.Warnings {
+				fmt.Fprintln(a.Opts.Err, "warning: "+w)
+			}
 			if outDir != "" {
 				return writeMergedTree(outDir, res.Merged.Files)
 			}

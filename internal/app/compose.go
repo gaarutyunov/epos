@@ -152,6 +152,9 @@ func fillOverlayFromArtifact(layer *cdomain.StackLayer, man *oci.Manifest, files
 	if err != nil {
 		return err
 	}
+	if msgs := ov.Validate(); len(msgs) > 0 {
+		return fmt.Errorf("overlay %q is invalid: %s", layer.Name, strings.Join(msgs, "; "))
+	}
 	layer.Operations = ov.Operations
 	layer.PayloadFiles = files
 	return nil
@@ -167,6 +170,9 @@ func fillOverlayFromFiles(layer *cdomain.StackLayer, files map[string][]byte) er
 	ov, err := cdomain.ParseOverlay(data)
 	if err != nil {
 		return err
+	}
+	if msgs := ov.Validate(); len(msgs) > 0 {
+		return fmt.Errorf("overlay %q is invalid: %s", layer.Name, strings.Join(msgs, "; "))
 	}
 	layer.Operations = ov.Operations
 	layer.PayloadFiles = files

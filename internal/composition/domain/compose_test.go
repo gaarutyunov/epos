@@ -33,6 +33,45 @@ func TestThreeLayerPrecedence(t *testing.T) {
 	}
 }
 
+func TestParseOverlayPathPayload(t *testing.T) {
+	// Regression: the on-disk `path:` key must populate the operation's payload
+	// reference (SPEC §9.4.1). Previously it silently parsed to an empty payload.
+	data := []byte("apiVersion: epos/v1\nkind: Overlay\nname: team-refs\nversion: 0.2.0\n" +
+		"operations:\n  - op: add-file\n    target: references/advanced.md\n    path: files/advanced.md\n")
+	ov, err := ParseOverlay(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(ov.Operations) != 1 {
+		t.Fatalf("want 1 op, got %d", len(ov.Operations))
+	}
+	if ov.Operations[0].PayloadPath != "files/advanced.md" {
+		t.Errorf("path: not mapped to PayloadPath, got %q", ov.Operations[0].PayloadPath)
+	}
+	// And it composes the referenced payload content, not an empty file.
+	layer := StackLayer{Name: "team-refs", Kind: KindOverlay, Operations: ov.Operations,
+		PayloadFiles: map[string][]byte{"files/advanced.md": []byte("ADVANCED")}}
+	m, err := Compose([]StackLayer{layer}, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(m.Files["references/advanced.md"]) != "ADVANCED" {
+		t.Errorf("add-file via path: composed %q, want ADVANCED", m.Files["references/advanced.md"])
+	}
+}
+
+func TestParseOverlayRejectsDualPayload(t *testing.T) {
+	data := []byte("apiVersion: epos/v1\nkind: Overlay\nname: x\nversion: 0.1.0\n" +
+		"operations:\n  - op: append-to-file\n    target: SKILL.md\n    path: files/x\n    content: inline\n")
+	ov, err := ParseOverlay(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if msgs := ov.Validate(); len(msgs) == 0 {
+		t.Error("expected validation error for both path: and content:")
+	}
+}
+
 func TestSkillMarkdownOperationMerge(t *testing.T) {
 	origin := StackLayer{Name: "origin", Kind: KindSkill, Files: map[string][]byte{
 		"SKILL.md": []byte("# Title\n\n## Usage\nRun the tool.\n"),
