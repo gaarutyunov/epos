@@ -110,11 +110,15 @@ func (s *PostgresRevisionStore) Append(release, target, namespace, version, dige
 		return 0, fmt.Errorf("postgres: insert revision: %w", err)
 	}
 	if s.retention > 0 {
+		// Keep only the last `retention` revisions; the threshold is computed in
+		// Go so Postgres sees a single typed integer parameter (an in-SQL
+		// `$n - $m` is type-ambiguous over the extended protocol).
+		threshold := next - s.retention
 		if _, err := tx.ExecContext(ctx, `
 DELETE FROM revisions
 WHERE release = $1 AND target = $2 AND namespace = $3
-  AND number <= $4 - $5`,
-			release, target, namespace, next, s.retention); err != nil {
+  AND number <= $4`,
+			release, target, namespace, threshold); err != nil {
 			return 0, fmt.Errorf("postgres: prune revisions: %w", err)
 		}
 	}
