@@ -23,7 +23,7 @@ func newStoreCommand() *cobra.Command {
 		Args:         cobra.NoArgs,
 		RunE:         func(cmd *cobra.Command, _ []string) error { return cmd.Help() },
 	}
-	cmd.AddCommand(newStorePathCommand(), newStoreLsCommand())
+	cmd.AddCommand(newStorePathCommand(), newStoreLsCommand(), newStorePruneCommand())
 	return cmd
 }
 
@@ -64,6 +64,29 @@ func newStoreLsCommand() *cobra.Command {
 			for _, tag := range tags {
 				fmt.Fprintln(cmd.OutOrStdout(), tag)
 			}
+			return nil
+		},
+	}
+}
+
+func newStorePruneCommand() *cobra.Command {
+	return &cobra.Command{
+		Use:   "prune",
+		Short: "Delete blobs no tagged skill reaches",
+		Long: "prune is mark-and-sweep from the tagged manifests. Collection is\n" +
+			"manual only, like the Go module cache, pnpm, Cargo and Bazel.",
+		Args:         cobra.NoArgs,
+		SilenceUsage: true,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			s, err := store.Default()
+			if err != nil {
+				return err
+			}
+			removed, err := s.Prune(cmd.Context())
+			if err != nil {
+				return err
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "removed %d blob(s)\n", removed)
 			return nil
 		},
 	}

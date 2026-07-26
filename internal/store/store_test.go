@@ -145,3 +145,46 @@ func TestResolveOnEmptyStore(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, tags)
 }
+
+// SPEC.md 9.3: prune is mark-and-sweep from the tagged manifests. Anything a
+// tag reaches survives; anything else goes.
+func TestPruneKeepsReachableBlobsAndSweepsTheRest(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "store")
+	s := At(root)
+	push(t, s, "hello:1.0.0", "reachable")
+
+	blobs := filepath.Join(root, "blobs", "sha256")
+	before, err := os.ReadDir(blobs)
+	require.NoError(t, err)
+
+	// An orphan: on disk, reachable from no tag.
+	require.NoError(t, os.WriteFile(filepath.Join(blobs, "deadbeef"), []byte("orphan"), 0o644))
+
+	removed, err := s.Prune(context.Background())
+	require.NoError(t, err)
+	assert.Equal(t, 1, removed)
+
+	after, err := os.ReadDir(blobs)
+	require.NoError(t, err)
+	assert.Len(t, after, len(before), "every blob a tag reaches must survive")
+
+	// The tag still resolves, so the sweep did not take anything live.
+	_, err = s.Resolve(context.Background(), "hello:1.0.0")
+	assert.NoError(t, err)
+}
+
+// A read-only blob must still be removable: 9.3 calls out the defect that
+// makes rm -rf on GOMODCACHE fail.
+func TestPruneRemovesReadOnlyBlobs(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "store")
+	s := At(root)
+	push(t, s, "hello:1.0.0", "reachable")
+
+	orphan := filepath.Join(root, "blobs", "sha256", "readonlyorphan")
+	require.NoError(t, os.WriteFile(orphan, []byte("orphan"), 0o444))
+
+	removed, err := s.Prune(context.Background())
+	require.NoError(t, err)
+	assert.Equal(t, 1, removed)
+	assert.NoFileExists(t, orphan)
+}

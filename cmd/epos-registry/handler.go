@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/gaarutyunov/epos/internal/artifact"
 	"github.com/gaarutyunov/epos/internal/metrics"
 	"github.com/gaarutyunov/epos/internal/upstream"
 )
@@ -14,9 +15,10 @@ import (
 // from a plain registry without probing (SPEC.md 4.3).
 const eposVersionHeader = "Epos-Version"
 
-// eposDownloadHeader marks a download verified (SPEC.md 5.2). The epos CLI
-// sends it; stock oras does not.
-const eposDownloadHeader = "Epos-Download"
+// eposDownloadHeader marks a download verified (SPEC.md 5.2). Defined once in
+// internal/artifact so the CLI that sends it and the registry that reads it
+// cannot drift apart.
+const eposDownloadHeader = artifact.DownloadHeader
 
 //go:generate go tool mockgen -source=handler.go -destination=mocks_test.go -package=main
 

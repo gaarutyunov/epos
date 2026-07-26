@@ -32,6 +32,6 @@ func newRootCommand() *cobra.Command {
 			return cmd.Help()
 		},
 	}
-	cmd.AddCommand(newPackCommand(), newStoreCommand())
+	cmd.AddCommand(newPackCommand(), newPushCommand(), newPullCommand(), newStoreCommand())
 	return cmd
 }

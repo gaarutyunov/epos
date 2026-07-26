@@ -26,6 +26,11 @@ const (
 // SkillFile is the file whose frontmatter becomes the config blob.
 const SkillFile = "SKILL.md"
 
+// DownloadHeader marks a download verified (SPEC.md 5.2). The epos CLI sends
+// it; stock oras does not, which is what lets epos-registry tell a verified
+// download from an inflated one.
+const DownloadHeader = "Epos-Download"
+
 // Config is the config blob: SKILL.md's frontmatter, as JSON.
 //
 // 2.1 says the blob "mirrors SKILL.md frontmatter", so the frontmatter's own

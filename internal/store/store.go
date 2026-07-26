@@ -20,9 +20,11 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/opencontainers/go-digest"
 	"github.com/opencontainers/image-spec/specs-go"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/rogpeppe/go-internal/lockedfile"
+	"oras.land/oras-go/v2/content"
 	"oras.land/oras-go/v2/content/oci"
 )
 
@@ -123,6 +125,14 @@ func (s *Store) Push(ctx context.Context, tag string,
 	})
 }
 
+// Read runs fn against the store under a shared lock, for callers that need
+// the store itself rather than one resolved descriptor -- copying an artifact
+// out to a registry, say. Shared because 9.2 wants parallel reads not to
+// serialise.
+func (s *Store) Read(ctx context.Context, fn func(context.Context, *oci.Store) error) error {
+	return s.withLock(false, func(st *oci.Store) error { return fn(ctx, st) })
+}
+
 // Resolve turns a tag into its descriptor, under a shared lock.
 func (s *Store) Resolve(ctx context.Context, tag string) (ocispec.Descriptor, error) {
 	var desc ocispec.Descriptor
@@ -144,6 +154,85 @@ func (s *Store) Tags(ctx context.Context) ([]string, error) {
 		})
 	})
 	return tags, err
+}
+
+// Prune deletes every blob no tagged manifest reaches (SPEC.md 9.3).
+//
+// Mark and sweep from the tags, under an exclusive lock. Manual only, like the
+// Go module cache, pnpm, Cargo and Bazel: there is no reference counting, no
+// GC roots, no leases and no worktree liveness tracking, because those exist
+// to make *automatic* collection safe and explicit cleanup has nothing to make
+// safe.
+func (s *Store) Prune(ctx context.Context) (removed int, err error) {
+	err = s.withLock(true, func(st *oci.Store) error {
+		reachable := map[digest.Digest]bool{}
+
+		// Mark: walk each tagged manifest and everything it references.
+		if err := st.Tags(ctx, "", func(page []string) error {
+			for _, tag := range page {
+				desc, err := st.Resolve(ctx, tag)
+				if err != nil {
+					return fmt.Errorf("resolve %s: %w", tag, err)
+				}
+				if err := mark(ctx, st, desc, reachable); err != nil {
+					return err
+				}
+			}
+			return nil
+		}); err != nil {
+			return err
+		}
+
+		// Sweep: anything on disk the mark never reached.
+		blobs := filepath.Join(s.root, "blobs", "sha256")
+		entries, err := os.ReadDir(blobs)
+		if os.IsNotExist(err) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		for _, e := range entries {
+			if e.IsDir() {
+				continue
+			}
+			if reachable[digest.Digest("sha256:"+e.Name())] {
+				continue
+			}
+			path := filepath.Join(blobs, e.Name())
+			// Blobs may have been written read-only for integrity, and
+			// removing one then fails the way rm -rf on GOMODCACHE does (9.3).
+			_ = os.Chmod(path, 0o644)
+			if err := os.Remove(path); err != nil {
+				return fmt.Errorf("remove %s: %w", e.Name(), err)
+			}
+			removed++
+		}
+		return nil
+	})
+	return removed, err
+}
+
+// mark records desc and everything reachable from it.
+func mark(ctx context.Context, st *oci.Store, desc ocispec.Descriptor,
+	seen map[digest.Digest]bool) error {
+	if seen[desc.Digest] {
+		return nil
+	}
+	seen[desc.Digest] = true
+
+	successors, err := content.Successors(ctx, st, desc)
+	if err != nil {
+		// A tag pointing at something the store no longer holds is a broken
+		// tag, not a reason to refuse to collect the rest.
+		return nil
+	}
+	for _, next := range successors {
+		if err := mark(ctx, st, next, seen); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // saveIndex writes index.json atomically: temp file, fsync, rename (9.2).
