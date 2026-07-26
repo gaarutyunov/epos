@@ -27,9 +27,9 @@ func (w *world) pushSkill(ctx context.Context, name, version string) error {
 
 	store := memory.New()
 
+	content := []byte("SKILL.md for " + name + " " + version)
 	layer, err := oras.PushBytes(ctx, store,
-		"application/vnd.agentskills.skill.layer.v1.tar",
-		[]byte("SKILL.md for "+name+" "+version))
+		"application/vnd.agentskills.skill.layer.v1.tar", content)
 	if err != nil {
 		return fmt.Errorf("push layer: %w", err)
 	}
@@ -54,6 +54,7 @@ func (w *world) pushSkill(ctx context.Context, name, version string) error {
 	}
 
 	w.pushed[name+":"+version] = manifest.Digest.String()
+	w.layers[name+":"+version] = blob{digest: layer.Digest.String(), bytes: content}
 	return nil
 }
 

@@ -59,9 +59,13 @@ func TestRoutingOfReadSurface(t *testing.T) {
 		{"referrers", http.MethodGet, "/v2/demo/hello/referrers/sha256:abc", true, http.StatusOK},
 		{"single segment repo", http.MethodGet, "/v2/hello/tags/list", true, http.StatusOK},
 		{"deep repo name", http.MethodGet, "/v2/a/b/c/manifests/latest", true, http.StatusOK},
+		{"blob by digest", http.MethodGet, "/v2/demo/hello/blobs/sha256:abc", true, http.StatusOK},
+		{"blob by HEAD", http.MethodHead, "/v2/demo/hello/blobs/sha256:abc", true, http.StatusOK},
 
-		// Not this milestone: blob GET is 4.2, the write path is 4.5.
-		{"blob is not served yet", http.MethodGet, "/v2/demo/hello/blobs/sha256:abc", false, http.StatusNotFound},
+		// Not this milestone: the write path is 4.5.
+		{"blob upload session is not served", http.MethodPost, "/v2/demo/hello/blobs/uploads/", false, http.StatusNotFound},
+		{"blob PUT is not served", http.MethodPut, "/v2/demo/hello/blobs/sha256:abc", false, http.StatusMethodNotAllowed},
+		{"blob DELETE is never served", http.MethodDelete, "/v2/demo/hello/blobs/sha256:abc", false, http.StatusMethodNotAllowed},
 		{"manifest PUT is not served", http.MethodPut, "/v2/demo/hello/manifests/1.0.0", false, http.StatusMethodNotAllowed},
 		{"DELETE is never served", http.MethodDelete, "/v2/demo/hello/manifests/1.0.0", false, http.StatusMethodNotAllowed},
 		{"unknown path", http.MethodGet, "/v2/demo/hello/whatever", false, http.StatusNotFound},
