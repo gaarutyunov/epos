@@ -49,6 +49,18 @@ type world struct {
 	// the upstream can restart it rather than leaving two behind.
 	registryCmd *exec.Cmd
 
+	// replicaURL and replicaCmd are the second epos-registry of the SPEC.md 4.4
+	// scenario, fronting the same upstream as the first.
+	replicaURL string
+	replicaCmd *exec.Cmd
+
+	// statuses records the status of each request a multi-request scenario
+	// makes, so "both requests succeed" can be asserted over all of them.
+	statuses []int
+
+	// pulled is what a stock oras client fetched through epos-registry.
+	pulled *pulledArtifact
+
 	// blobTarget stands in for the host an upstream redirect nominates, and
 	// records every request that reaches it (see startRedirectingUpstream).
 	blobTarget     *httptest.Server
@@ -109,6 +121,8 @@ func (w *world) reset() {
 	w.targetMu.Unlock()
 
 	w.metrics = nil
+	w.statuses = nil
+	w.pulled = nil
 }
 
 // startUpstream brings up a real zot registry.
@@ -144,15 +158,45 @@ func (w *world) startUpstream(ctx context.Context) error {
 func (w *world) startRegistry(ctx context.Context) error {
 	w.stopRegistry()
 
-	port, err := freePort()
+	url, cmd, metrics, err := w.spawnRegistry(ctx)
 	if err != nil {
 		return err
 	}
-	addr := fmt.Sprintf("127.0.0.1:%d", port)
+	w.registryURL, w.registryCmd, w.metrics = url, cmd, metrics
+	return nil
+}
 
-	if w.upstreamURL == "" {
-		return fmt.Errorf("upstream is not running")
+// startReplica brings up a second epos-registry in front of the same upstream,
+// leaving the first running.
+//
+// SPEC.md 4.4 has no shared store between replicas, so "a second replica" is
+// simply another process pointed at the same upstream — if that were not true,
+// this scenario is where it would show.
+func (w *world) startReplica(ctx context.Context) error {
+	if w.registryURL == "" {
+		return fmt.Errorf("the first epos-registry is not running")
 	}
+
+	url, cmd, _, err := w.spawnRegistry(ctx)
+	if err != nil {
+		return fmt.Errorf("start second replica: %w", err)
+	}
+	w.replicaURL, w.replicaCmd = url, cmd
+	return nil
+}
+
+// spawnRegistry starts one epos-registry process against the current upstream
+// and waits for it to answer.
+func (w *world) spawnRegistry(ctx context.Context) (string, *exec.Cmd, *metricsOutput, error) {
+	if w.upstreamURL == "" {
+		return "", nil, nil, fmt.Errorf("upstream is not running")
+	}
+
+	port, err := freePort()
+	if err != nil {
+		return "", nil, nil, err
+	}
+	addr := fmt.Sprintf("127.0.0.1:%d", port)
 
 	// SPEC.md 5.3 makes stdout the exporter for godog runs, so the counter is
 	// read back out of the process's own output. The interval is short so a
@@ -162,23 +206,29 @@ func (w *world) startRegistry(ctx context.Context) error {
 		"--upstream", w.upstreamURL,
 		"--metrics.interval", metricsInterval.String(),
 	)
-	w.metrics = &metricsOutput{}
-	cmd.Stdout = w.metrics
+	out := &metricsOutput{}
+	cmd.Stdout = out
 	cmd.Stderr = os.Stderr
 	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("start epos-registry: %w", err)
+		return "", nil, nil, fmt.Errorf("start epos-registry: %w", err)
 	}
-	w.registryCmd = cmd
-	godogT.Cleanup(func() {
+
+	url := "http://" + addr
+	if err := waitForReady(ctx, url+"/v2/"); err != nil {
 		_ = cmd.Process.Kill()
 		_ = cmd.Wait()
-	})
-
-	w.registryURL = "http://" + addr
-	return waitForReady(ctx, w.registryURL+"/v2/")
+		return "", nil, nil, err
+	}
+	return url, cmd, out, nil
 }
 
 func (w *world) stopRegistry() {
+	if w.replicaCmd != nil {
+		_ = w.replicaCmd.Process.Kill()
+		_ = w.replicaCmd.Wait()
+		w.replicaCmd = nil
+		w.replicaURL = ""
+	}
 	if w.registryCmd == nil {
 		return
 	}
@@ -312,6 +362,8 @@ func TestRegistryReadPath(t *testing.T) {
 				return w.startRedirectingUpstream(ctx)
 			})
 			sc.Given(`^the upstream serves blobs directly$`, w.upstreamServesBlobsDirectly)
+			sc.Given(`^a second epos-registry replica is fronting the same upstream$`,
+				func(ctx context.Context) error { return w.startReplica(ctx) })
 
 			sc.When(`^a client requests "([A-Z]+) ([^"]+)"$`, w.request)
 			sc.When(`^a client resolves the manifest "([^"]+)"$`, func(ref string) error {
@@ -327,7 +379,14 @@ func TestRegistryReadPath(t *testing.T) {
 				w.fetchContentBlobWithAuthorization)
 			sc.When(`^a client fetches a content blob of "([^"]+)" sending "([^"]+)"$`,
 				w.fetchContentBlobSending)
+			sc.When(`^oras pulls "([^"]+)" through epos-registry$`, w.orasPullsThrough)
+			sc.When(`^a client resolves the manifest "([^"]+)" against the (first|second) replica$`,
+				w.resolveManifestAgainst)
+			sc.When(`^a client fetches a content blob of "([^"]+)" against the (first|second) replica$`,
+				w.fetchContentBlobAgainst)
 			sc.Then(`^the response status is (\d+)$`, w.statusIs)
+			sc.Then(`^the pulled artifact matches the one pushed upstream$`, w.pulledArtifactMatchesUpstream)
+			sc.Then(`^both requests succeed$`, w.bothRequestsSucceed)
 			sc.Then(`^no blob bytes passed through epos-registry$`, w.noBlobBytesPassedThrough)
 			sc.Then(`^the blob content is returned unchanged$`, w.blobContentUnchanged)
 			sc.Then(`^the redirect target receives no "([^"]+)" header$`, w.redirectTargetSawNoHeader)

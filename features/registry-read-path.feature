@@ -95,7 +95,6 @@ Feature: epos-registry read path
     Then the recorded download is unverified
 
   # SPEC 4.1 -- pointing oras at epos-registry requires no client changes.
-  @wip
   Scenario: Plain oras pulls through epos-registry unchanged
     Given the skill "demo/hello" version "1.0.0" is present upstream
     When oras pulls "demo/hello:1.0.0" through epos-registry
@@ -103,7 +102,6 @@ Feature: epos-registry read path
 
   # SPEC 4.4 -- no manifest cache, no digest-to-role table, no shared store.
   # Any request may land on any replica.
-  @wip
   Scenario: Requests may land on any replica
     Given the skill "demo/hello" version "1.0.0" is present upstream
     And a second epos-registry replica is fronting the same upstream
