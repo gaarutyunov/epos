@@ -1,0 +1,39 @@
+# SPEC.md 13.6: two builds, CGO_ENABLED=0, linux/darwin/windows x amd64/arm64.
+version: 2
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: epos
+    main: ./cmd/epos
+    binary: epos
+    env:
+      - CGO_ENABLED=0
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+    ldflags:
+      - -s -w -X main.Version={{ .Version }}
+
+  - id: epos-registry
+    main: ./cmd/epos-registry
+    binary: epos-registry
+    env:
+      - CGO_ENABLED=0
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+    ldflags:
+      - -s -w -X main.Version={{ .Version }}
+
+archives:
+  - id: default
+    ids: [epos, epos-registry]
+    name_template: >-
+      {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  use: github
