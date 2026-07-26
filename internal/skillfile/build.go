@@ -33,7 +33,7 @@ func Build(sf *Skillfile, contextDir string, buildArgs map[string]string) (*Tree
 	}
 
 	if b.current == nil {
-		return nil, nil, fmt.Errorf("Skillfile has no FROM")
+		return nil, nil, fmt.Errorf("no FROM instruction in the Skillfile")
 	}
 	return b.current, b.report, nil
 }
@@ -239,7 +239,7 @@ func destPath(dest, src string) string {
 
 func (b *builder) rm(inst Instruction) error {
 	if len(inst.Args) == 0 {
-		return fmt.Errorf("want <path>...")
+		return fmt.Errorf("want <path> [<path>...]")
 	}
 	if b.current == nil {
 		return fmt.Errorf("no FROM yet")
