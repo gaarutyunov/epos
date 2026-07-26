@@ -70,7 +70,6 @@ Feature: epos-registry read path
     Then the redirect target receives no "Authorization" header
 
   # SPEC 5.1 -- a content blob GET is a download.
-  @wip
   Scenario: Fetching a content blob counts as a download
     Given the skill "demo/hello" version "1.0.0" is present upstream
     When a client fetches a content blob of "demo/hello:1.0.0"
@@ -78,7 +77,6 @@ Feature: epos-registry read path
 
   # SPEC 5.1 -- manifest requests are resolves. The lock-file update check does
   # a digest resolve with no content fetch and would otherwise dominate counts.
-  @wip
   Scenario: Resolving a manifest does not count as a download
     Given the skill "demo/hello" version "1.0.0" is present upstream
     When a client resolves the manifest "demo/hello:1.0.0"
@@ -86,13 +84,11 @@ Feature: epos-registry read path
     Then the download count for "demo/hello" is unchanged
 
   # SPEC 5.2 -- the epos CLI sends Epos-Download; stock oras does not.
-  @wip
   Scenario: An Epos-Download header marks the download verified
     Given the skill "demo/hello" version "1.0.0" is present upstream
     When a client fetches a content blob of "demo/hello:1.0.0" sending "Epos-Download: demo/hello@1.0.0"
     Then the recorded download is verified
 
-  @wip
   Scenario: A download without the header is recorded unverified
     Given the skill "demo/hello" version "1.0.0" is present upstream
     When a client fetches a content blob of "demo/hello:1.0.0"

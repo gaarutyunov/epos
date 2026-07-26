@@ -81,7 +81,7 @@ http:
 	if err != nil {
 		return fmt.Errorf("start redirecting registry: %w", err)
 	}
-	testcontainers.CleanupContainer(godogT, c)
+	w.track(c)
 
 	endpoint, err := c.PortEndpoint(ctx, "5000/tcp", "http")
 	if err != nil {

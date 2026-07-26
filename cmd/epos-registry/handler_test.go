@@ -4,25 +4,15 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"go.uber.org/mock/gomock"
 )
 
-// stubRelay records what it was asked to relay so routing can be asserted
-// without an upstream. The container-backed behaviour lives in the godog suite.
-type stubRelay struct {
-	calls   int
-	lastURL string
-}
-
-func (s *stubRelay) Relay(w http.ResponseWriter, r *http.Request) error {
-	s.calls++
-	s.lastURL = r.URL.Path
-	w.WriteHeader(http.StatusOK)
-	return nil
-}
-
 func TestBaseEndpointReturnsOK(t *testing.T) {
+	ctrl := gomock.NewController(t)
 	rec := httptest.NewRecorder()
-	newHandler("1.2.3", &stubRelay{}).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/v2/", nil))
+	newHandler("1.2.3", NewMockrelayer(ctrl), nil).
+		ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/v2/", nil))
 
 	if rec.Code != http.StatusOK {
 		t.Errorf("GET /v2/ status = %d, want %d", rec.Code, http.StatusOK)
@@ -33,8 +23,10 @@ func TestBaseEndpointReturnsOK(t *testing.T) {
 func TestEposVersionHeaderOnEveryResponse(t *testing.T) {
 	for _, path := range []string{"/v2/", "/v2/demo/hello/manifests/1.0.0", "/nope"} {
 		t.Run(path, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
 			rec := httptest.NewRecorder()
-			newHandler("1.2.3", &stubRelay{}).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
+			newHandler("1.2.3", relayAnswering(ctrl, http.StatusOK), nil).
+				ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
 
 			if got := rec.Header().Get(eposVersionHeader); got != "1.2.3" {
 				t.Errorf("%s header = %q, want %q", eposVersionHeader, got, "1.2.3")
@@ -74,13 +66,28 @@ func TestRoutingOfReadSurface(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			stub := &stubRelay{}
-			rec := httptest.NewRecorder()
-			newHandler("1.2.3", stub).ServeHTTP(rec, httptest.NewRequest(tt.method, tt.path, nil))
+			ctrl := gomock.NewController(t)
 
-			if got := stub.calls > 0; got != tt.wantRelayed {
-				t.Errorf("relayed = %v, want %v", got, tt.wantRelayed)
+			relay := NewMockrelayer(ctrl)
+			want := 0
+			if tt.wantRelayed {
+				want = 1
 			}
+			relay.EXPECT().
+				Relay(gomock.Any(), gomock.Any()).
+				DoAndReturn(func(w http.ResponseWriter, _ *http.Request) error {
+					w.WriteHeader(http.StatusOK)
+					return nil
+				}).
+				Times(want)
+
+			downloads := NewMockdownloadRecorder(ctrl)
+			downloads.EXPECT().Record(gomock.Any(), gomock.Any()).AnyTimes()
+
+			rec := httptest.NewRecorder()
+			newHandler("1.2.3", relay, downloads).
+				ServeHTTP(rec, httptest.NewRequest(tt.method, tt.path, nil))
+
 			if rec.Code != tt.wantStatus {
 				t.Errorf("status = %d, want %d", rec.Code, tt.wantStatus)
 			}
