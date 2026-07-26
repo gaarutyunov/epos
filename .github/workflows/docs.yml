@@ -1,0 +1,39 @@
+name: docs
+on:
+  push:
+    branches: [main]
+    # The Go CI stack and the docs site are independent: a change to one must
+    # not spend a run of the other.
+    paths:
+      - "docs/**"
+      - ".github/workflows/docs.yml"
+permissions:
+  contents: write
+concurrency:
+  group: docs
+  cancel-in-progress: true
+jobs:
+  build-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: docs/package-lock.json
+      - run: npm ci && npm run build
+        working-directory: docs
+      - uses: peaceiris/actions-gh-pages@84c30a85c19949d7eee79c4ff27748b70285e453 # v4.1.0
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: docs/dist
+          publish_branch: gh-pages
+          # NOT in the SPEC.md 14.2 snippet, and required. Without it this
+          # action replaces gh-pages wholesale, deleting every
+          # pr-preview/pr-<N>/ directory the preview workflow put there — so
+          # every open PR's preview would 404 the moment anything merged. Same
+          # bug, same fix as gaarutyunov/gopgql#24.
+          keep_files: true
