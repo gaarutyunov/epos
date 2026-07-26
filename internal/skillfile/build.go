@@ -436,6 +436,12 @@ const awkTimeout = 10 * time.Second
 //
 // The file's current content is the program's stdin and its stdout replaces the
 // file, so the instruction is a pure filter over one file.
+//
+// Output is LF-terminated whatever the input used. goawk's record reader strips
+// a trailing CR before the script ever sees $0, so a CRLF file filtered through
+// AWK comes back LF — by the time anything is printed there is nothing left to
+// preserve, and the only goawk mode that would re-emit CRLF re-emits it for
+// every line, which would corrupt an LF file instead.
 func (b *builder) awk(inst Instruction) error {
 	if len(inst.Args) < 1 {
 		return fmt.Errorf("want <path> (<<EOF … EOF | <script-file>)")
@@ -501,15 +507,29 @@ func runAWK(script, input []byte, timeout time.Duration) ([]byte, error) {
 	//
 	// Error is captured rather than left to default to os.Stderr, so a script
 	// printing to stderr cannot scribble over the build's own output.
+	//
+	// NewlineOutput must be Raw, and 2.4 is why. Its zero value is
+	// SmartNewlineMode, under which goawk sets newlineOutputCRLF from
+	// runtime.GOOS and rewrites every \n it prints as \r\n on Windows. That
+	// would make the same Skillfile over the same base produce a different
+	// layer — and so a different digest — depending on which machine ran the
+	// build, which is the one thing a content-addressed format cannot allow.
+	// Raw does no translation at all, so the output depends only on the script
+	// and the input bytes.
+	//
+	// Do not replace this with a \r\n → \n pass over the captured output. Raw
+	// mode still lets a script emit a CR it asked for by name (printf "a\r\n"),
+	// and a blanket rewrite would silently eat that too.
 	status, err := in.ExecuteContext(ctx, &interp.Config{
-		Stdin:        bytes.NewReader(input),
-		Output:       &out,
-		Error:        &errs,
-		Args:         []string{},
-		Environ:      []string{},
-		NoExec:       true,
-		NoFileWrites: true,
-		NoFileReads:  true,
+		Stdin:         bytes.NewReader(input),
+		Output:        &out,
+		Error:         &errs,
+		Args:          []string{},
+		Environ:       []string{},
+		NoExec:        true,
+		NoFileWrites:  true,
+		NoFileReads:   true,
+		NewlineOutput: interp.RawNewlineMode,
 	})
 	switch {
 	case errors.Is(err, context.DeadlineExceeded):

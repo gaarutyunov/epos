@@ -259,6 +259,70 @@ EOF
 	assert.Equal(t, "1: alpha\n2: beta\n", string(body))
 }
 
+// SPEC.md 2.4: identical inputs must produce an identical digest on every
+// platform. goawk's NewlineOutput defaults to SmartNewlineMode, which sets its
+// CRLF flag from runtime.GOOS and rewrites every \n it prints as \r\n on
+// Windows — so until runAWK pinned the mode to Raw, this build produced a
+// different layer, and so a different digest, on Windows than on Linux.
+//
+// Nothing here may be relaxed to accept either line ending. Accepting both is
+// accepting two digests, which is the bug rather than the fix.
+func TestAWKOutputLineEndingsDoNotDependOnTheHost(t *testing.T) {
+	const lf = "alpha\nbeta\ngamma\n"
+
+	tree, _ := build(t, `FROM ./base
+AWK notes.md <<EOF
+{ print }
+EOF
+`, map[string]string{
+		"base/SKILL.md": baseSkill,
+		"base/notes.md": lf,
+	})
+
+	body, ok := tree.Get("notes.md")
+	require.True(t, ok)
+	assert.Equal(t, lf, string(body))
+	assert.NotContains(t, string(body), "\r",
+		"a CR here means the host OS leaked into the artifact")
+}
+
+// The other half of that decision, pinned so it reads as a choice rather than
+// an accident. goawk strips a trailing CR at the record boundary, so $0 never
+// carries it and a CRLF file comes back LF. That is a normalisation, not a
+// round trip — and it is the one goawk leaves available, since the only mode
+// that re-emits CRLF re-emits it for every line and would corrupt an LF file.
+func TestAWKNormalisesCRLFInputToLF(t *testing.T) {
+	tree, _ := build(t, `FROM ./base
+AWK notes.md <<EOF
+{ print }
+EOF
+`, map[string]string{
+		"base/SKILL.md": baseSkill,
+		"base/notes.md": "alpha\r\nbeta\r\n",
+	})
+
+	body, _ := tree.Get("notes.md")
+	assert.Equal(t, "alpha\nbeta\n", string(body))
+}
+
+// Raw mode is a switch on goawk, not a scrub of its output: a CR the script
+// asks for by name still survives. This is exactly what a \r\n → \n pass over
+// the captured stdout would eat, so it guards the fix against being
+// "simplified" into post-processing later.
+func TestAWKKeepsCarriageReturnsAScriptWritesItself(t *testing.T) {
+	tree, _ := build(t, `FROM ./base
+AWK notes.md <<EOF
+BEGIN { printf "alpha\r\nbeta\r\n" }
+EOF
+`, map[string]string{
+		"base/SKILL.md": baseSkill,
+		"base/notes.md": notes,
+	})
+
+	body, _ := tree.Get("notes.md")
+	assert.Equal(t, "alpha\r\nbeta\r\n", string(body))
+}
+
 // 8.2.3: rejected by a post-parse check, because a digest that varies across
 // builds of identical inputs breaks 2.4.
 func TestAWKRejectsTheNondeterministicBuiltins(t *testing.T) {
