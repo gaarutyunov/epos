@@ -1,0 +1,220 @@
+// Package store is the local OCI Image Layout of SPEC.md 9, plus the
+// concurrency the layout specification leaves out.
+//
+// The OCI Image Layout spec says nothing about locking or about mutating
+// index.json, and oras-go's content/oci.Store is single-process only: it holds
+// sync mutexes, reads index.json once at construction and never re-reads it,
+// and SaveIndex rewrites the file in place. Two processes silently lose each
+// other's tags, and a crash mid-write truncates the index.
+//
+// So this package supplies both missing pieces, the way the Go toolchain does:
+// advisory file locking around every access, and index writes that go through
+// a temp file and a rename. Every operation opens the store *inside* the lock,
+// because a store opened outside it would hold a stale index.
+package store
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"os"
+	"path/filepath"
+
+	"github.com/opencontainers/image-spec/specs-go"
+	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
+	"github.com/rogpeppe/go-internal/lockedfile"
+	"oras.land/oras-go/v2/content/oci"
+)
+
+// lockName is the lock file, kept beside the layout rather than inside it so
+// it is never mistaken for part of the OCI layout.
+const lockName = "store.lock"
+
+// Store is a handle on the layout directory. It holds no open store and no
+// lock: those live for exactly the length of one operation.
+type Store struct {
+	root string
+}
+
+// Default is the store at ~/.epos/store (SPEC.md 9.1).
+//
+// It must be on a local filesystem — advisory locks are unreliable over NFS
+// and SMB (9.4) — which is why the location is not configurable to an
+// arbitrary mount.
+func Default() (*Store, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return nil, fmt.Errorf("locate home directory: %w", err)
+	}
+	return At(filepath.Join(home, ".epos", "store")), nil
+}
+
+// At returns a store rooted at dir.
+func At(dir string) *Store { return &Store{root: dir} }
+
+// Path is where the layout lives; `epos store path` prints it.
+func (s *Store) Path() string { return s.root }
+
+// withLock runs fn with the store open under a lock.
+//
+// exclusive picks the lock mode 9.2 asks for: shared for fetch, resolve and
+// install so parallel worktree installs do not serialise, exclusive for push,
+// tag, untag and prune.
+func (s *Store) withLock(exclusive bool, fn func(*oci.Store) error) error {
+	if err := os.MkdirAll(s.root, 0o755); err != nil {
+		return fmt.Errorf("create store: %w", err)
+	}
+
+	lockPath := filepath.Join(filepath.Dir(s.root), lockName)
+	if err := os.MkdirAll(filepath.Dir(lockPath), 0o755); err != nil {
+		return fmt.Errorf("create store: %w", err)
+	}
+
+	var (
+		lock *lockedfile.File
+		err  error
+	)
+	if exclusive {
+		lock, err = lockedfile.OpenFile(lockPath, os.O_RDWR|os.O_CREATE, 0o644)
+	} else {
+		lock, err = lockedfile.Open(lockPath)
+		if os.IsNotExist(err) {
+			// A shared reader on a store that has never been written: create
+			// the lock file, then take the shared lock.
+			if f, cerr := lockedfile.OpenFile(lockPath, os.O_RDWR|os.O_CREATE, 0o644); cerr == nil {
+				_ = f.Close()
+			}
+			lock, err = lockedfile.Open(lockPath)
+		}
+	}
+	if err != nil {
+		return fmt.Errorf("lock store: %w", err)
+	}
+	defer func() { _ = lock.Close() }()
+
+	// Opened inside the lock, so the index on disk is read fresh (9.2).
+	st, err := oci.New(s.root)
+	if err != nil {
+		return fmt.Errorf("open store: %w", err)
+	}
+	// Epos writes index.json itself, atomically; oras-go's in-place rewrite is
+	// what makes a crash mid-write able to truncate it.
+	st.AutoSaveIndex = false
+
+	return fn(st)
+}
+
+// Push writes an artifact into the store and tags it, under an exclusive lock.
+//
+// write returns the manifest descriptor to tag: the caller cannot know it
+// before its blobs are in the store, and the whole point of holding the lock
+// across both steps is that no other process sees the manifest untagged.
+func (s *Store) Push(ctx context.Context, tag string,
+	write func(context.Context, *oci.Store) (ocispec.Descriptor, error)) error {
+	return s.withLock(true, func(st *oci.Store) error {
+		manifest, err := write(ctx, st)
+		if err != nil {
+			return err
+		}
+		if err := st.Tag(ctx, manifest, tag); err != nil {
+			return fmt.Errorf("tag %s: %w", tag, err)
+		}
+		return s.saveIndex(ctx, st)
+	})
+}
+
+// Resolve turns a tag into its descriptor, under a shared lock.
+func (s *Store) Resolve(ctx context.Context, tag string) (ocispec.Descriptor, error) {
+	var desc ocispec.Descriptor
+	err := s.withLock(false, func(st *oci.Store) error {
+		var err error
+		desc, err = st.Resolve(ctx, tag)
+		return err
+	})
+	return desc, err
+}
+
+// Tags lists what the store holds; `epos store ls` prints it.
+func (s *Store) Tags(ctx context.Context) ([]string, error) {
+	var tags []string
+	err := s.withLock(false, func(st *oci.Store) error {
+		return st.Tags(ctx, "", func(page []string) error {
+			tags = append(tags, page...)
+			return nil
+		})
+	})
+	return tags, err
+}
+
+// saveIndex writes index.json atomically: temp file, fsync, rename (9.2).
+//
+// Deliberately not oras-go's SaveIndex, which is the os.WriteFile-in-place
+// that 9.2 names as the defect: a crash partway through leaves a truncated
+// index and the store unreadable. Rename within a directory is atomic on all
+// three platforms, so a reader sees either the previous index or the new one.
+//
+// The index is rebuilt from the store's tags rather than read out of oras-go,
+// which does not expose it. Untagged manifests are dropped, which is the same
+// thing prune would do to them: 9.3 marks from tagged manifests, so anything
+// untagged is already garbage.
+func (s *Store) saveIndex(ctx context.Context, st *oci.Store) error {
+	var manifests []ocispec.Descriptor
+	err := st.Tags(ctx, "", func(page []string) error {
+		for _, tag := range page {
+			desc, err := st.Resolve(ctx, tag)
+			if err != nil {
+				return fmt.Errorf("resolve %s: %w", tag, err)
+			}
+			if desc.Annotations == nil {
+				desc.Annotations = map[string]string{}
+			}
+			desc.Annotations[ocispec.AnnotationRefName] = tag
+			manifests = append(manifests, desc)
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+
+	return writeJSONAtomic(filepath.Join(s.root, "index.json"), ocispec.Index{
+		Versioned: specs.Versioned{SchemaVersion: 2},
+		MediaType: ocispec.MediaTypeImageIndex,
+		Manifests: manifests,
+	})
+}
+
+// writeJSONAtomic renders v into path via a temp file in the same directory,
+// fsyncs it, and renames it over the target.
+func writeJSONAtomic(path string, v any) error {
+	body, err := json.Marshal(v)
+	if err != nil {
+		return fmt.Errorf("encode %s: %w", filepath.Base(path), err)
+	}
+
+	// Same directory: rename is only atomic within a filesystem.
+	tmp, err := os.CreateTemp(filepath.Dir(path), ".index-*.tmp")
+	if err != nil {
+		return fmt.Errorf("create temp index: %w", err)
+	}
+	tmpName := tmp.Name()
+	defer func() { _ = os.Remove(tmpName) }() // no-op once the rename succeeds
+
+	if _, err := tmp.Write(body); err != nil {
+		_ = tmp.Close()
+		return fmt.Errorf("write temp index: %w", err)
+	}
+	// fsync before rename: the rename can otherwise land while the contents
+	// are still only in the page cache, which a crash would lose.
+	if err := tmp.Sync(); err != nil {
+		_ = tmp.Close()
+		return fmt.Errorf("sync temp index: %w", err)
+	}
+	if err := tmp.Close(); err != nil {
+		return fmt.Errorf("close temp index: %w", err)
+	}
+	if err := os.Rename(tmpName, path); err != nil {
+		return fmt.Errorf("replace %s: %w", filepath.Base(path), err)
+	}
+	return nil
+}
