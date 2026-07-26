@@ -22,7 +22,7 @@ func (s *stubRelay) Relay(w http.ResponseWriter, r *http.Request) error {
 
 func TestBaseEndpointReturnsOK(t *testing.T) {
 	rec := httptest.NewRecorder()
-	newHandler("1.2.3", &stubRelay{}).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/v2/", nil))
+	newHandler("1.2.3", &stubRelay{}, nil).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/v2/", nil))
 
 	if rec.Code != http.StatusOK {
 		t.Errorf("GET /v2/ status = %d, want %d", rec.Code, http.StatusOK)
@@ -34,7 +34,7 @@ func TestEposVersionHeaderOnEveryResponse(t *testing.T) {
 	for _, path := range []string{"/v2/", "/v2/demo/hello/manifests/1.0.0", "/nope"} {
 		t.Run(path, func(t *testing.T) {
 			rec := httptest.NewRecorder()
-			newHandler("1.2.3", &stubRelay{}).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
+			newHandler("1.2.3", &stubRelay{}, nil).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
 
 			if got := rec.Header().Get(eposVersionHeader); got != "1.2.3" {
 				t.Errorf("%s header = %q, want %q", eposVersionHeader, got, "1.2.3")
@@ -76,7 +76,7 @@ func TestRoutingOfReadSurface(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			stub := &stubRelay{}
 			rec := httptest.NewRecorder()
-			newHandler("1.2.3", stub).ServeHTTP(rec, httptest.NewRequest(tt.method, tt.path, nil))
+			newHandler("1.2.3", stub, nil).ServeHTTP(rec, httptest.NewRequest(tt.method, tt.path, nil))
 
 			if got := stub.calls > 0; got != tt.wantRelayed {
 				t.Errorf("relayed = %v, want %v", got, tt.wantRelayed)
