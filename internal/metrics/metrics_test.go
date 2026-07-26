@@ -5,6 +5,9 @@ import (
 	"context"
 	"encoding/json"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // export is the shape stdoutmetric writes. The godog harness reads the same
@@ -39,23 +42,17 @@ func collect(t *testing.T, cfg Config, record func(*Downloads)) (points map[stri
 	cfg.Out = &buf
 
 	downloads, shutdown, err := New(context.Background(), cfg)
-	if err != nil {
-		t.Fatalf("New: %v", err)
-	}
+	require.NoError(t, err)
 	record(downloads)
 
 	// Shutdown flushes, so the test never waits on an interval.
-	if err := shutdown(context.Background()); err != nil {
-		t.Fatalf("shutdown: %v", err)
-	}
+	require.NoError(t, shutdown(context.Background()))
 
 	points = map[string]int64{}
 	dec := json.NewDecoder(&buf)
 	for dec.More() {
 		var e export
-		if err := dec.Decode(&e); err != nil {
-			t.Fatalf("decode exporter output: %v", err)
-		}
+		require.NoError(t, dec.Decode(&e), "decode exporter output")
 		for _, sm := range e.ScopeMetrics {
 			for _, m := range sm.Metrics {
 				if m.Name != "epos.downloads" {
@@ -91,20 +88,12 @@ func TestDownloadsCounterIsMonotonicAndCarriesItsAttributes(t *testing.T) {
 		})
 	})
 
-	if !monotonic {
-		t.Error("epos.downloads is not monotonic; SPEC.md 5.3 asks for a monotonic counter")
-	}
-	if len(points) != 1 {
-		t.Fatalf("got %d attribute set(s), want 1: %v", len(points), points)
-	}
+	assert.True(t, monotonic, "SPEC.md 5.3 asks for a monotonic counter")
+	require.Len(t, points, 1)
 	for key, value := range points {
-		if value != 2 {
-			t.Errorf("count = %d, want 2", value)
-		}
+		assert.EqualValues(t, 2, value)
 		for _, want := range []string{`repository="demo/hello"`, `verified=true`, `client="epos"`} {
-			if !contains(key, want) {
-				t.Errorf("attributes %q missing %q", key, want)
-			}
+			assert.Contains(t, key, want)
 		}
 	}
 }
@@ -120,9 +109,8 @@ func TestVersionAttributeIsOffByDefault(t *testing.T) {
 
 	off, _ := collect(t, Config{}, record)
 	for key := range off {
-		if contains(key, "version=") {
-			t.Errorf("attributes %q carry a version with VersionAttribute off", key)
-		}
+		assert.NotContains(t, key, "version=",
+			"version-valued attributes are unbounded in cardinality and off by default")
 	}
 
 	on, _ := collect(t, Config{VersionAttribute: true}, record)
@@ -132,9 +120,7 @@ func TestVersionAttributeIsOffByDefault(t *testing.T) {
 			found = true
 		}
 	}
-	if !found {
-		t.Errorf("VersionAttribute on, but no version attribute was recorded: %v", on)
-	}
+	assert.True(t, found, "VersionAttribute on, but no version was recorded: %v", on)
 }
 
 // Verified and unverified downloads of the same skill are distinct series, so
@@ -146,17 +132,13 @@ func TestVerifiedAndUnverifiedAreSeparateSeries(t *testing.T) {
 		d.Record(context.Background(), Download{Repository: "demo/hello", Verified: false, Client: "oras-go"})
 	})
 
-	if len(points) != 2 {
-		t.Fatalf("got %d attribute set(s), want 2: %v", len(points), points)
-	}
+	require.Len(t, points, 2, "verified and unverified must be distinct series")
 	for key, value := range points {
 		want := int64(1)
 		if contains(key, "verified=false") {
 			want = 2
 		}
-		if value != want {
-			t.Errorf("count for %q = %d, want %d", key, value, want)
-		}
+		assert.Equal(t, want, value, "count for %q", key)
 	}
 }
 
@@ -164,19 +146,14 @@ func TestVerifiedAndUnverifiedAreSeparateSeries(t *testing.T) {
 // nil pointer waiting to panic on the first blob fetch.
 func TestNoneExporterRecordsNothingAndDoesNotPanic(t *testing.T) {
 	downloads, shutdown, err := New(context.Background(), Config{Exporter: ExporterNone})
-	if err != nil {
-		t.Fatalf("New: %v", err)
-	}
+	require.NoError(t, err)
 	downloads.Record(context.Background(), Download{Repository: "demo/hello"})
-	if err := shutdown(context.Background()); err != nil {
-		t.Errorf("shutdown: %v", err)
-	}
+	assert.NoError(t, shutdown(context.Background()))
 }
 
 func TestUnknownExporterIsRejected(t *testing.T) {
-	if _, _, err := New(context.Background(), Config{Exporter: "carrier-pigeon"}); err == nil {
-		t.Error("New accepted an unknown exporter, want an error")
-	}
+	_, _, err := New(context.Background(), Config{Exporter: "carrier-pigeon"})
+	assert.Error(t, err, "an unknown exporter must be rejected")
 }
 
 func contains(haystack, needle string) bool {

@@ -51,7 +51,7 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: junit
-          path: "**/junit.xml"
+          path: "**/junit*.xml"
           if-no-files-found: ignore
 
   # SPEC.md 13.2: the OCI distribution-spec conformance suite, Pull category,

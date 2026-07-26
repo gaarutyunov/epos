@@ -1,3 +1,3 @@
 /dist/
 *.test
-junit.xml
+junit*.xml

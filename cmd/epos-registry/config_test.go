@@ -5,6 +5,8 @@ import (
 	"time"
 
 	"github.com/spf13/pflag"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // flagsFor builds the root command's flag set as the CLI would, then applies
@@ -12,33 +14,23 @@ import (
 func flagsFor(t *testing.T, args ...string) *pflag.FlagSet {
 	t.Helper()
 	cmd := newRootCommand()
-	if err := cmd.ParseFlags(args); err != nil {
-		t.Fatalf("parse %v: %v", args, err)
-	}
+	require.NoError(t, cmd.ParseFlags(args), "parse %v", args)
 	return cmd.Flags()
 }
 
 func TestConfigDefaults(t *testing.T) {
 	cfg, err := loadConfig(flagsFor(t, "--upstream", "http://zot:5000"))
-	if err != nil {
-		t.Fatalf("loadConfig: %v", err)
-	}
+	require.NoError(t, err)
 
-	if cfg.addr != ":8080" {
-		t.Errorf("addr = %q, want %q", cfg.addr, ":8080")
-	}
-	if cfg.exporter != "stdout" {
-		t.Errorf("exporter = %q, want %q", cfg.exporter, "stdout")
-	}
-	if cfg.versionAttribute {
-		t.Error("version attribute is on by default; SPEC.md 5.3 wants it off")
-	}
+	assert.Equal(t, ":8080", cfg.addr)
+	assert.Equal(t, "stdout", cfg.exporter)
+	assert.False(t, cfg.versionAttribute,
+		"SPEC.md 5.3 wants version-valued attributes off by default")
 }
 
 func TestUpstreamIsRequired(t *testing.T) {
-	if _, err := loadConfig(flagsFor(t)); err == nil {
-		t.Error("loadConfig accepted a missing upstream, want an error")
-	}
+	_, err := loadConfig(flagsFor(t))
+	assert.Error(t, err, "an upstream is required")
 }
 
 func TestConfigFromEnvironment(t *testing.T) {
@@ -49,25 +41,13 @@ func TestConfigFromEnvironment(t *testing.T) {
 	t.Setenv(envPrefix+"METRICS_VERSION_ATTRIBUTE", "true")
 
 	cfg, err := loadConfig(flagsFor(t))
-	if err != nil {
-		t.Fatalf("loadConfig: %v", err)
-	}
+	require.NoError(t, err)
 
-	if cfg.upstreamURL != "http://zot:5000" {
-		t.Errorf("upstream = %q, want %q", cfg.upstreamURL, "http://zot:5000")
-	}
-	if cfg.addr != "127.0.0.1:9999" {
-		t.Errorf("addr = %q, want %q", cfg.addr, "127.0.0.1:9999")
-	}
-	if cfg.exporter != "none" {
-		t.Errorf("exporter = %q, want %q", cfg.exporter, "none")
-	}
-	if cfg.interval != 250*time.Millisecond {
-		t.Errorf("interval = %v, want %v", cfg.interval, 250*time.Millisecond)
-	}
-	if !cfg.versionAttribute {
-		t.Error("version attribute = false, want true from the environment")
-	}
+	assert.Equal(t, "http://zot:5000", cfg.upstreamURL)
+	assert.Equal(t, "127.0.0.1:9999", cfg.addr)
+	assert.Equal(t, "none", cfg.exporter)
+	assert.Equal(t, 250*time.Millisecond, cfg.interval)
+	assert.True(t, cfg.versionAttribute)
 }
 
 // A flag the user actually typed beats the ambient environment; an untouched
@@ -77,14 +57,10 @@ func TestFlagsBeatEnvironment(t *testing.T) {
 	t.Setenv(envPrefix+"ADDR", "127.0.0.1:9999")
 
 	cfg, err := loadConfig(flagsFor(t, "--upstream", "http://from-flag:5000"))
-	if err != nil {
-		t.Fatalf("loadConfig: %v", err)
-	}
+	require.NoError(t, err)
 
-	if cfg.upstreamURL != "http://from-flag:5000" {
-		t.Errorf("upstream = %q, want the flag to win", cfg.upstreamURL)
-	}
-	if cfg.addr != "127.0.0.1:9999" {
-		t.Errorf("addr = %q, want the environment to survive an untouched flag", cfg.addr)
-	}
+	assert.Equal(t, "http://from-flag:5000", cfg.upstreamURL,
+		"a flag the user typed beats the environment")
+	assert.Equal(t, "127.0.0.1:9999", cfg.addr,
+		"an untouched flag must not clobber the environment with its default")
 }

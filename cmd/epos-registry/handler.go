@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/gaarutyunov/epos/internal/artifact"
 	"github.com/gaarutyunov/epos/internal/metrics"
 	"github.com/gaarutyunov/epos/internal/upstream"
 )
@@ -14,9 +15,10 @@ import (
 // from a plain registry without probing (SPEC.md 4.3).
 const eposVersionHeader = "Epos-Version"
 
-// eposDownloadHeader marks a download verified (SPEC.md 5.2). The epos CLI
-// sends it; stock oras does not.
-const eposDownloadHeader = "Epos-Download"
+// eposDownloadHeader marks a download verified (SPEC.md 5.2). Defined once in
+// internal/artifact so the CLI that sends it and the registry that reads it
+// cannot drift apart.
+const eposDownloadHeader = artifact.DownloadHeader
 
 //go:generate go tool mockgen -source=handler.go -destination=mocks_test.go -package=main
 
@@ -38,8 +40,8 @@ type handler struct {
 // newHandler returns the registry handler.
 //
 // The read surface of SPEC.md 4.1 is served here, including blob GET with the
-// 4.2 transfer posture. _catalog (7) and the write path (4.5) are separate
-// milestones. Content Management (DELETE) is never implemented.
+// 4.2 transfer posture. _catalog (7) is a separate milestone; the write path
+// (4.5) is not served at all — see the routing comment below. Content Management (DELETE) is never implemented.
 //
 // epos-registry holds no state (4.4): every request is relayed, nothing is
 // cached, and two replicas behave identically. Counting does not change that —
@@ -85,7 +87,11 @@ func (h *handler) route(w http.ResponseWriter, r *http.Request) {
 
 	switch ref.kind {
 	case kindManifests:
-		// PUT is the write path (4.5), a later milestone.
+		// The write path (4.5) is not served: its upload session is a 307 to
+		// upstream, and oras-go refuses a cross-host upload Location as the
+		// fix for GHSA-jxpm-75mh-9fp7 — so no oras-go client can complete a
+		// push through here. Publishing goes to the upstream registry
+		// directly.
 		if r.Method != http.MethodGet && r.Method != http.MethodHead {
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 			return

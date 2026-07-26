@@ -105,7 +105,8 @@ func New(ctx context.Context, cfg Config) (*Downloads, func(context.Context) err
 		sdkmetric.WithReader(sdkmetric.NewPeriodicReader(exporter, readerOpts...)),
 	)
 
-	counter, err := provider.Meter("github.com/gaarutyunov/epos").Int64Counter(
+	meter := provider.Meter("github.com/gaarutyunov/epos")
+	counter, err := meter.Int64Counter(
 		"epos.downloads",
 		metric.WithDescription("Content blob fetches answered by epos-registry."),
 		metric.WithUnit("{download}"),

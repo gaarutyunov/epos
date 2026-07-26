@@ -5,6 +5,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 )
 
@@ -14,9 +16,7 @@ func TestBaseEndpointReturnsOK(t *testing.T) {
 	newHandler("1.2.3", NewMockrelayer(ctrl), nil).
 		ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/v2/", nil))
 
-	if rec.Code != http.StatusOK {
-		t.Errorf("GET /v2/ status = %d, want %d", rec.Code, http.StatusOK)
-	}
+	assert.Equal(t, http.StatusOK, rec.Code, "GET /v2/")
 }
 
 // SPEC.md 4.3: the header is set on all responses, not just successful ones.
@@ -28,9 +28,7 @@ func TestEposVersionHeaderOnEveryResponse(t *testing.T) {
 			newHandler("1.2.3", relayAnswering(ctrl, http.StatusOK), nil).
 				ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
 
-			if got := rec.Header().Get(eposVersionHeader); got != "1.2.3" {
-				t.Errorf("%s header = %q, want %q", eposVersionHeader, got, "1.2.3")
-			}
+			assert.Equal(t, "1.2.3", rec.Header().Get(eposVersionHeader), eposVersionHeader)
 		})
 	}
 }
@@ -54,11 +52,12 @@ func TestRoutingOfReadSurface(t *testing.T) {
 		{"blob by digest", http.MethodGet, "/v2/demo/hello/blobs/sha256:abc", true, http.StatusOK},
 		{"blob by HEAD", http.MethodHead, "/v2/demo/hello/blobs/sha256:abc", true, http.StatusOK},
 
-		// Not this milestone: the write path is 4.5.
+		// The write path (4.5) is not served: see the routing comment in
+		// handler.go for why publishing goes to upstream directly.
 		{"blob upload session is not served", http.MethodPost, "/v2/demo/hello/blobs/uploads/", false, http.StatusNotFound},
+		{"manifest PUT is not served", http.MethodPut, "/v2/demo/hello/manifests/1.0.0", false, http.StatusMethodNotAllowed},
 		{"blob PUT is not served", http.MethodPut, "/v2/demo/hello/blobs/sha256:abc", false, http.StatusMethodNotAllowed},
 		{"blob DELETE is never served", http.MethodDelete, "/v2/demo/hello/blobs/sha256:abc", false, http.StatusMethodNotAllowed},
-		{"manifest PUT is not served", http.MethodPut, "/v2/demo/hello/manifests/1.0.0", false, http.StatusMethodNotAllowed},
 		{"DELETE is never served", http.MethodDelete, "/v2/demo/hello/manifests/1.0.0", false, http.StatusMethodNotAllowed},
 		{"unknown path", http.MethodGet, "/v2/demo/hello/whatever", false, http.StatusNotFound},
 		{"outside /v2/", http.MethodGet, "/healthz", false, http.StatusNotFound},
@@ -88,9 +87,7 @@ func TestRoutingOfReadSurface(t *testing.T) {
 			newHandler("1.2.3", relay, downloads).
 				ServeHTTP(rec, httptest.NewRequest(tt.method, tt.path, nil))
 
-			if rec.Code != tt.wantStatus {
-				t.Errorf("status = %d, want %d", rec.Code, tt.wantStatus)
-			}
+			assert.Equal(t, tt.wantStatus, rec.Code)
 		})
 	}
 }
@@ -124,16 +121,13 @@ func TestParseRef(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.path, func(t *testing.T) {
 			got, ok := parseRef(tt.path)
-			if ok != tt.wantOK {
-				t.Fatalf("ok = %v, want %v", ok, tt.wantOK)
-			}
+			require.Equal(t, tt.wantOK, ok)
 			if !ok {
 				return
 			}
-			if got.name != tt.wantName || got.kind != tt.wantKind || got.ref != tt.wantRef {
-				t.Errorf("got {name:%q kind:%q ref:%q}, want {name:%q kind:%q ref:%q}",
-					got.name, got.kind, got.ref, tt.wantName, tt.wantKind, tt.wantRef)
-			}
+			assert.Equal(t, tt.wantName, got.name, "name")
+			assert.Equal(t, tt.wantKind, got.kind, "kind")
+			assert.Equal(t, tt.wantRef, got.ref, "ref")
 		})
 	}
 }

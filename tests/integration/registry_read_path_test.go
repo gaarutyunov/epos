@@ -405,7 +405,7 @@ func TestRegistryReadPath(t *testing.T) {
 		},
 		Options: &godog.Options{
 			Format: "pretty,junit:junit.xml",
-			Paths:  []string{"../../features"},
+			Paths:  []string{"../../features/registry-read-path.feature"},
 			// Scenarios whose behaviour is not implemented yet are tagged @wip
 			// and excluded, so CI stays green while they remain visibly
 			// pending. The implementing milestone drops the tag.
