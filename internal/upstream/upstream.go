@@ -36,12 +36,25 @@ func New(baseURL string) (*Client, error) {
 
 	return &Client{
 		base: u,
-		http: &http.Client{
-			CheckRedirect: func(*http.Request, []*http.Request) error {
-				return http.ErrUseLastResponse
-			},
-		},
+		http: &http.Client{CheckRedirect: neverFollow},
 	}, nil
+}
+
+// neverFollow stops the client short of an upstream redirect, handing the 3xx
+// back so Relay can pass it to the caller's client.
+//
+// This is the whole of SPEC.md 4.2's "must not forward the client's
+// Authorization header to a redirect target". Do issues the upstream request
+// with the client's headers copied verbatim, so following a redirect here would
+// present that Authorization to whatever host upstream nominated — typically an
+// object store, which accepts exactly one authentication mechanism and rejects a
+// request carrying both a presigned URL and an Authorization header. The
+// credential would leak to a third party and every redirected pull would 400.
+//
+// Not following also keeps blob bytes off epos-registry entirely: the client
+// fetches them from the redirect target itself.
+func neverFollow(*http.Request, []*http.Request) error {
+	return http.ErrUseLastResponse
 }
 
 // hopByHop headers are connection-scoped and must not be relayed.
@@ -81,7 +94,10 @@ func (c *Client) Do(r *http.Request) (*http.Response, error) {
 
 // Relay performs r against the upstream and copies the response to w.
 //
-// Nothing is cached or recorded: the response is streamed straight through.
+// Nothing is cached or recorded: the response is streamed straight through, so
+// a blob is never buffered. An upstream 3xx arrives here unfollowed (see
+// neverFollow) and is relayed with its Location untouched — SPEC.md 4.5 is
+// explicit that epos-registry does no Location rewriting.
 func (c *Client) Relay(w http.ResponseWriter, r *http.Request) error {
 	resp, err := c.Do(r)
 	if err != nil {

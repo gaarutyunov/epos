@@ -22,9 +22,9 @@ type handler struct {
 
 // newHandler returns the registry handler.
 //
-// Only the read surface of SPEC.md 4.1 is served here. Blob GET (4.2) is a
-// separate milestone, as are _catalog (7) and the write path (4.5). Content
-// Management (DELETE) is never implemented.
+// The read surface of SPEC.md 4.1 is served here, including blob GET with the
+// 4.2 transfer posture. _catalog (7) and the write path (4.5) are separate
+// milestones. Content Management (DELETE) is never implemented.
 //
 // epos-registry holds no state (4.4): every request is relayed, nothing is
 // cached, and two replicas behave identically.
@@ -74,13 +74,23 @@ func (h *handler) route(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
+	case kindBlobs:
+		// 4.2: the blob is relayed, which for a redirecting upstream means the
+		// 307 reaches the client and the bytes never cross epos-registry.
+		//
+		// HEAD is served alongside GET: 4.1 lists only the GET, but the Pull
+		// conformance category it gates on exercises the blob HEAD too, and
+		// relaying it is the same code path.
+		if r.Method != http.MethodGet && r.Method != http.MethodHead {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
 	case kindTagsList, kindReferrers:
 		if r.Method != http.MethodGet {
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
 	default:
-		// Blobs and anything else are not served yet.
 		http.NotFound(w, r)
 		return
 	}
