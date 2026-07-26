@@ -2,12 +2,15 @@ package artifact
 
 import (
 	"archive/tar"
+	"bytes"
 	"compress/gzip"
 	"io"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // skillDir writes a skill directory and returns its path.
@@ -16,12 +19,8 @@ func skillDir(t *testing.T, files map[string]string) string {
 	dir := t.TempDir()
 	for name, body := range files {
 		p := filepath.Join(dir, filepath.FromSlash(name))
-		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(p, []byte(body), 0o600); err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, os.MkdirAll(filepath.Dir(p), 0o755))
+		require.NoError(t, os.WriteFile(p, []byte(body), 0o600))
 	}
 	return dir
 }
@@ -32,10 +31,8 @@ const minimalSkill = "---\nname: hello\ndescription: says hello\n---\n\n# Hello\
 // rather than about our own writer.
 func headers(t *testing.T, layer []byte) []*tar.Header {
 	t.Helper()
-	gr, err := gzip.NewReader(strings.NewReader(string(layer)))
-	if err != nil {
-		t.Fatalf("gzip: %v", err)
-	}
+	gr, err := gzip.NewReader(bytes.NewReader(layer))
+	require.NoError(t, err)
 	defer func() { _ = gr.Close() }()
 
 	var out []*tar.Header
@@ -45,10 +42,16 @@ func headers(t *testing.T, layer []byte) []*tar.Header {
 		if err == io.EOF {
 			break
 		}
-		if err != nil {
-			t.Fatalf("tar: %v", err)
-		}
+		require.NoError(t, err)
 		out = append(out, h)
+	}
+	return out
+}
+
+func names(hs []*tar.Header) []string {
+	out := make([]string, 0, len(hs))
+	for _, h := range hs {
+		out = append(out, h.Name)
 	}
 	return out
 }
@@ -63,23 +66,14 @@ func TestLayerIsRootedAtTheSkillName(t *testing.T) {
 	})
 
 	layer, err := PackDir(dir, "hello")
-	if err != nil {
-		t.Fatalf("PackDir: %v", err)
-	}
+	require.NoError(t, err)
 
-	var names []string
-	for _, h := range headers(t, layer) {
-		names = append(names, h.Name)
-		if !strings.HasPrefix(h.Name, "hello/") {
-			t.Errorf("entry %q is not rooted at the skill name", h.Name)
-		}
+	got := names(headers(t, layer))
+	for _, name := range got {
+		assert.True(t, filepath.ToSlash(name)[:6] == "hello/",
+			"entry %q is not rooted at the skill name", name)
 	}
-
-	for _, want := range []string{"hello/", "hello/SKILL.md", "hello/sections/detail.md"} {
-		if !contains(names, want) {
-			t.Errorf("entry %q missing from %v", want, names)
-		}
-	}
+	assert.Subset(t, got, []string{"hello/", "hello/SKILL.md", "hello/sections/detail.md"})
 }
 
 // SPEC.md 2.4: packing is a pure function of its inputs.
@@ -92,27 +86,19 @@ func TestPackingIsDeterministic(t *testing.T) {
 	}
 
 	first, err := PackDir(skillDir(t, files), "hello")
-	if err != nil {
-		t.Fatalf("PackDir: %v", err)
-	}
+	require.NoError(t, err)
 
-	// A second directory, written in a different order, with different source
-	// permissions and mtimes: none of that may reach the digest.
+	// A second directory, written in a different order and with different
+	// source permissions: none of that may reach the digest.
 	dir := skillDir(t, files)
 	for name := range files {
-		p := filepath.Join(dir, filepath.FromSlash(name))
-		if err := os.Chmod(p, 0o755); err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, os.Chmod(filepath.Join(dir, filepath.FromSlash(name)), 0o755))
 	}
 	second, err := PackDir(dir, "hello")
-	if err != nil {
-		t.Fatalf("PackDir: %v", err)
-	}
+	require.NoError(t, err)
 
-	if string(first) != string(second) {
-		t.Error("identical inputs produced different layers; 2.4 requires identical digests")
-	}
+	assert.Equal(t, first, second,
+		"identical inputs produced different layers; 2.4 requires identical digests")
 }
 
 // The normalisation 2.4 asks for, asserted on the archive itself.
@@ -123,27 +109,19 @@ func TestEntriesAreNormalised(t *testing.T) {
 	})
 
 	layer, err := PackDir(dir, "hello")
-	if err != nil {
-		t.Fatalf("PackDir: %v", err)
-	}
+	require.NoError(t, err)
 
 	for _, h := range headers(t, layer) {
-		if h.ModTime.Unix() != 0 {
-			t.Errorf("%s has mtime %v, want the Unix epoch", h.Name, h.ModTime)
-		}
-		if h.Uid != 0 || h.Gid != 0 {
-			t.Errorf("%s has uid/gid %d/%d, want 0/0", h.Name, h.Uid, h.Gid)
-		}
+		assert.Zero(t, h.ModTime.Unix(), "%s: mtime must be the Unix epoch", h.Name)
+		assert.Zero(t, h.Uid, "%s: uid must be 0", h.Name)
+		assert.Zero(t, h.Gid, "%s: gid must be 0", h.Name)
+
 		want := int64(fileMode)
 		if h.Typeflag == tar.TypeDir {
 			want = dirMode
 		}
-		if h.Mode != want {
-			t.Errorf("%s has mode %o, want %o", h.Name, h.Mode, want)
-		}
-		if strings.Contains(h.Name, `\`) {
-			t.Errorf("%s contains a backslash; 2.5 is forward slashes exclusively", h.Name)
-		}
+		assert.Equal(t, want, h.Mode, "%s: mode", h.Name)
+		assert.NotContains(t, h.Name, `\`, "2.5 is forward slashes exclusively")
 	}
 }
 
@@ -155,19 +133,13 @@ func TestEntriesAreLexicographic(t *testing.T) {
 		"a.md":     "a\n",
 		"m/n.md":   "n\n",
 	}), "hello")
-	if err != nil {
-		t.Fatalf("PackDir: %v", err)
-	}
+	require.NoError(t, err)
 
-	hs := headers(t, layer)
-	if hs[0].Name != "hello/" {
-		t.Errorf("first entry = %q, want the root directory", hs[0].Name)
-	}
-	for i := 2; i < len(hs); i++ {
-		if hs[i-1].Name > hs[i].Name {
-			t.Errorf("entries out of order: %q before %q", hs[i-1].Name, hs[i].Name)
-		}
-	}
+	got := names(headers(t, layer))
+	require.NotEmpty(t, got)
+	assert.Equal(t, "hello/", got[0], "the root directory comes first")
+
+	assert.IsNonDecreasing(t, got[1:], "entries must be lexicographic")
 }
 
 // SPEC.md 2.5: symlinks are rejected at pack.
@@ -177,48 +149,30 @@ func TestSymlinksAreRejected(t *testing.T) {
 		t.Skipf("cannot create symlinks here: %v", err)
 	}
 
-	if _, err := PackDir(dir, "hello"); err == nil {
-		t.Error("PackDir accepted a symlink, want an error")
-	} else if !strings.Contains(err.Error(), "symlink") {
-		t.Errorf("error = %v, want it to name the symlink", err)
-	}
+	_, err := PackDir(dir, "hello")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "symlink")
 }
 
 // A skill without SKILL.md has no frontmatter to derive a config from.
 func TestSkillFileIsRequired(t *testing.T) {
-	if _, err := PackDir(skillDir(t, map[string]string{"other.md": "x\n"}), "hello"); err == nil {
-		t.Error("PackDir accepted a directory with no SKILL.md, want an error")
-	}
+	_, err := PackDir(skillDir(t, map[string]string{"other.md": "x\n"}), "hello")
+	assert.Error(t, err)
 }
 
 // checkPath is the security boundary of 2.5; the rejected set is exact, and so
 // is the accepted set.
 func TestCheckPath(t *testing.T) {
-	rejected := []string{"../escape.md", "a/../../b.md", "/absolute.md", "./a.md", "a//b.md"}
-	for _, p := range rejected {
+	for _, p := range []string{"../escape.md", "a/../../b.md", "/absolute.md", "./a.md", "a//b.md"} {
 		t.Run("reject "+p, func(t *testing.T) {
-			if err := checkPath(p); err == nil {
-				t.Errorf("checkPath(%q) = nil, want an error", p)
-			}
+			assert.Error(t, checkPath(p))
 		})
 	}
 
 	// 2.5 lists these as explicitly *not* validated.
-	accepted := []string{"CON", "aux.md", `a:b.md`, "trailing.", "trailing ", "a?b.md", "README.md", "a/b/c.md"}
-	for _, p := range accepted {
+	for _, p := range []string{"CON", "aux.md", "a:b.md", "trailing.", "trailing ", "a?b.md", "README.md", "a/b/c.md"} {
 		t.Run("accept "+p, func(t *testing.T) {
-			if err := checkPath(p); err != nil {
-				t.Errorf("checkPath(%q) = %v, want nil — 2.5 does not validate this", p, err)
-			}
+			assert.NoError(t, checkPath(p), "2.5 does not validate this")
 		})
 	}
-}
-
-func contains(hay []string, needle string) bool {
-	for _, s := range hay {
-		if s == needle {
-			return true
-		}
-	}
-	return false
 }

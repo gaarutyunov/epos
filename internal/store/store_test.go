@@ -10,6 +10,8 @@ import (
 	"testing"
 
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"oras.land/oras-go/v2"
 	"oras.land/oras-go/v2/content/oci"
 )
@@ -32,9 +34,7 @@ func push(t *testing.T, s *Store, tag, body string) ocispec.Descriptor {
 			})
 		return manifest, err
 	})
-	if err != nil {
-		t.Fatalf("Push(%s): %v", tag, err)
-	}
+	require.NoError(t, err, "Push(%s)", tag)
 	return manifest
 }
 
@@ -43,12 +43,8 @@ func TestPushResolveRoundTrip(t *testing.T) {
 	want := push(t, s, "hello:1.0.0", "layer one")
 
 	got, err := s.Resolve(context.Background(), "hello:1.0.0")
-	if err != nil {
-		t.Fatalf("Resolve: %v", err)
-	}
-	if got.Digest != want.Digest {
-		t.Errorf("resolved %s, want %s", got.Digest, want.Digest)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, want.Digest, got.Digest)
 }
 
 // SPEC.md 9.1: many versions stay resident so any can be installed later.
@@ -59,20 +55,8 @@ func TestManyVersionsCoexist(t *testing.T) {
 	push(t, s, "other:0.1.0", "three")
 
 	tags, err := s.Tags(context.Background())
-	if err != nil {
-		t.Fatalf("Tags: %v", err)
-	}
-	for _, want := range []string{"hello:1.0.0", "hello:1.1.0", "other:0.1.0"} {
-		found := false
-		for _, got := range tags {
-			if got == want {
-				found = true
-			}
-		}
-		if !found {
-			t.Errorf("tag %q missing from %v", want, tags)
-		}
-	}
+	require.NoError(t, err)
+	assert.Subset(t, tags, []string{"hello:1.0.0", "hello:1.1.0", "other:0.1.0"})
 }
 
 // The reason this package exists (SPEC.md 9.2): oras-go's store is
@@ -110,17 +94,13 @@ func TestConcurrentPushesDoNotLoseTags(t *testing.T) {
 	wg.Wait()
 	close(errs)
 	for err := range errs {
-		t.Fatalf("concurrent push: %v", err)
+		require.NoError(t, err, "concurrent push")
 	}
 
 	tags, err := s.Tags(context.Background())
-	if err != nil {
-		t.Fatalf("Tags: %v", err)
-	}
-	if len(tags) != writers {
-		t.Errorf("store holds %d tags, want %d — a concurrent push was lost: %v",
-			len(tags), writers, tags)
-	}
+	require.NoError(t, err)
+	assert.Len(t, tags, writers,
+		"a concurrent push was lost; that is the failure 9.2 describes")
 }
 
 // 9.2: index.json is replaced, never rewritten in place, so a reader never
@@ -133,46 +113,35 @@ func TestIndexIsValidJSONAfterEveryWrite(t *testing.T) {
 		push(t, s, fmt.Sprintf("skill:%d.0.0", i), fmt.Sprintf("body %d", i))
 
 		body, err := os.ReadFile(filepath.Join(root, "index.json"))
-		if err != nil {
-			t.Fatalf("read index: %v", err)
-		}
+		require.NoError(t, err)
+
 		var idx ocispec.Index
-		if err := json.Unmarshal(body, &idx); err != nil {
-			t.Fatalf("index.json is not valid JSON after write %d: %v", i, err)
-		}
-		if idx.SchemaVersion != 2 {
-			t.Errorf("index schemaVersion = %d, want 2", idx.SchemaVersion)
-		}
+		require.NoError(t, json.Unmarshal(body, &idx),
+			"index.json is not valid JSON after write %d", i)
+		assert.Equal(t, 2, idx.SchemaVersion)
 		for _, m := range idx.Manifests {
-			if m.Annotations[ocispec.AnnotationRefName] == "" {
-				t.Errorf("manifest %s carries no ref name annotation", m.Digest)
-			}
+			assert.NotEmpty(t, m.Annotations[ocispec.AnnotationRefName],
+				"manifest %s carries no ref name annotation", m.Digest)
 		}
 	}
 
 	// No temp files left behind.
 	entries, err := os.ReadDir(root)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	for _, e := range entries {
-		if filepath.Ext(e.Name()) == ".tmp" {
-			t.Errorf("temp file %s was left in the store", e.Name())
-		}
+		assert.NotEqual(t, ".tmp", filepath.Ext(e.Name()),
+			"temp file %s was left in the store", e.Name())
 	}
 }
 
 // A store that has never been written must still be readable.
 func TestResolveOnEmptyStore(t *testing.T) {
 	s := At(filepath.Join(t.TempDir(), "store"))
-	if _, err := s.Resolve(context.Background(), "absent:1.0.0"); err == nil {
-		t.Error("Resolve on an empty store returned no error, want one")
-	}
+
+	_, err := s.Resolve(context.Background(), "absent:1.0.0")
+	assert.Error(t, err)
+
 	tags, err := s.Tags(context.Background())
-	if err != nil {
-		t.Fatalf("Tags on an empty store: %v", err)
-	}
-	if len(tags) != 0 {
-		t.Errorf("empty store has tags %v", tags)
-	}
+	require.NoError(t, err)
+	assert.Empty(t, tags)
 }

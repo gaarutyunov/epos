@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
 
 	"github.com/gaarutyunov/epos/internal/metrics"
@@ -122,9 +123,7 @@ func TestMalformedEposDownloadStillServesTheBlob(t *testing.T) {
 
 	newHandler("1.2.3", relayAnswering(ctrl, http.StatusOK), downloads).ServeHTTP(rec, req)
 
-	if rec.Code != http.StatusOK {
-		t.Errorf("status = %d, want %d", rec.Code, http.StatusOK)
-	}
+	assert.Equal(t, http.StatusOK, rec.Code)
 }
 
 // A registry built without a counter must still serve.
@@ -135,7 +134,5 @@ func TestCountingIsOptional(t *testing.T) {
 	newHandler("1.2.3", relayAnswering(ctrl, http.StatusOK), nil).ServeHTTP(rec,
 		httptest.NewRequest(http.MethodGet, "/v2/demo/hello/blobs/sha256:abc", nil))
 
-	if rec.Code != http.StatusOK {
-		t.Errorf("status = %d, want %d", rec.Code, http.StatusOK)
-	}
+	assert.Equal(t, http.StatusOK, rec.Code)
 }

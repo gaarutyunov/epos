@@ -5,6 +5,9 @@ import (
 	"net/http/httptest"
 	"sync"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // recorder is a stand-in for the host an upstream redirect nominates — an
@@ -50,30 +53,20 @@ func TestRelayPassesUpstreamRedirectThroughWithoutFollowingIt(t *testing.T) {
 	t.Cleanup(upstreamSrv.Close)
 
 	c, err := New(upstreamSrv.URL)
-	if err != nil {
-		t.Fatalf("New: %v", err)
-	}
+	require.NoError(t, err)
 
 	req := httptest.NewRequest(http.MethodGet, "/v2/demo/hello/blobs/sha256:abc", nil)
 	req.Header.Set("Authorization", "Basic c2VjcmV0")
 	rec := httptest.NewRecorder()
 
-	if err := c.Relay(rec, req); err != nil {
-		t.Fatalf("Relay: %v", err)
-	}
+	require.NoError(t, c.Relay(rec, req))
 
-	if rec.Code != http.StatusTemporaryRedirect {
-		t.Errorf("status = %d, want %d", rec.Code, http.StatusTemporaryRedirect)
-	}
-	if got, want := rec.Header().Get("Location"), targetSrv.URL+"/blob"; got != want {
-		t.Errorf("Location = %q, want %q — the redirect is relayed unrewritten", got, want)
-	}
-	if n := rec.Body.Len(); n != 0 {
-		t.Errorf("relayed %d body bytes, want 0 — blob bytes must not cross epos-registry", n)
-	}
-	if reqs := target.requests(); len(reqs) != 0 {
-		t.Errorf("redirect target received %d request(s) from epos-registry, want 0: %v", len(reqs), reqs)
-	}
+	assert.Equal(t, http.StatusTemporaryRedirect, rec.Code)
+	assert.Equal(t, targetSrv.URL+"/blob", rec.Header().Get("Location"),
+		"the redirect is relayed unrewritten")
+	assert.Zero(t, rec.Body.Len(), "blob bytes must not cross epos-registry")
+	assert.Empty(t, target.requests(),
+		"epos-registry must not contact the redirect target at all")
 }
 
 // The degraded case of SPEC.md 4.2: some registries answer blob GET with the
@@ -88,24 +81,14 @@ func TestRelayStreamsWhenUpstreamDoesNotRedirect(t *testing.T) {
 	t.Cleanup(upstreamSrv.Close)
 
 	c, err := New(upstreamSrv.URL)
-	if err != nil {
-		t.Fatalf("New: %v", err)
-	}
+	require.NoError(t, err)
 
 	rec := httptest.NewRecorder()
-	if err := c.Relay(rec, httptest.NewRequest(http.MethodGet, "/v2/demo/hello/blobs/sha256:abc", nil)); err != nil {
-		t.Fatalf("Relay: %v", err)
-	}
+	require.NoError(t, c.Relay(rec, httptest.NewRequest(http.MethodGet, "/v2/demo/hello/blobs/sha256:abc", nil)))
 
-	if rec.Code != http.StatusOK {
-		t.Errorf("status = %d, want %d", rec.Code, http.StatusOK)
-	}
-	if got := rec.Body.String(); got != string(want) {
-		t.Errorf("body = %q, want %q", got, want)
-	}
-	if got := rec.Header().Get("Content-Type"); got != "application/octet-stream" {
-		t.Errorf("Content-Type = %q, want application/octet-stream", got)
-	}
+	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.Equal(t, string(want), rec.Body.String())
+	assert.Equal(t, "application/octet-stream", rec.Header().Get("Content-Type"))
 }
 
 // The configured upstream is not a redirect target: SPEC.md 4.5 relays the
@@ -120,20 +103,15 @@ func TestRelayForwardsAuthorizationToTheConfiguredUpstream(t *testing.T) {
 	t.Cleanup(upstreamSrv.Close)
 
 	c, err := New(upstreamSrv.URL)
-	if err != nil {
-		t.Fatalf("New: %v", err)
-	}
+	require.NoError(t, err)
 
 	req := httptest.NewRequest(http.MethodGet, "/v2/demo/hello/blobs/sha256:abc", nil)
 	req.Header.Set("Authorization", "Basic c2VjcmV0")
 	rec := httptest.NewRecorder()
-	if err := c.Relay(rec, req); err != nil {
-		t.Fatalf("Relay: %v", err)
-	}
+	require.NoError(t, c.Relay(rec, req))
 
-	if got, want := rec.Body.String(), "Basic c2VjcmV0"; got != want {
-		t.Errorf("upstream saw Authorization = %q, want %q", got, want)
-	}
+	assert.Equal(t, "Basic c2VjcmV0", rec.Body.String(),
+		"the configured upstream is not a redirect target; 4.5 relays the credential to it")
 }
 
 // Hop-by-hop headers are connection-scoped and must not be relayed in either
@@ -146,21 +124,13 @@ func TestRelayDropsHopByHopHeaders(t *testing.T) {
 	t.Cleanup(upstreamSrv.Close)
 
 	c, err := New(upstreamSrv.URL)
-	if err != nil {
-		t.Fatalf("New: %v", err)
-	}
+	require.NoError(t, err)
 
 	req := httptest.NewRequest(http.MethodGet, "/v2/demo/hello/blobs/sha256:abc", nil)
 	req.Header.Set("Proxy-Authorization", "Basic c2VjcmV0")
 	rec := httptest.NewRecorder()
-	if err := c.Relay(rec, req); err != nil {
-		t.Fatalf("Relay: %v", err)
-	}
+	require.NoError(t, c.Relay(rec, req))
 
-	if v := rec.Body.String(); v != "" {
-		t.Errorf("upstream saw Proxy-Authorization = %q, want it dropped", v)
-	}
-	if v := rec.Header().Get("Proxy-Authenticate"); v != "" {
-		t.Errorf("client saw Proxy-Authenticate = %q, want it dropped", v)
-	}
+	assert.Empty(t, rec.Body.String(), "Proxy-Authorization must not reach upstream")
+	assert.Empty(t, rec.Header().Get("Proxy-Authenticate"), "Proxy-Authenticate must not reach the client")
 }
