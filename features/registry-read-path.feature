@@ -22,28 +22,24 @@ Feature: epos-registry read path
     When a client requests "GET /v2/nonexistent/repo/tags/list"
     Then the response has an "Epos-Version" header
 
-  @wip
   Scenario: A manifest is resolved by tag
     Given the skill "demo/hello" version "1.0.0" is present upstream
     When a client resolves the manifest "demo/hello:1.0.0"
     Then the response status is 200
     And the returned digest matches the digest upstream reports
 
-  @wip
   Scenario: A manifest is resolved by HEAD without fetching content
     Given the skill "demo/hello" version "1.0.0" is present upstream
     When a client issues HEAD for the manifest "demo/hello:1.0.0"
     Then the response status is 200
     And no response body is returned
 
-  @wip
   Scenario: Tags are listed for a repository
     Given the skill "demo/hello" version "1.0.0" is present upstream
     And the skill "demo/hello" version "1.1.0" is present upstream
     When a client lists the tags of "demo/hello"
     Then the tag list contains "1.0.0" and "1.1.0"
 
-  @wip
   Scenario: Referrers are listed for a digest
     Given the skill "demo/hello" version "1.0.0" is present upstream
     When a client lists the referrers of the "demo/hello:1.0.0" manifest digest

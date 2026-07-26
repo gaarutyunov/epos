@@ -14,6 +14,8 @@ import (
 	"net/http"
 	"os"
 	"time"
+
+	"github.com/gaarutyunov/epos/internal/upstream"
 )
 
 // Version is the semver reported in the Epos-Version header (SPEC.md 4.3).
@@ -22,15 +24,27 @@ var Version = "0.0.0-dev"
 
 func main() {
 	addr := flag.String("addr", ":8080", "address to listen on")
+	upstreamURL := flag.String("upstream", "", "upstream registry base URL (required)")
 	flag.Parse()
+
+	if *upstreamURL == "" {
+		fmt.Fprintln(os.Stderr, "epos-registry: -upstream is required")
+		os.Exit(2)
+	}
+
+	up, err := upstream.New(*upstreamURL)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "epos-registry:", err)
+		os.Exit(2)
+	}
 
 	srv := &http.Server{
 		Addr:              *addr,
-		Handler:           newHandler(Version),
+		Handler:           newHandler(Version, up),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 
-	log.Printf("epos-registry %s listening on %s", Version, *addr)
+	log.Printf("epos-registry %s listening on %s, fronting %s", Version, *addr, *upstreamURL)
 	if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		fmt.Fprintln(os.Stderr, "epos-registry:", err)
 		os.Exit(1)
