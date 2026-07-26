@@ -134,9 +134,9 @@ func (w *world) startRegistry(ctx context.Context) error {
 	// read back out of the process's own output. The interval is short so a
 	// scenario does not wait on the SDK's minute-long default.
 	cmd := exec.CommandContext(ctx, registryBin,
-		"-addr", addr,
-		"-upstream", w.upstreamURL,
-		"-metrics-interval", metricsInterval.String(),
+		"--addr", addr,
+		"--upstream", w.upstreamURL,
+		"--metrics.interval", metricsInterval.String(),
 	)
 	w.metrics = &metricsOutput{}
 	cmd.Stdout = w.metrics
