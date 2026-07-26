@@ -56,20 +56,6 @@ func (mr *MockrelayerMockRecorder) Relay(w, r any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Relay", reflect.TypeOf((*Mockrelayer)(nil).Relay), w, r)
 }
 
-// Target mocks base method.
-func (m *Mockrelayer) Target(r *http.Request) string {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Target", r)
-	ret0, _ := ret[0].(string)
-	return ret0
-}
-
-// Target indicates an expected call of Target.
-func (mr *MockrelayerMockRecorder) Target(r any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Target", reflect.TypeOf((*Mockrelayer)(nil).Target), r)
-}
-
 // MockdownloadRecorder is a mock of downloadRecorder interface.
 type MockdownloadRecorder struct {
 	ctrl     *gomock.Controller
@@ -104,16 +90,4 @@ func (m *MockdownloadRecorder) Record(ctx context.Context, dl metrics.Download) 
 func (mr *MockdownloadRecorderMockRecorder) Record(ctx, dl any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Record", reflect.TypeOf((*MockdownloadRecorder)(nil).Record), ctx, dl)
-}
-
-// RecordPublish mocks base method.
-func (m *MockdownloadRecorder) RecordPublish(ctx context.Context, p metrics.Publish) {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "RecordPublish", ctx, p)
-}
-
-// RecordPublish indicates an expected call of RecordPublish.
-func (mr *MockdownloadRecorderMockRecorder) RecordPublish(ctx, p any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RecordPublish", reflect.TypeOf((*MockdownloadRecorder)(nil).RecordPublish), ctx, p)
 }

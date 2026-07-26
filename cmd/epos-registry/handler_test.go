@@ -52,11 +52,12 @@ func TestRoutingOfReadSurface(t *testing.T) {
 		{"blob by digest", http.MethodGet, "/v2/demo/hello/blobs/sha256:abc", true, http.StatusOK},
 		{"blob by HEAD", http.MethodHead, "/v2/demo/hello/blobs/sha256:abc", true, http.StatusOK},
 
-		// The write path has its own tests; these are the methods 4.5 still
-		// does not serve.
+		// The write path (4.5) is not served: see the routing comment in
+		// handler.go for why publishing goes to upstream directly.
+		{"blob upload session is not served", http.MethodPost, "/v2/demo/hello/blobs/uploads/", false, http.StatusNotFound},
+		{"manifest PUT is not served", http.MethodPut, "/v2/demo/hello/manifests/1.0.0", false, http.StatusMethodNotAllowed},
 		{"blob PUT is not served", http.MethodPut, "/v2/demo/hello/blobs/sha256:abc", false, http.StatusMethodNotAllowed},
 		{"blob DELETE is never served", http.MethodDelete, "/v2/demo/hello/blobs/sha256:abc", false, http.StatusMethodNotAllowed},
-		{"upload session GET is not served", http.MethodGet, "/v2/demo/hello/blobs/uploads/", false, http.StatusMethodNotAllowed},
 		{"DELETE is never served", http.MethodDelete, "/v2/demo/hello/manifests/1.0.0", false, http.StatusMethodNotAllowed},
 		{"unknown path", http.MethodGet, "/v2/demo/hello/whatever", false, http.StatusNotFound},
 		{"outside /v2/", http.MethodGet, "/healthz", false, http.StatusNotFound},

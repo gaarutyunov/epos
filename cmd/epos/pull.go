@@ -17,50 +17,6 @@ import (
 	"github.com/gaarutyunov/epos/internal/store"
 )
 
-func newPushCommand() *cobra.Command {
-	var plainHTTP bool
-
-	cmd := &cobra.Command{
-		Use:   "push <name>:<version> <registry-ref>",
-		Short: "Push a skill from the local store to a registry",
-		Long: "push is a plain OCI push. There is no Epos write server: the CLI uses\n" +
-			"the registry credentials you already have, exactly as helm push does.\n" +
-			"Nothing is validated server-side — a malformed skill fails at install,\n" +
-			"not at push.",
-		Args:         cobra.ExactArgs(2),
-		SilenceUsage: true,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return runPush(cmd.Context(), cmd.OutOrStdout(), args[0], args[1], plainHTTP)
-		},
-	}
-	cmd.Flags().BoolVar(&plainHTTP, "plain-http", false, "talk to the registry over HTTP")
-	return cmd
-}
-
-func runPush(ctx context.Context, out io.Writer, tag, ref string, plainHTTP bool) error {
-	s, err := store.Default()
-	if err != nil {
-		return err
-	}
-
-	repo, dstTag, err := newRepository(ref, plainHTTP)
-	if err != nil {
-		return err
-	}
-
-	var pushed ocispec.Descriptor
-	err = s.Read(ctx, func(ctx context.Context, st *oci.Store) error {
-		pushed, err = oras.Copy(ctx, st, tag, repo, dstTag, oras.DefaultCopyOptions)
-		return err
-	})
-	if err != nil {
-		return fmt.Errorf("push %s to %s: %w", tag, ref, err)
-	}
-
-	fmt.Fprintf(out, "%s %s\n", ref, pushed.Digest)
-	return nil
-}
-
 func newPullCommand() *cobra.Command {
 	var plainHTTP bool
 

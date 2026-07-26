@@ -19,6 +19,7 @@ import (
 	"github.com/testcontainers/testcontainers-go/wait"
 	"oras.land/oras-go/v2"
 	"oras.land/oras-go/v2/content/memory"
+	"oras.land/oras-go/v2/content/oci"
 	"oras.land/oras-go/v2/registry/remote"
 )
 
@@ -40,12 +41,6 @@ type author struct {
 	pushed   string // registry reference
 	orphan   string // a planted unreachable blob
 	pulledTo string
-
-	// The fronting epos-registry, when a scenario publishes through one.
-	proxyURL   string
-	proxyCmd   *exec.Cmd
-	proxyOut   *metricsOutput
-	uploadHits int
 }
 
 func (a *author) reset(t *testing.T) {
@@ -60,94 +55,8 @@ func (a *author) reset(t *testing.T) {
 	a.dir, a.altDir, a.pushed, a.orphan, a.pulledTo = "", "", "", "", ""
 	a.digests = nil
 	a.packErr = nil
-	a.stopProxy()
-	a.uploadHits = 0
 }
 
-func (a *author) stopProxy() {
-	if a.proxyCmd == nil {
-		return
-	}
-	_ = a.proxyCmd.Process.Kill()
-	_ = a.proxyCmd.Wait()
-	a.proxyCmd = nil
-	a.proxyURL = ""
-	a.proxyOut = nil
-}
-
-// eposRegistryFronting starts epos-registry in front of the scenario's zot.
-func (a *author) eposRegistryFronting(ctx context.Context) error {
-	if a.registryURL == "" {
-		return fmt.Errorf("the registry is not running")
-	}
-
-	port, err := freePort()
-	if err != nil {
-		return err
-	}
-	addr := fmt.Sprintf("127.0.0.1:%d", port)
-
-	cmd := exec.CommandContext(ctx, registryBin,
-		"--addr", addr,
-		"--upstream", "http://"+a.registryURL,
-		"--metrics.interval", metricsInterval.String(),
-	)
-	a.proxyOut = &metricsOutput{}
-	cmd.Stdout = a.proxyOut
-	cmd.Stderr = os.Stderr
-	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("start epos-registry: %w", err)
-	}
-	a.proxyCmd = cmd
-	a.proxyURL = addr
-	return waitForReady(ctx, "http://"+addr+"/v2/")
-}
-
-// pushesThroughProxy publishes at the fronting registry rather than at zot.
-func (a *author) pushesThroughProxy() error {
-	a.pushed = fmt.Sprintf("%s/demo/agent-skills/%s:%s", a.proxyURL, a.name, a.version)
-	out, err := a.epos(a.home, "push", a.name+":"+a.version, a.pushed, "--plain-http")
-	if err != nil {
-		return fmt.Errorf("push through epos-registry: %v: %s", err, out)
-	}
-	return nil
-}
-
-// noUploadBytesCrossed checks 4.5's headline claim: the upload session is
-// redirected, so the blob bytes go straight to upstream.
-func (a *author) noUploadBytesCrossed() error {
-	// The proxy answers the session POST with a 307 and never sees a PATCH or
-	// a blob PUT. If it had relayed instead, oras would have driven the whole
-	// upload through it.
-	if a.uploadHits != 0 {
-		return fmt.Errorf("%d upload request(s) crossed epos-registry", a.uploadHits)
-	}
-	return nil
-}
-
-// publishCountIs reads epos.publishes out of the proxy's exporter output.
-func (a *author) publishCountIs(repository string, want int64) error {
-	if a.proxyOut == nil {
-		return fmt.Errorf("epos-registry is not running")
-	}
-
-	deadline := time.Now().Add(30 * time.Second)
-	var last int64
-	for time.Now().Before(deadline) {
-		got, err := publishesFor(a.proxyOut, repository)
-		if err != nil {
-			return err
-		}
-		if got == want {
-			return nil
-		}
-		last = got
-		time.Sleep(metricsInterval / 2)
-	}
-	return fmt.Errorf("publish count for %q reached %d, want %d", repository, last, want)
-}
-
-// epos runs the CLI with HOME pointed at a sandbox store.
 func (a *author) epos(home string, args ...string) (string, error) {
 	cmd := exec.Command(eposBin, args...)
 	cmd.Env = append(os.Environ(), "HOME="+home)
@@ -238,11 +147,30 @@ func (a *author) packsBoth() error {
 	return nil
 }
 
-func (a *author) pushes() error {
+// isPublished puts the packed skill in the registry.
+//
+// Done with oras-go rather than an epos command, because publishing is not
+// part of Epos for now: a skill reaches the registry through whatever client
+// already holds the user's credentials. Copying the local store's OCI layout
+// is exactly what that client does.
+func (a *author) isPublished() error {
 	a.pushed = fmt.Sprintf("%s/demo/agent-skills/%s:%s", a.registryURL, a.name, a.version)
-	out, err := a.epos(a.home, "push", a.name+":"+a.version, a.pushed, "--plain-http")
+
+	src, err := oci.New(filepath.Join(a.home, ".epos", "store"))
 	if err != nil {
-		return fmt.Errorf("push: %v: %s", err, out)
+		return fmt.Errorf("open the author's store: %w", err)
+	}
+	repo, err := remote.NewRepository(
+		fmt.Sprintf("%s/demo/agent-skills/%s", a.registryURL, a.name))
+	if err != nil {
+		return err
+	}
+	repo.PlainHTTP = true
+
+	tag := a.name + ":" + a.version
+	if _, err := oras.Copy(context.Background(), src, tag, repo, a.version,
+		oras.DefaultCopyOptions); err != nil {
+		return fmt.Errorf("publish %s: %w", tag, err)
 	}
 	return nil
 }
@@ -520,11 +448,8 @@ func TestAuthorAndPublish(t *testing.T) {
 	godogT = t
 	eposBin = buildBinary(t, "epos", "../../cmd/epos")
 
-	registryBin = buildBinary(t, "epos-registry", "../../cmd/epos-registry")
-
 	a := &author{}
 	t.Cleanup(func() {
-		a.stopProxy()
 		for _, c := range authorContainers {
 			_ = c.Terminate(context.Background())
 		}
@@ -548,24 +473,19 @@ func TestAuthorAndPublish(t *testing.T) {
 			})
 
 			sc.Given(`^a registry$`, func(ctx context.Context) error { return a.aRegistry(ctx) })
-			sc.Given(`^epos-registry is fronting the registry$`, func(ctx context.Context) error {
-				return a.eposRegistryFronting(ctx)
-			})
 			sc.Given(`^a skill directory "([^"]+)" version "([^"]+)"$`, a.aSkillDirectory)
 			sc.Given(`^an identical skill directory written in a different order$`, a.anIdenticalDirectory)
 			sc.Given(`^the directory contains a symlink$`, a.theDirectoryContainsASymlink)
 			sc.Given(`^an unreferenced blob is in the store$`, a.anUnreferencedBlobIsInTheStore)
 			sc.Given(`^the author packs it$`, a.packs)
-			sc.Given(`^the author pushes it to the registry$`, a.pushes)
+			sc.Given(`^it is published to the registry$`, a.isPublished)
 
 			sc.When(`^the author packs it$`, a.packs)
 			sc.When(`^the author packs it again$`, a.packsAgain)
 			sc.When(`^the author packs both$`, a.packsBoth)
-			sc.When(`^the author pushes it to the registry$`, a.pushes)
 			sc.When(`^a second machine pulls it$`, a.aSecondMachinePulls)
 			sc.When(`^plain oras pulls it$`, a.plainOrasPulls)
 			sc.When(`^the author prunes the store$`, a.prunes)
-			sc.When(`^the author pushes it through epos-registry$`, a.pushesThroughProxy)
 
 			sc.Then(`^the artifact has exactly one content layer$`, a.exactlyOneContentLayer)
 			sc.Then(`^the artifact carries the agent-skills artifact type$`, a.carriesTheArtifactType)
@@ -578,8 +498,6 @@ func TestAuthorAndPublish(t *testing.T) {
 			sc.Then(`^the pulled artifact matches the one pushed$`, a.pulledArtifactMatches)
 			sc.Then(`^the unreferenced blob is gone$`, a.orphanIsGone)
 			sc.Then(`^packing fails$`, a.packingFails)
-			sc.Then(`^no upload bytes crossed epos-registry$`, a.noUploadBytesCrossed)
-			sc.Then(`^the publish count for "([^"]+)" is (\d+)$`, a.publishCountIs)
 		},
 		Options: &godog.Options{
 			Format:   "pretty,junit:junit-author.xml",
