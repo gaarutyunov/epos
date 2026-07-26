@@ -14,8 +14,8 @@ Epos distributes and composes AI-agent **Skills** — `SKILL.md` directories as 
 
 Epos consists of two independent tracks:
 
-- **Track A — registry.** `epos-registry`, which fronts an upstream OCI registry and records usage, plus a CLI that packs, pushes, pulls, and installs conformant skill artifacts.
-- **Track B — build.** `Skillfile`, a Dockerfile-shaped build language for deriving skills from other skills. Track B requires no registry at all; it joins Track A only when `FROM` names an OCI reference or when the result is pushed.
+- **Track A — registry.** `epos-registry`, which fronts an upstream OCI registry and records usage, plus a CLI that packs, pulls, and installs conformant skill artifacts. Publishing is not Epos’s job (§4.5).
+- **Track B — build.** `Skillfile`, a Dockerfile-shaped build language for deriving skills from other skills. Track B requires no registry at all; it joins Track A only when `FROM` names an OCI reference.
 
 ### 1.1 Out of scope (v2.0)
 
@@ -107,7 +107,7 @@ Components are **separate binaries** built from one repository and one Go module
 
 |Binary         |Role                                                                         |Track|
 |---------------|-----------------------------------------------------------------------------|-----|
-|`epos`         |CLI: pack, push, pull, build, install, store management                      |A + B|
+|`epos`         |CLI: pack, pull, build, install, store management                            |A + B|
 |`epos-registry`|Registry fronting an upstream OCI registry — one host for both read and write|A    |
 
 Each has its own build, release, and container image; deployment treats each as an independent workload.
@@ -132,11 +132,9 @@ GET  /v2/<name>/blobs/<digest>
 GET  /v2/<name>/tags/list
 GET  /v2/<name>/referrers/<digest>
 GET  /v2/_catalog                      # proxied only if upstream supports it
-POST /v2/<name>/blobs/uploads/         # 307 to upstream (§4.5)
-PUT  /v2/<name>/manifests/<reference>  # relayed and counted (§4.5)
 ```
 
-Content Management (`DELETE`) is not implemented.
+Content Management (`DELETE`) is not implemented, and neither is the write path: blob uploads and manifest `PUT` are not served (§4.5).
 
 `GET /v2/_catalog` is proxied **when the upstream registry supports it**, and is the basis for discovery (§7). It is outside the Content Discovery conformance category and is disabled on several hosted registries; where upstream does not support it, `epos-registry` relays upstream’s response unchanged and `epos search` reports the capability as unavailable.
 
@@ -159,19 +157,34 @@ Consequence, stated plainly: clients need network egress to the upstream’s CDN
 
 `epos-registry` holds no durable state. No manifest cache, no digest→role lookup table, no shared store between replicas. Scaling is N replicas behind a load balancer; any request may land on any replica.
 
-### 4.5 Write path
+### 4.5 Write path — withdrawn
 
-A single host serves both directions, so users configure one registry reference rather than two. It still packs nothing, validates nothing, and holds no credentials — it is not a write server in the sense §1.1 excludes.
+**`epos-registry` does not serve writes.** Skills are published to the upstream registry directly, with whatever OCI client already holds the user’s credentials. `epos` has no `push` command.
 
-**Blob upload sessions are redirected, not relayed.** `POST /v2/<name>/blobs/uploads/` receives a **307**, which preserves method and body, so the client re-issues against upstream and receives upstream’s `Location` natively.
+This reverses the earlier design, which had `epos-registry` serve both directions so users configured one registry reference rather than two. Upload sessions were to receive a **307** so the client re-issued against upstream and got upstream’s `Location` natively — sidestepping `Location` normalisation, session mapping and chunked-resume accounting, and keeping the §4.2 promise that blob bytes never cross `epos-registry` in either direction.
 
-This avoids a real hazard. The spec permits the `Location` to be absolute or relative at upstream’s discretion, and the two route oppositely through a fronting registry: a relative location relayed verbatim resolves against `epos-registry` and pulls every upload byte through it, while an absolute one sends the client straight to upstream. Redirecting the session sidesteps normalisation entirely — no `Location` rewriting, no session mapping, no chunked-resume or range accounting to implement. Cross-repository blob mounts (`?mount=&from=`) are redirected identically.
+**Why it was withdrawn.** `oras-go` refuses a blob upload `Location` on a different host than the registry it was pointed at:
 
-**Manifest `PUT` is relayed.** It always lands on the configured host, it is the actual publish event, and manifests are kilobytes — so the body is read in flight for §5.4 with no extra fetch.
+```
+blob upload Location "upstream:5000" is on a different host
+than the registry "epos-registry:8080"
+```
 
-**Credentials.** The client’s `Authorization` header is relayed on manifest `PUT` and presented directly to upstream on the redirected upload. Nothing is stored.
+That check is deliberate. It is the fix for [GHSA-jxpm-75mh-9fp7](https://github.com/oras-project/oras-go/security/advisories/GHSA-jxpm-75mh-9fp7) — *“to prevent credentials from being forwarded to an attacker-controlled endpoint”* — and it compares the `Location` against the **originally targeted** registry, so following the 307 transparently does not satisfy it. Every `oras-go` client is affected, which includes `oras` itself and included Epos’s own `epos push`. The redirect design was therefore unimplementable, not merely inconvenient.
 
-**Consequence.** Blob bytes never cross `epos-registry` in either direction, and the client still needs egress to upstream. This is one *configured* host, not one *contacted* host — consistent with §4.2.
+**Why not the alternatives.** Each contradicts something this specification asserts elsewhere:
+
+|Alternative                                                        |Contradicts                                                                                                |
+|-------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------|
+|Relay the upload session instead of redirecting it                 |§4.2’s “blob bytes never cross `epos-registry`” — every published byte would                                  |
+|Rewrite `Location` to point back at `epos-registry` and map the session|the hazard this section was written to avoid: normalisation, session mapping, chunked-resume accounting  |
+|Keep the redirect and accept that publishing is broken             |nothing, but ships a path no client can use                                                                |
+
+Withdrawing the write path costs the least. §4.2’s transfer posture is the load-bearing promise — it is why `epos-registry` is cheap to run and can be N replicas behind a load balancer (§4.4) — and relaying uploads would give that up on every publish.
+
+**Consequence.** Users configure two references, not one: `epos-registry` for reading, the upstream registry for publishing. Reading is where the value is, because that is where §5.1’s counting happens; publishing is a plain OCI push that any existing client already does well.
+
+**If this is revisited**, the question to answer first is whether `oras-go` will ever accept a cross-host upload `Location` under some opt-in. If not, the only route to one configured host is relaying uploads, and §4.2 has to be amended to say so.
 
 -----
 
@@ -206,17 +219,16 @@ One instrumentation path: the OpenTelemetry Go SDK. The exporter is chosen by co
 
 Instrument: `epos.downloads`, a monotonic counter.
 
-### 5.4 Publishes
-
-A **publish** is a manifest `PUT` that upstream accepts with 201.
-
-Instrument: `epos.publishes`, a monotonic counter. Attributes: `repository`, `artifact_type` (read from the relayed manifest body), `reference_kind` (tag or digest).
-
-Publishes per repository answers “which skill changes most often” directly. Blob uploads are deliberately not counted: content addressing means a new version reusing an existing layer uploads nothing, so upload volume does not track publishing.
-
 Attributes: `repository`, `verified`, `client` (from `User-Agent`; `oras-go` sets `User-Agent: oras-go` on its auth `DefaultClient`).
 
 **Cardinality control.** The attribute set is configurable. Version-valued attributes accumulate without bound under a Prometheus exporter and are off by default.
+
+### 5.4 Publishes — withdrawn
+
+There is no publish counter. `epos.publishes` was to be recorded from the relayed manifest `PUT`, and §4.5 withdraws that path: a publish goes straight to upstream, where `epos-registry` never sees it.
+
+Publishes per repository would have answered “which skill changes most often” directly. Nothing replaces it, because the only place to observe a publish is now the upstream registry’s own logs. Blob uploads would not have been counted in any case — content addressing means a new version reusing an existing layer uploads nothing, so upload volume does not track publishing.
+
 
 -----
 
@@ -226,17 +238,16 @@ Attributes: `repository`, `verified`, `client` (from `User-Agent`; `oras-go` set
 
 ```
 epos pack <dir> [-t <name>:<version>]     # directory → artifact in local store
-epos push <name>:<version> <registry-ref> # local store → registry (plain OCI push)
 epos pull <ref>                           # registry → local store
 ```
 
 `pack` derives the config blob from `SKILL.md` frontmatter, builds the deterministic content layer (§2.4), and writes the artifact into the local store (§9).
 
-`push` is a plain OCI push using ORAS. There is no Epos write server. The CLI holds the user’s own registry credentials, exactly as `helm push` does.
+There is no `epos push`, and no Epos write server. A skill is published to the registry with whatever OCI client already holds the user’s credentials — `oras`, `docker`, a CI job. §4.5 records why the write path was withdrawn.
 
 ### 6.2 Non-goals
 
-The CLI does not validate skills server-side, mediate credentials, or transform artifacts in transit. A malformed skill that is pushed will fail at install time, not at push time.
+The CLI does not validate skills server-side, mediate credentials, or transform artifacts in transit. A malformed skill that reaches a registry will fail at install time, not when it was published.
 
 -----
 
@@ -538,7 +549,7 @@ Every milestone delivers a usable solution with full integration coverage agains
 |ID    |Deliverable                                                                                                                                    |Gate                                                                                                                                                                                                                                   |
 |------|-----------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 |**A1**|`epos-registry`: `/v2/` Pull + Content Discovery, 307 pass-through, stateless counting, OTel stdout exporter. **Full CI stack (§13.6)**        |OCI Pull conformance suite green, godog scenarios driving real `oras` against real zot through `epos-registry`, and every CI workflow green — lint, vet, format, vulncheck, three-platform unit tests, integration suite, release build|
-|**A2**|`epos pack` / `push` / `pull`; deterministic packing; local store with locking; write path through `epos-registry`; verified counting lights up|Artifact pushed *through* `epos-registry` and pulled back by plain `oras`; publish counter increments; identical inputs produce identical digests across platforms                                                                     |
+|**A2**|`epos pack` / `pull`; deterministic packing; local store with locking; verified counting lights up. The write path was attempted and withdrawn (§4.5)|A published artifact pulled back by plain `oras`; identical inputs produce identical digests across platforms                                                                     |
 |**A3**|Discovery: `_catalog` passthrough, `epos search` / `list`                                                                                      |Skills enumerated and searched against real zot; a registry without `_catalog` reports the capability as unavailable rather than failing obscurely                                                                                     |
 |**A4**|Install local: `values.yaml`, `text/template` rendering, `skills.json` + `skills.lock.json`, `additionalBasePaths`                             |Parameterised skill installs into `.claude/skills`; two worktrees pin different digests from one store simultaneously                                                                                                                  |
 |**A5**|Sign and verify: cosign referrers, `epos verify`                                                                                               |Tampered artifact fails verification against a real registry                                                                                                                                                                           |
@@ -548,9 +559,9 @@ Every milestone delivers a usable solution with full integration coverage agains
 |ID    |Deliverable                                                                                                                |Gate                                                                                      |
 |------|---------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------|
 |**B1**|Skillfile: `FROM` local and git, multi-stage, `COPY`/`RM`/`APPEND`/`REPLACE`/`PATCH`, build to local store, install locally|A skill derived from a git base builds and installs with **no registry involved anywhere**|
-|**B2**|`FROM` OCI, push the built result                                                                                          |Derived skill published and pulled back by plain `oras`; provenance annotations present   |
+|**B2**|`FROM` OCI; the built result is published with an ordinary OCI client (§4.5)                                                |Derived skill published and pulled back by plain `oras`; provenance annotations present   |
 
-**Sequencing rationale.** Install precedes Skillfile because pushing and installing are basic functionality — a user can clone a repo and push to OCI without ever writing a Skillfile. Skillfile is for advanced users and is a parallel track, not a prerequisite.
+**Sequencing rationale.** Install precedes Skillfile because packing and installing are basic functionality — a user can clone a repo, pack it and install it without ever writing a Skillfile. Skillfile is for advanced users and is a parallel track, not a prerequisite.
 
 -----
 
@@ -759,7 +770,7 @@ Astro, using **`gaarutyunov/ui-kit`** for all components.
 |-----------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 |**Landing**            |What Epos is in one sentence, the problem it solves, install command, and a single copy-pasteable example that produces a visible result                                                           |
 |**Quick start**        |End-to-end tutorial: publish a skill, pull it back, install it locally with values. Runnable start to finish against a public registry, no prior OCI knowledge assumed                             |
-|**CLI reference**      |Every command and flag — `pack`, `push`, `pull`, `build`, `install`, `uninstall`, `ls`, `search`, `list`, `verify`, `store`                                                                        |
+|**CLI reference**      |Every command and flag — `pack`, `pull`, `build`, `install`, `uninstall`, `ls`, `search`, `list`, `verify`, `store`                                                                        |
 |**Skillfile reference**|Every instruction with syntax and worked examples — `FROM`, `COPY`, `RM`, `APPEND`, `REPLACE`, `PATCH`, `AWK`, `SET`, `UNSET`, `ARG` — plus multi-stage composition and the values/templating model|
 
 Reference pages are generated from the same source as the CLI’s own help output and the Skillfile instruction table, so they cannot drift from the implementation.
@@ -833,7 +844,7 @@ jobs:
 |1 |Wire format          |Conform to `vnd.agentskills.skill.v1`; extend with `vnd.epos.*` for Epos-native concepts                                |
 |2 |Registry protocol    |`/v2/` only; no second API surface. Epos semantics would ride on `Accept` negotiation if ever needed — none are, in v2.0|
 |3 |Rendering location   |Helm model — templates rendered at install, never by the registry or a server                                           |
-|4 |Write path           |No write server. CLI packs and pushes via plain OCI, as `helm push` does                                                |
+|4 |Write path           |No write server, and no `epos push`. Skills are published with an ordinary OCI client (§4.5)                            |
 |5 |Blob transfer        |Redirect pass-through. Blobs never cross `epos-registry`                                                                |
 |6 |Download counting    |Stateless. Content blob GET counts; `Epos-Download` header marks verified; manifests never count                        |
 |7 |Metrics sink         |OpenTelemetry SDK; exporter configurable (stdout / Prometheus / OTLP)                                                   |
@@ -853,7 +864,7 @@ jobs:
 |21|Structural text edits|`AWK` via `benhoyt/goawk`, sandboxed with `NoExec`/`NoFileWrites`/`NoFileReads` and a timeout                           |
 |22|Frontmatter edits    |`SET` / `UNSET` via `goccy/go-yaml` AST; measured 2-line drift versus 6 for `yaml/v3`                                   |
 |23|Discovery            |Only where upstream implements `_catalog`; native discovery deferred to a later `epos-registry` capability              |
-|24|Write path routing   |`epos-registry` serves writes so there is one host. Upload sessions get a 307; manifest `PUT` is relayed and counted    |
+|24|Write path routing   |**Withdrawn.** `epos-registry` was to serve writes for one configured host; `oras-go` rejects the cross-host upload `Location` the 307 produces (GHSA-jxpm-75mh-9fp7), so no client could publish through it (§4.5) |
 
 ### Removed from scope
 
