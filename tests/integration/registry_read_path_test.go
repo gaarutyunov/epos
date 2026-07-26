@@ -54,6 +54,10 @@ type world struct {
 	blobTarget     *httptest.Server
 	targetMu       sync.Mutex
 	targetRequests []http.Header
+
+	// metrics collects the running epos-registry's stdout, which is where the
+	// exporter writes epos.downloads (SPEC.md 5.3).
+	metrics *metricsOutput
 }
 
 // blob is a content layer as pushed upstream.
@@ -79,6 +83,8 @@ func (w *world) reset() {
 	w.targetMu.Lock()
 	w.targetRequests = nil
 	w.targetMu.Unlock()
+
+	w.metrics = nil
 }
 
 // startUpstream brings up a real zot registry.
@@ -124,8 +130,16 @@ func (w *world) startRegistry(ctx context.Context) error {
 		return fmt.Errorf("upstream is not running")
 	}
 
-	cmd := exec.CommandContext(ctx, registryBin, "-addr", addr, "-upstream", w.upstreamURL)
-	cmd.Stdout = os.Stderr
+	// SPEC.md 5.3 makes stdout the exporter for godog runs, so the counter is
+	// read back out of the process's own output. The interval is short so a
+	// scenario does not wait on the SDK's minute-long default.
+	cmd := exec.CommandContext(ctx, registryBin,
+		"-addr", addr,
+		"-upstream", w.upstreamURL,
+		"-metrics-interval", metricsInterval.String(),
+	)
+	w.metrics = &metricsOutput{}
+	cmd.Stdout = w.metrics
 	cmd.Stderr = os.Stderr
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("start epos-registry: %w", err)
@@ -281,10 +295,20 @@ func TestRegistryReadPath(t *testing.T) {
 			sc.When(`^a client fetches a content blob of "([^"]+)"$`, w.fetchContentBlob)
 			sc.When(`^a client fetches a content blob of "([^"]+)" with an Authorization header$`,
 				w.fetchContentBlobWithAuthorization)
+			sc.When(`^a client fetches a content blob of "([^"]+)" sending "([^"]+)"$`,
+				w.fetchContentBlobSending)
 			sc.Then(`^the response status is (\d+)$`, w.statusIs)
 			sc.Then(`^no blob bytes passed through epos-registry$`, w.noBlobBytesPassedThrough)
 			sc.Then(`^the blob content is returned unchanged$`, w.blobContentUnchanged)
 			sc.Then(`^the redirect target receives no "([^"]+)" header$`, w.redirectTargetSawNoHeader)
+			sc.Then(`^the download count for "([^"]+)" increases by (\d+)$`, w.downloadCountIncreasesBy)
+			sc.Then(`^the download count for "([^"]+)" is unchanged$`, w.downloadCountUnchanged)
+			sc.Then(`^the recorded download is verified$`, func() error {
+				return w.recordedDownloadIs(true)
+			})
+			sc.Then(`^the recorded download is unverified$`, func() error {
+				return w.recordedDownloadIs(false)
+			})
 			sc.Then(`^the response has an "([^"]+)" header$`, w.hasHeader)
 			sc.Then(`^the returned digest matches the digest upstream reports$`, w.digestMatchesUpstream)
 			sc.Then(`^no response body is returned$`, w.noBodyReturned)
