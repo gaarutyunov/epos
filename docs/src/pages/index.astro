@@ -1,0 +1,138 @@
+---
+import Base from "../layouts/Base.astro";
+
+const skillfile = `FROM ghcr.io/gaarutyunov/skills/reviewer:1.2.0
+
+# Keep the review checklist, drop the house style we do not use.
+RM sections/house-style.md
+
+# Point it at our stack.
+SET language = "Go"
+APPEND sections/checklist.md <<EOF
+- Table-driven tests for every exported function.
+EOF`;
+---
+
+<Base
+  title="Epos — OCI-native packaging for agent skills"
+  description="Epos packages agent skills as OCI artifacts, so you version, publish and pull them with the registry you already run."
+>
+  <header class="hero">
+    <ga-badge color="blue">OCI-native</ga-badge>
+    <h1>Package agent skills like container images.</h1>
+    <p class="lede">
+      Epos turns a directory of agent instructions into an <strong>OCI
+      artifact</strong> — so you version it, publish it to the registry you
+      already run, and pull it back anywhere, with the tools you already have.
+    </p>
+  </header>
+
+  <section>
+    <h2>The problem</h2>
+    <p>
+      Agent skills are shared as zip files in chat threads and copy-pasted
+      folders. There is no version you can pin, no digest you can verify, and no
+      way to say “this skill, but without that section, and with our language
+      set”. Meanwhile every team already runs a registry that solves exactly
+      those problems for container images.
+    </p>
+    <p>
+      Epos uses that registry. A skill is an OCI artifact: content-addressed,
+      tagged, signable, and pullable by any OCI client. No new server, no new
+      account, no daemon.
+    </p>
+  </section>
+
+  <section>
+    <h2>Install</h2>
+    <ga-code prompt="$">go install github.com/gaarutyunov/epos/cmd/epos@latest</ga-code>
+  </section>
+
+  <section>
+    <h2>Compose a skill from one you already trust</h2>
+    <p>
+      A <code>Skillfile</code> reads like a Dockerfile. Start from a published
+      skill, remove what does not apply, and set your own values:
+    </p>
+
+    <ga-card padding="lg">
+      <pre class="skillfile">{skillfile}</pre>
+    </ga-card>
+
+    <p>Build it and install it into the current project:</p>
+    <ga-code prompt="$">epos build -t reviewer:ours . &amp;&amp; epos install reviewer:ours</ga-code>
+
+    <ga-note tone="success" title="What you get">
+      <code>.claude/skills/reviewer/</code> now holds the composed skill — the
+      upstream checklist, minus the section you dropped, with
+      <code>language</code> rendered as <code>Go</code>. Run
+      <code>epos ls</code> to see it, and commit
+      <code>skills.lock.json</code> so the next machine resolves the same
+      digest.
+    </ga-note>
+  </section>
+
+  <section>
+    <h2>Publish it back</h2>
+    <p>
+      Publishing is a plain OCI push. Epos holds no credentials of its own — it
+      uses the ones your registry client already has.
+    </p>
+    <ga-code prompt="$">epos push reviewer:ours ghcr.io/your-org/skills/reviewer:1.0.0</ga-code>
+  </section>
+
+  <footer>
+    <p>
+      <ga-button variant="primary" href="https://github.com/gaarutyunov/epos">
+        Source on GitHub
+      </ga-button>
+    </p>
+  </footer>
+</Base>
+
+<style>
+  .hero {
+    margin-bottom: 3.5rem;
+  }
+
+  h1 {
+    font-size: clamp(2rem, 6vw, 3rem);
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+    margin: 1rem 0 0.75rem;
+  }
+
+  .lede {
+    font-size: 1.15rem;
+    color: var(--ga-fg-muted, #a1a1a1);
+    max-width: 42rem;
+  }
+
+  section {
+    margin-bottom: 3rem;
+  }
+
+  h2 {
+    font-size: 1.35rem;
+    letter-spacing: -0.01em;
+    margin-bottom: 0.5rem;
+  }
+
+  code {
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+    font-size: 0.9em;
+  }
+
+  .skillfile {
+    margin: 0;
+    overflow-x: auto;
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+    font-size: 0.85rem;
+    line-height: 1.7;
+    white-space: pre;
+  }
+
+  footer {
+    margin-top: 4rem;
+  }
+</style>
