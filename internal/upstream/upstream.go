@@ -57,6 +57,17 @@ func neverFollow(*http.Request, []*http.Request) error {
 	return http.ErrUseLastResponse
 }
 
+// Target is the absolute upstream URL for a request's path and query.
+//
+// The write path redirects the client here rather than relaying (SPEC.md 4.5),
+// so it needs the URL as a string rather than a response.
+func (c *Client) Target(r *http.Request) string {
+	target := *c.base
+	target.Path = strings.TrimSuffix(c.base.Path, "/") + r.URL.Path
+	target.RawQuery = r.URL.RawQuery
+	return target.String()
+}
+
 // hopByHop headers are connection-scoped and must not be relayed.
 var hopByHop = []string{
 	"Connection",
@@ -77,10 +88,13 @@ func (c *Client) Do(r *http.Request) (*http.Response, error) {
 	target.Path = strings.TrimSuffix(c.base.Path, "/") + r.URL.Path
 	target.RawQuery = r.URL.RawQuery
 
-	req, err := http.NewRequestWithContext(r.Context(), r.Method, target.String(), nil)
+	// The body is forwarded, not dropped: the write path relays a manifest PUT
+	// (SPEC.md 4.5), and a nil body would send upstream an empty manifest.
+	req, err := http.NewRequestWithContext(r.Context(), r.Method, target.String(), r.Body)
 	if err != nil {
 		return nil, err
 	}
+	req.ContentLength = r.ContentLength
 
 	copyHeader(req.Header, r.Header)
 	for _, h := range hopByHop {

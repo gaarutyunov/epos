@@ -46,12 +46,23 @@ type Config struct {
 	VersionAttribute bool
 }
 
+// Publish is one accepted manifest PUT (SPEC.md 5.4).
+type Publish struct {
+	// Repository is the OCI repository name, which identifies the skill.
+	Repository string
+	// ArtifactType is read from the relayed manifest body.
+	ArtifactType string
+	// ReferenceKind is "tag" or "digest".
+	ReferenceKind string
+}
+
 // Downloads records the epos.downloads counter of SPEC.md 5.1.
 //
 // The zero value is usable and records nothing, so a caller with metrics
 // disabled needs no nil checks.
 type Downloads struct {
 	counter          metric.Int64Counter
+	publishes        metric.Int64Counter
 	versionAttribute bool
 }
 
@@ -105,7 +116,8 @@ func New(ctx context.Context, cfg Config) (*Downloads, func(context.Context) err
 		sdkmetric.WithReader(sdkmetric.NewPeriodicReader(exporter, readerOpts...)),
 	)
 
-	counter, err := provider.Meter("github.com/gaarutyunov/epos").Int64Counter(
+	meter := provider.Meter("github.com/gaarutyunov/epos")
+	counter, err := meter.Int64Counter(
 		"epos.downloads",
 		metric.WithDescription("Content blob fetches answered by epos-registry."),
 		metric.WithUnit("{download}"),
@@ -114,9 +126,25 @@ func New(ctx context.Context, cfg Config) (*Downloads, func(context.Context) err
 		return nil, nil, fmt.Errorf("epos.downloads counter: %w", err)
 	}
 
+	// 5.4: a publish is a manifest PUT upstream accepts with 201. Blob uploads
+	// are deliberately not counted -- content addressing means a new version
+	// reusing an existing layer uploads nothing, so upload volume does not
+	// track publishing.
+	publishes, err := meter.Int64Counter(
+		"epos.publishes",
+		metric.WithDescription("Manifest PUTs upstream accepted, relayed by epos-registry."),
+		metric.WithUnit("{publish}"),
+	)
+	if err != nil {
+		return nil, nil, fmt.Errorf("epos.publishes counter: %w", err)
+	}
+
 	_ = ctx
-	return &Downloads{counter: counter, versionAttribute: cfg.VersionAttribute},
-		provider.Shutdown, nil
+	return &Downloads{
+		counter:          counter,
+		publishes:        publishes,
+		versionAttribute: cfg.VersionAttribute,
+	}, provider.Shutdown, nil
 }
 
 // Record adds one to epos.downloads.
@@ -138,4 +166,19 @@ func (d *Downloads) Record(ctx context.Context, dl Download) {
 	}
 
 	d.counter.Add(ctx, 1, metric.WithAttributes(attrs...))
+}
+
+// RecordPublish adds one to epos.publishes (SPEC.md 5.4).
+//
+// Publishes per repository answers "which skill changes most often" directly,
+// which is why the repository is an attribute and the version is not.
+func (d *Downloads) RecordPublish(ctx context.Context, p Publish) {
+	if d == nil || d.publishes == nil {
+		return
+	}
+	d.publishes.Add(ctx, 1, metric.WithAttributes(
+		attribute.String("repository", p.Repository),
+		attribute.String("artifact_type", p.ArtifactType),
+		attribute.String("reference_kind", p.ReferenceKind),
+	))
 }

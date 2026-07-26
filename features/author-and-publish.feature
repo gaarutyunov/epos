@@ -70,3 +70,29 @@ Feature: Author and publish a skill
     And the directory contains a symlink
     When the author packs it
     Then packing fails
+
+  # SPEC 4.5 -- one configured host serves both directions, so users point at
+  # one registry rather than two.
+  #
+  # @wip pending a decision on the issue: 4.5 redirects the upload session to
+  # upstream, and oras-go refuses a cross-host upload Location as a fix for
+  # GHSA-jxpm-75mh-9fp7. No oras-go client -- including epos push -- can
+  # complete a push through epos-registry as 4.5 specifies it.
+  @wip
+  Scenario: A skill is published through epos-registry
+    Given epos-registry is fronting the registry
+    And a skill directory "reviewer" version "1.0.0"
+    And the author packs it
+    When the author pushes it through epos-registry
+    Then the registry holds the skill
+    And no upload bytes crossed epos-registry
+
+  # SPEC 5.4 -- a publish is a manifest PUT upstream accepts with 201.
+  # @wip for the same reason as the scenario above: the push cannot complete.
+  @wip
+  Scenario: Publishing through epos-registry counts a publish
+    Given epos-registry is fronting the registry
+    And a skill directory "reviewer" version "1.0.0"
+    And the author packs it
+    When the author pushes it through epos-registry
+    Then the publish count for "demo/agent-skills/reviewer" is 1
