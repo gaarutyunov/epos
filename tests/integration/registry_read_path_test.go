@@ -11,9 +11,11 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
@@ -37,14 +39,46 @@ type world struct {
 
 	// digests of manifests pushed upstream, keyed by "<repo>:<tag>".
 	pushed map[string]string
+	// content layers pushed upstream, keyed by "<repo>:<tag>". The digest
+	// identifies the blob to fetch; the bytes are what a correct fetch returns.
+	layers map[string]blob
+	// lastBlobRef is the skill whose content blob was fetched most recently.
+	lastBlobRef string
+
+	// registryCmd is the running epos-registry, kept so a scenario that swaps
+	// the upstream can restart it rather than leaving two behind.
+	registryCmd *exec.Cmd
+
+	// blobTarget stands in for the host an upstream redirect nominates, and
+	// records every request that reaches it (see startRedirectingUpstream).
+	blobTarget     *httptest.Server
+	targetMu       sync.Mutex
+	targetRequests []http.Header
+}
+
+// blob is a content layer as pushed upstream.
+type blob struct {
+	digest string
+	bytes  []byte
 }
 
 func (w *world) reset() {
+	w.stopRegistry()
 	w.upstreamURL = ""
 	w.registryURL = ""
 	w.resp = nil
 	w.respBody = nil
 	w.pushed = map[string]string{}
+	w.layers = map[string]blob{}
+	w.lastBlobRef = ""
+
+	if w.blobTarget != nil {
+		w.blobTarget.Close()
+		w.blobTarget = nil
+	}
+	w.targetMu.Lock()
+	w.targetRequests = nil
+	w.targetMu.Unlock()
 }
 
 // startUpstream brings up a real zot registry.
@@ -72,11 +106,14 @@ func (w *world) startUpstream(ctx context.Context) error {
 	return nil
 }
 
-// startRegistry runs the epos-registry binary in front of the upstream.
+// startRegistry runs the epos-registry binary in front of the upstream,
+// replacing any instance already running for this scenario.
 //
 // The binary is exercised as a black box — the same way a real client reaches
 // it — rather than by importing its handler, which lives in package main.
 func (w *world) startRegistry(ctx context.Context) error {
+	w.stopRegistry()
+
 	port, err := freePort()
 	if err != nil {
 		return err
@@ -93,6 +130,7 @@ func (w *world) startRegistry(ctx context.Context) error {
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("start epos-registry: %w", err)
 	}
+	w.registryCmd = cmd
 	godogT.Cleanup(func() {
 		_ = cmd.Process.Kill()
 		_ = cmd.Wait()
@@ -100,6 +138,16 @@ func (w *world) startRegistry(ctx context.Context) error {
 
 	w.registryURL = "http://" + addr
 	return waitForReady(ctx, w.registryURL+"/v2/")
+}
+
+func (w *world) stopRegistry() {
+	if w.registryCmd == nil {
+		return
+	}
+	_ = w.registryCmd.Process.Kill()
+	_ = w.registryCmd.Wait()
+	w.registryCmd = nil
+	w.registryURL = ""
 }
 
 func (w *world) request(method, target string) error {
@@ -216,6 +264,11 @@ func TestRegistryReadPath(t *testing.T) {
 					return w.pushSkill(ctx, name, version)
 				})
 
+			sc.Given(`^the upstream redirects blob requests$`, func(ctx context.Context) error {
+				return w.startRedirectingUpstream(ctx)
+			})
+			sc.Given(`^the upstream serves blobs directly$`, w.upstreamServesBlobsDirectly)
+
 			sc.When(`^a client requests "([A-Z]+) ([^"]+)"$`, w.request)
 			sc.When(`^a client resolves the manifest "([^"]+)"$`, func(ref string) error {
 				return w.resolveManifest(http.MethodGet, ref)
@@ -225,7 +278,13 @@ func TestRegistryReadPath(t *testing.T) {
 			})
 			sc.When(`^a client lists the tags of "([^"]+)"$`, w.listTags)
 			sc.When(`^a client lists the referrers of the "([^"]+)" manifest digest$`, w.listReferrers)
+			sc.When(`^a client fetches a content blob of "([^"]+)"$`, w.fetchContentBlob)
+			sc.When(`^a client fetches a content blob of "([^"]+)" with an Authorization header$`,
+				w.fetchContentBlobWithAuthorization)
 			sc.Then(`^the response status is (\d+)$`, w.statusIs)
+			sc.Then(`^no blob bytes passed through epos-registry$`, w.noBlobBytesPassedThrough)
+			sc.Then(`^the blob content is returned unchanged$`, w.blobContentUnchanged)
+			sc.Then(`^the redirect target receives no "([^"]+)" header$`, w.redirectTargetSawNoHeader)
 			sc.Then(`^the response has an "([^"]+)" header$`, w.hasHeader)
 			sc.Then(`^the returned digest matches the digest upstream reports$`, w.digestMatchesUpstream)
 			sc.Then(`^no response body is returned$`, w.noBodyReturned)

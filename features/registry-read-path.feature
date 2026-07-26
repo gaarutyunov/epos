@@ -46,7 +46,6 @@ Feature: epos-registry read path
     Then the response status is 200
 
   # SPEC 4.2 -- blob bytes never cross epos-registry when upstream redirects.
-  @wip
   Scenario: A blob fetch is relayed as a redirect
     Given the skill "demo/hello" version "1.0.0" is present upstream
     And the upstream redirects blob requests
@@ -55,7 +54,6 @@ Feature: epos-registry read path
     And no blob bytes passed through epos-registry
 
   # SPEC 4.2 -- the degraded case; some registries do not redirect.
-  @wip
   Scenario: A blob fetch is streamed when the upstream does not redirect
     Given the skill "demo/hello" version "1.0.0" is present upstream
     And the upstream serves blobs directly
@@ -65,7 +63,6 @@ Feature: epos-registry read path
 
   # SPEC 4.2 -- object stores accept exactly one authentication mechanism and
   # reject a request carrying both a presigned URL and an Authorization header.
-  @wip
   Scenario: The client Authorization header is not forwarded to a redirect target
     Given the skill "demo/hello" version "1.0.0" is present upstream
     And the upstream redirects blob requests
