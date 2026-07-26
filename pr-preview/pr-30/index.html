@@ -1,0 +1,43 @@
+<!DOCTYPE html><html lang="en"> <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Epos — OCI-native packaging for agent skills</title><meta name="description" content="Epos packages agent skills as OCI artifacts, so you version, publish and pull them with the registry you already run."><link rel="icon" href="/epos/pr-preview/pr-30/favicon.svg"><style>:root,:host{color-scheme:dark;--ga-bg: #000000;--ga-bg-elev: #1a1a1a;--ga-bg-elev-hover: #1f1f1f;--ga-fg: #ededed;--ga-muted: #878787;--ga-dim: #454545;--ga-border: #1a1a1a;--ga-border-subtle: #111111;--ga-border-strong: #2a2a2a;--ga-accent: #54a2ff;--ga-accent-contrast: #000000;--ga-blue: #54a2ff;--ga-green: #00c758;--ga-amber: #fcbb00;--ga-purple: #ac4bff;--ga-red: #ff6568;--ga-success: var(--ga-green);--ga-warning: var(--ga-amber);--ga-danger: var(--ga-red);--ga-info: var(--ga-blue);--ga-font-sans: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;--ga-font-mono: "Geist Mono", "Fira Mono", ui-monospace, SFMono-Regular, Menlo, monospace;--ga-font-display: "Fira Mono", "Geist Mono", ui-monospace, monospace;--ga-fs-xs: 12px;--ga-fs-sm: 14px;--ga-fs-base: 17px;--ga-fs-lg: 20px;--ga-fs-xl: 24px;--ga-fs-2xl: clamp(28px, 5vw, 40px);--ga-fs-3xl: clamp(34px, 6vw, 52px);--ga-lh-base: 1.65;--ga-lh-tight: 1.2;--ga-tracking-tight: -.02em;--ga-space-1: 4px;--ga-space-2: 8px;--ga-space-3: 12px;--ga-space-4: 16px;--ga-space-5: 20px;--ga-space-6: 24px;--ga-space-8: 32px;--ga-space-10: 40px;--ga-space-12: 48px;--ga-radius: 6px;--ga-radius-lg: 8px;--ga-radius-full: 9999px;--ga-shadow-sm: 0 1px 2px rgba(0, 0, 0, .4);--ga-shadow: 0 8px 24px rgba(0, 0, 0, .4);--ga-shadow-lg: -16px 0 40px rgba(0, 0, 0, .4);--ga-transition: .18s cubic-bezier(.4, 0, .2, 1);--ga-transition-slow: .32s cubic-bezier(.4, 0, .2, 1);--ga-ring: 0 0 0 2px var(--ga-bg), 0 0 0 4px var(--ga-accent);--ga-max-width: 880px}:root[data-theme=light],:host([data-theme="light"]){color-scheme:light;--ga-bg: #ffffff;--ga-bg-elev: #f7f7f7;--ga-bg-elev-hover: #efefef;--ga-fg: #1a1a1a;--ga-muted: #666666;--ga-dim: #999999;--ga-border: #e5e5e5;--ga-border-subtle: #f0f0f0;--ga-border-strong: #d4d4d4;--ga-accent: #0068d6;--ga-accent-contrast: #ffffff;--ga-blue: #0068d6;--ga-green: #008a3c;--ga-amber: #b87900;--ga-purple: #7b2fd6;--ga-red: #d93438;--ga-shadow-sm: 0 1px 2px rgba(0, 0, 0, .08);--ga-shadow: 0 8px 24px rgba(0, 0, 0, .12);--ga-shadow-lg: -16px 0 40px rgba(0, 0, 0, .12)}.ga-theme,body.ga-theme{background:var(--ga-bg);color:var(--ga-fg);font-family:var(--ga-font-sans);font-size:var(--ga-fs-base);line-height:var(--ga-lh-base);-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}body{margin:0;background:var(--ga-bg, #000);color:var(--ga-fg, #ededed);font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica Neue,Arial,sans-serif;line-height:1.6}main{max-width:52rem;margin:0 auto;padding:4rem 1.5rem 6rem}a{color:var(--ga-accent, #3b82f6)}.hero[data-astro-cid-j7pv25f6]{margin-bottom:3.5rem}h1[data-astro-cid-j7pv25f6]{font-size:clamp(2rem,6vw,3rem);line-height:1.15;letter-spacing:-.02em;margin:1rem 0 .75rem}.lede[data-astro-cid-j7pv25f6]{font-size:1.15rem;color:var(--ga-fg-muted, #a1a1a1);max-width:42rem}section[data-astro-cid-j7pv25f6]{margin-bottom:3rem}h2[data-astro-cid-j7pv25f6]{font-size:1.35rem;letter-spacing:-.01em;margin-bottom:.5rem}code[data-astro-cid-j7pv25f6]{font-family:ui-monospace,SFMono-Regular,SF Mono,Menlo,monospace;font-size:.9em}.skillfile[data-astro-cid-j7pv25f6]{margin:0;overflow-x:auto;font-family:ui-monospace,SFMono-Regular,SF Mono,Menlo,monospace;font-size:.85rem;line-height:1.7;white-space:pre}footer[data-astro-cid-j7pv25f6]{margin-top:4rem}
+</style></head> <body> <main>  <header class="hero" data-astro-cid-j7pv25f6> <ga-badge color="blue" data-astro-cid-j7pv25f6="true">OCI-native</ga-badge> <h1 data-astro-cid-j7pv25f6>Package agent skills like container images.</h1> <p class="lede" data-astro-cid-j7pv25f6>
+Epos turns a directory of agent instructions into an <strong data-astro-cid-j7pv25f6>OCI
+      artifact</strong> — so you version it, publish it to the registry you
+      already run, and pull it back anywhere, with the tools you already have.
+</p> </header> <section data-astro-cid-j7pv25f6> <h2 data-astro-cid-j7pv25f6>The problem</h2> <p data-astro-cid-j7pv25f6>
+Agent skills are shared as zip files in chat threads and copy-pasted
+      folders. There is no version you can pin, no digest you can verify, and no
+      way to say “this skill, but without that section, and with our language
+      set”. Meanwhile every team already runs a registry that solves exactly
+      those problems for container images.
+</p> <p data-astro-cid-j7pv25f6>
+Epos uses that registry. A skill is an OCI artifact: content-addressed,
+      tagged, signable, and pullable by any OCI client. No new server, no new
+      account, no daemon.
+</p> </section> <section data-astro-cid-j7pv25f6> <h2 data-astro-cid-j7pv25f6>Install</h2> <ga-code prompt="$" data-astro-cid-j7pv25f6="true">go install github.com/gaarutyunov/epos/cmd/epos@latest</ga-code> </section> <section data-astro-cid-j7pv25f6> <h2 data-astro-cid-j7pv25f6>Compose a skill from one you already trust</h2> <p data-astro-cid-j7pv25f6>
+A <code data-astro-cid-j7pv25f6>Skillfile</code> reads like a Dockerfile. Start from a published
+      skill, remove what does not apply, and set your own values:
+</p> <ga-card padding="lg" data-astro-cid-j7pv25f6="true"> <pre class="skillfile" data-astro-cid-j7pv25f6>FROM ghcr.io/gaarutyunov/skills/reviewer:1.2.0
+
+# Keep the review checklist, drop the house style we do not use.
+RM sections/house-style.md
+
+# Point it at our stack.
+SET language = &quot;Go&quot;
+APPEND sections/checklist.md &lt;&lt;EOF
+- Table-driven tests for every exported function.
+EOF</pre> </ga-card> <p data-astro-cid-j7pv25f6>Build it and install it into the current project:</p> <ga-code prompt="$" data-astro-cid-j7pv25f6="true">epos build -t reviewer:ours . &amp;&amp; epos install reviewer:ours</ga-code> <ga-note tone="success" title="What you get" data-astro-cid-j7pv25f6="true"> <code data-astro-cid-j7pv25f6>.claude/skills/reviewer/</code> now holds the composed skill — the
+      upstream checklist, minus the section you dropped, with
+<code data-astro-cid-j7pv25f6>language</code> rendered as <code data-astro-cid-j7pv25f6>Go</code>. Run
+<code data-astro-cid-j7pv25f6>epos ls</code> to see it, and commit
+<code data-astro-cid-j7pv25f6>skills.lock.json</code> so the next machine resolves the same
+      digest.
+</ga-note> </section> <section data-astro-cid-j7pv25f6> <h2 data-astro-cid-j7pv25f6>Publish it back</h2> <p data-astro-cid-j7pv25f6>
+Publishing is a plain OCI push. Epos holds no credentials of its own — it
+      uses the ones your registry client already has.
+</p> <ga-code prompt="$" data-astro-cid-j7pv25f6="true">epos push reviewer:ours ghcr.io/your-org/skills/reviewer:1.0.0</ga-code> </section> <footer data-astro-cid-j7pv25f6> <p data-astro-cid-j7pv25f6> <ga-button variant="primary" href="https://github.com/gaarutyunov/epos" data-astro-cid-j7pv25f6="true">
+Source on GitHub
+</ga-button> </p> </footer>  </main> <!--
+      Registering every <ga-*> element is a side effect of this import. Astro
+      bundles it and ships it to the browser, which is the only place custom
+      elements can be defined.
+    --> <script type="module" src="/epos/pr-preview/pr-30/_astro/Base.astro_astro_type_script_index_0_lang.7enm7Fe5.js"></script>  </body> </html> 
