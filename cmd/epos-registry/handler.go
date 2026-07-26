@@ -18,6 +18,8 @@ const eposVersionHeader = "Epos-Version"
 // sends it; stock oras does not.
 const eposDownloadHeader = "Epos-Download"
 
+//go:generate go tool mockgen -source=handler.go -destination=mocks_test.go -package=main
+
 // relayer performs an upstream request and copies the response.
 type relayer interface {
 	Relay(w http.ResponseWriter, r *http.Request) error
