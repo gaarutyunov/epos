@@ -3,6 +3,8 @@ module github.com/gaarutyunov/epos
 go 1.26.4
 
 require (
+	github.com/benhoyt/goawk v1.31.0
+	github.com/bluekeyes/go-gitdiff v0.9.0
 	github.com/cucumber/godog v0.15.1
 	github.com/goccy/go-yaml v1.19.2
 	github.com/knadh/koanf/providers/env/v2 v2.0.0

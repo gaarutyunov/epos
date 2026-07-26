@@ -1,6 +1,9 @@
 package skillfile
 
 import (
+	"bytes"
+	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path"
@@ -8,6 +11,11 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
+
+	"github.com/benhoyt/goawk/interp"
+	"github.com/benhoyt/goawk/parser"
+	"github.com/bluekeyes/go-gitdiff/gitdiff"
 )
 
 // Build runs a Skillfile against a context directory and returns the final
@@ -75,8 +83,10 @@ func (b *builder) apply(inst Instruction) error {
 		return b.setKey(inst)
 	case "UNSET":
 		return b.unsetKey(inst)
-	case "PATCH", "AWK":
-		return fmt.Errorf("not implemented yet")
+	case "PATCH":
+		return b.patch(inst)
+	case "AWK":
+		return b.awk(inst)
 	default:
 		return fmt.Errorf("unknown instruction")
 	}
@@ -247,9 +257,15 @@ func (b *builder) rm(inst Instruction) error {
 	for _, p := range inst.Args {
 		p = b.expand(p)
 		if removed := b.current.Remove(p); removed == 0 {
-			// Removing something already absent is the state the author asked
-			// for, so it is not an error — but it is worth naming, because it
-			// usually means the base moved underneath the Skillfile.
+			// Fatal, unlike the two instructions 8.2 lets off with a warning.
+			// A zero-match REPLACE (8.2.2) and an absent-key UNSET (8.2.4) are
+			// warnings because their end state is the state the author asked
+			// for — the pattern is gone, the key is gone — which is what makes
+			// them idempotent against a base that has already adopted the same
+			// change. RM has no such reading: the spec deliberately leaves it
+			// out of that list, because a path that is not there is a path the
+			// author was wrong about, and continuing would ship an artifact
+			// built from a Skillfile that no longer describes its base.
 			return fmt.Errorf("%s: no such file", p)
 		}
 	}
@@ -291,6 +307,62 @@ func (b *builder) payload(inst Instruction, rest []string) ([]byte, error) {
 		return nil, fmt.Errorf("want an inline heredoc or exactly one file")
 	}
 	return os.ReadFile(filepath.Join(b.contextDir, filepath.FromSlash(b.expand(rest[0]))))
+}
+
+// patch applies a unified diff to a file in the tree (8.2.1).
+//
+// Strict by design, and stricter than `git apply`: go-gitdiff applies each hunk
+// at the line its header records, with no offset search and no fuzz, so an
+// unrelated upstream insertion above the hunk fails the build even though every
+// context line still matches. That is the point of having both instructions —
+// REPLACE is the one for edits that must survive line drift, PATCH is the one
+// that says "the file I described is the file I got".
+//
+// Failure is fatal: no .rej, no warn-and-continue. The artifact is
+// content-addressed, so a partially applied patch would quietly produce a
+// different digest from the same inputs, which is the one outcome 2.4 cannot
+// tolerate.
+func (b *builder) patch(inst Instruction) error {
+	if len(inst.Args) < 1 {
+		return fmt.Errorf("want <path> (<<EOF … EOF | <diff-file>)")
+	}
+	if b.current == nil {
+		return fmt.Errorf("no FROM yet")
+	}
+
+	target := b.expand(inst.Args[0])
+	body, ok := b.current.Get(target)
+	if !ok {
+		return fmt.Errorf("%s: no such file", target)
+	}
+
+	diff, err := b.payload(inst, inst.Args[1:])
+	if err != nil {
+		return err
+	}
+
+	// Parse returns the leading prose of a `git format-patch` mail as the
+	// preamble and drops it, so a payload that is not a diff at all comes back
+	// as zero files and no error. Left alone that would be a silent no-op,
+	// which is exactly what this instruction exists to rule out.
+	files, _, err := gitdiff.Parse(bytes.NewReader(diff))
+	if err != nil {
+		return fmt.Errorf("%s: %w", target, err)
+	}
+	switch {
+	case len(files) == 0:
+		return fmt.Errorf("%s: the payload contains no file diff", target)
+	case len(files) > 1:
+		// The instruction names one file, so a multi-file diff is ambiguous
+		// about which of its halves was meant.
+		return fmt.Errorf("%s: the payload patches %d files, want exactly one", target, len(files))
+	}
+
+	var out bytes.Buffer
+	if err := gitdiff.Apply(&out, bytes.NewReader(body), files[0]); err != nil {
+		return fmt.Errorf("%s: %w", target, err)
+	}
+	return b.current.Set(target, out.Bytes())
 }
 
 // replace rewrites a file with a regular expression (8.2.2).
@@ -349,6 +421,165 @@ func (b *builder) replace(inst Instruction) error {
 	out = append(out, body[last:]...)
 
 	return b.current.Set(target, out)
+}
+
+// awkTimeout is how long one AWK instruction may run before the build gives up
+// (8.2.3). AWK is Turing-complete, so a deadline is the only thing standing
+// between a `while (1)` in a third-party base and a hung build.
+const awkTimeout = 10 * time.Second
+
+// awk filters a file through a sandboxed AWK program (8.2.3).
+//
+// REPLACE handles single-line substitution; this is for the structural edits a
+// regex cannot express — multi-line, conditional, section-scoped — without
+// reintroducing arbitrary command execution, which 8.1 rules out.
+//
+// The file's current content is the program's stdin and its stdout replaces the
+// file, so the instruction is a pure filter over one file.
+func (b *builder) awk(inst Instruction) error {
+	if len(inst.Args) < 1 {
+		return fmt.Errorf("want <path> (<<EOF … EOF | <script-file>)")
+	}
+	if b.current == nil {
+		return fmt.Errorf("no FROM yet")
+	}
+
+	target := b.expand(inst.Args[0])
+	body, ok := b.current.Get(target)
+	if !ok {
+		return fmt.Errorf("%s: no such file", target)
+	}
+
+	// Verbatim, like every other payload: an AWK script is full of $1 and {}
+	// and is not Skillfile syntax, and 8.6 requires a {{ }} in it to survive.
+	script, err := b.payload(inst, inst.Args[1:])
+	if err != nil {
+		return err
+	}
+
+	timeout := awkTimeout
+	if raw, ok := inst.Flags["timeout"]; ok {
+		if timeout, err = time.ParseDuration(raw); err != nil || timeout <= 0 {
+			return fmt.Errorf("--timeout needs a positive duration, got %q", raw)
+		}
+	}
+
+	out, err := runAWK(script, body, timeout)
+	if err != nil {
+		return fmt.Errorf("%s: %w", target, err)
+	}
+	return b.current.Set(target, out)
+}
+
+// runAWK executes script with input as stdin and returns its stdout.
+func runAWK(script, input []byte, timeout time.Duration) ([]byte, error) {
+	prog, parseErr := parser.ParseProgram(script, nil)
+
+	// Post-parse, so a script that is both malformed and nondeterministic
+	// reports the problem that will still be there once the syntax is fixed.
+	if err := checkAWKDeterminism(prog, parseErr); err != nil {
+		return nil, err
+	}
+	if parseErr != nil {
+		return nil, parseErr
+	}
+
+	in, err := interp.New(prog)
+	if err != nil {
+		return nil, err
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	var out, errs bytes.Buffer
+	// The sandbox is mandatory and not configurable (8.2.3). With all four set
+	// the program is a pure stdin→stdout function: it cannot spawn a process,
+	// touch the filesystem or read the environment, which is what makes AWK
+	// compatible with 8.1's no-RUN rule. Environ must be a non-nil empty slice
+	// — nil means "inherit os.Environ()".
+	//
+	// Error is captured rather than left to default to os.Stderr, so a script
+	// printing to stderr cannot scribble over the build's own output.
+	status, err := in.ExecuteContext(ctx, &interp.Config{
+		Stdin:        bytes.NewReader(input),
+		Output:       &out,
+		Error:        &errs,
+		Args:         []string{},
+		Environ:      []string{},
+		NoExec:       true,
+		NoFileWrites: true,
+		NoFileReads:  true,
+	})
+	switch {
+	case errors.Is(err, context.DeadlineExceeded):
+		return nil, fmt.Errorf("the script did not finish within %s", timeout)
+	case err != nil:
+		return nil, err
+	case status != 0:
+		return nil, fmt.Errorf("the script exited with status %d", status)
+	}
+	return out.Bytes(), nil
+}
+
+// nondeterministicAWK maps the compiled opcode of each rejected builtin to the
+// name to complain about. srand() compiles to two opcodes depending on whether
+// it was given a seed.
+var nondeterministicAWK = map[string]string{
+	"BuiltinRand":      "rand()",
+	"BuiltinSrand":     "srand()",
+	"BuiltinSrandSeed": "srand()",
+}
+
+// undefinedAWKFunc pulls the name out of goawk's "undefined function" error.
+var undefinedAWKFunc = regexp.MustCompile(`undefined function "([^"]+)"`)
+
+// checkAWKDeterminism rejects systime(), srand() and rand() (8.2.3).
+//
+// They would make the digest vary across builds with identical inputs, which
+// breaks 2.4 — and because the artifact is content-addressed, that is not a
+// cosmetic difference but a different artifact.
+//
+// The check reads the compiled program rather than the source text. goawk's AST
+// lives in an internal package and cannot be walked from outside the module,
+// but the instruction stream Disassemble writes is derived from it and is the
+// closest exported equivalent: unlike a scan of the script, it cannot mistake
+// the same words inside a string literal or a /rand/ regex for a call.
+//
+// systime() is the odd one out. It is a gawk extension goawk does not
+// implement, so it never reaches an AST at all — the parser rejects it as an
+// undefined function. Recognising that here is what tells the author it is
+// refused on purpose, rather than leaving them to conclude the engine is
+// merely incomplete and go looking for a way around it.
+func checkAWKDeterminism(prog *parser.Program, parseErr error) error {
+	if parseErr != nil {
+		if m := undefinedAWKFunc.FindStringSubmatch(parseErr.Error()); m != nil && m[1] == "systime" {
+			return errNondeterministicAWK("systime()")
+		}
+		return nil
+	}
+
+	var asm bytes.Buffer
+	if err := prog.Disassemble(&asm); err != nil {
+		return err
+	}
+	for line := range strings.SplitSeq(asm.String(), "\n") {
+		// "0000    CallBuiltin BuiltinRand": the opcode is the second field, so
+		// a literal that happens to contain the same words is not a call.
+		fields := strings.Fields(line)
+		if len(fields) < 3 || fields[1] != "CallBuiltin" {
+			continue
+		}
+		if name, rejected := nondeterministicAWK[fields[2]]; rejected {
+			return errNondeterministicAWK(name)
+		}
+	}
+	return nil
+}
+
+func errNondeterministicAWK(name string) error {
+	return fmt.Errorf(
+		"%s is rejected: it would make the output differ between builds of identical inputs", name)
 }
 
 // setKey writes a YAML key (8.2.4).
