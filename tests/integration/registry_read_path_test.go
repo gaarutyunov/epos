@@ -34,6 +34,9 @@ type world struct {
 
 	resp     *http.Response
 	respBody []byte
+
+	// digests of manifests pushed upstream, keyed by "<repo>:<tag>".
+	pushed map[string]string
 }
 
 func (w *world) reset() {
@@ -41,6 +44,7 @@ func (w *world) reset() {
 	w.registryURL = ""
 	w.resp = nil
 	w.respBody = nil
+	w.pushed = map[string]string{}
 }
 
 // startUpstream brings up a real zot registry.
@@ -79,7 +83,11 @@ func (w *world) startRegistry(ctx context.Context) error {
 	}
 	addr := fmt.Sprintf("127.0.0.1:%d", port)
 
-	cmd := exec.CommandContext(ctx, registryBin, "-addr", addr)
+	if w.upstreamURL == "" {
+		return fmt.Errorf("upstream is not running")
+	}
+
+	cmd := exec.CommandContext(ctx, registryBin, "-addr", addr, "-upstream", w.upstreamURL)
 	cmd.Stdout = os.Stderr
 	cmd.Stderr = os.Stderr
 	if err := cmd.Start(); err != nil {
@@ -95,6 +103,10 @@ func (w *world) startRegistry(ctx context.Context) error {
 }
 
 func (w *world) request(method, target string) error {
+	return w.requestWithHeaders(method, target, nil)
+}
+
+func (w *world) requestWithHeaders(method, target string, headers map[string]string) error {
 	if w.registryURL == "" {
 		return fmt.Errorf("epos-registry is not running")
 	}
@@ -102,6 +114,9 @@ func (w *world) request(method, target string) error {
 	req, err := http.NewRequest(method, w.registryURL+target, nil)
 	if err != nil {
 		return err
+	}
+	for k, v := range headers {
+		req.Header.Set(k, v)
 	}
 
 	resp, err := http.DefaultClient.Do(req)
@@ -196,9 +211,25 @@ func TestRegistryReadPath(t *testing.T) {
 			sc.Given(`^epos-registry is fronting it$`, func(ctx context.Context) error {
 				return w.startRegistry(ctx)
 			})
+			sc.Given(`^the skill "([^"]+)" version "([^"]+)" is present upstream$`,
+				func(ctx context.Context, name, version string) error {
+					return w.pushSkill(ctx, name, version)
+				})
+
 			sc.When(`^a client requests "([A-Z]+) ([^"]+)"$`, w.request)
+			sc.When(`^a client resolves the manifest "([^"]+)"$`, func(ref string) error {
+				return w.resolveManifest(http.MethodGet, ref)
+			})
+			sc.When(`^a client issues HEAD for the manifest "([^"]+)"$`, func(ref string) error {
+				return w.resolveManifest(http.MethodHead, ref)
+			})
+			sc.When(`^a client lists the tags of "([^"]+)"$`, w.listTags)
+			sc.When(`^a client lists the referrers of the "([^"]+)" manifest digest$`, w.listReferrers)
 			sc.Then(`^the response status is (\d+)$`, w.statusIs)
 			sc.Then(`^the response has an "([^"]+)" header$`, w.hasHeader)
+			sc.Then(`^the returned digest matches the digest upstream reports$`, w.digestMatchesUpstream)
+			sc.Then(`^no response body is returned$`, w.noBodyReturned)
+			sc.Then(`^the tag list contains "([^"]+)" and "([^"]+)"$`, w.tagListContains)
 		},
 		Options: &godog.Options{
 			Format: "pretty,junit:junit.xml",
