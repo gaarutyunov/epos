@@ -311,7 +311,7 @@ func extract(layer []byte, name string) (map[string][]byte, error) {
 	tr := tar.NewReader(io.LimitReader(gr, maxLayer))
 	for {
 		h, err := tr.Next()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
