@@ -1,8 +1,8 @@
 // Command epos is the Epos CLI.
 //
-// pack, pull and the store subcommands are here (A2), and build (B1). push is
-// deliberately absent — see the write-path note on the A2 issue. The rest
-// arrive with their milestones: search/list in A3, install in A4, verify in A5.
+// pack, pull and the store subcommands are here (A2), build (B1), and list and
+// search (A3). push is deliberately absent — see the write-path note on the A2
+// issue. The rest arrive with their milestones: install in A4, verify in A5.
 package main
 
 import (
@@ -34,6 +34,7 @@ func newRootCommand() *cobra.Command {
 			return cmd.Help()
 		},
 	}
-	cmd.AddCommand(newPackCommand(), newPullCommand(), newStoreCommand(), newBuildCommand())
+	cmd.AddCommand(newPackCommand(), newPullCommand(), newStoreCommand(), newBuildCommand(),
+		newListCommand(), newSearchCommand())
 	return cmd
 }
