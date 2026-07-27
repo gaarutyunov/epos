@@ -1,8 +1,9 @@
 // Command epos is the Epos CLI.
 //
 // pack, pull and the store subcommands are here (A2), build (B1), list and
-// search (A3), and install, uninstall and ls (A4). push is deliberately absent
-// — see the write-path note on the A2 issue. verify arrives with A5.
+// search (A3), install, uninstall and ls (A4), and generate-key-pair, sign,
+// attest and verify (A5). push is deliberately absent — see the write-path
+// note on the A2 issue.
 package main
 
 import (
@@ -36,6 +37,7 @@ func newRootCommand() *cobra.Command {
 	}
 	cmd.AddCommand(newPackCommand(), newPullCommand(), newStoreCommand(), newBuildCommand(),
 		newListCommand(), newSearchCommand(),
-		newInstallCommand(), newUninstallCommand(), newLsCommand())
+		newInstallCommand(), newUninstallCommand(), newLsCommand(),
+		newGenerateKeyPairCommand(), newSignCommand(), newAttestCommand(), newVerifyCommand())
 	return cmd
 }
