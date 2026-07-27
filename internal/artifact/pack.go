@@ -36,6 +36,76 @@ func PackDir(dir, name string) ([]byte, error) {
 	return writeLayer(entries)
 }
 
+// PackFiles builds the content layer for an in-memory file set, keyed by
+// slash-separated path.
+//
+// This is how a Skillfile build reaches the layer (SPEC.md 8.7): the evaluator
+// holds its result in memory and never writes it out, so there is no directory
+// for PackDir to walk. Deliberately the same entry construction and the same
+// writer, because a second packing path is a second answer to "what does this
+// skill hash to", and only one of them would be the one 2.4 is tested against.
+func PackFiles(files map[string][]byte, name string) ([]byte, error) {
+	entries, err := fileEntries(files, name)
+	if err != nil {
+		return nil, err
+	}
+	return writeLayer(entries)
+}
+
+// fileEntries turns path → contents into tar entries, in lexicographic order
+// and with the directory entries a walk of the same tree would have produced.
+//
+// The paths are sorted before anything reads them. Go randomises map iteration,
+// so a loop straight over files would be a way for two builds of identical
+// inputs to lay the archive out differently — the exact leak 2.4 rules out, and
+// one that no single run can reveal.
+func fileEntries(files map[string][]byte, name string) ([]entry, error) {
+	paths := make([]string, 0, len(files))
+	for p := range files {
+		paths = append(paths, p)
+	}
+	sort.Strings(paths)
+
+	var entries []entry
+	seenDir := map[string]bool{}
+	for _, p := range paths {
+		if err := checkPath(p); err != nil {
+			return nil, err
+		}
+		for _, dir := range ancestors(p) {
+			if seenDir[dir] {
+				continue
+			}
+			seenDir[dir] = true
+			entries = append(entries, entry{name: name + "/" + dir, isDir: true})
+		}
+		entries = append(entries, entry{name: name + "/" + p, body: files[p]})
+	}
+
+	if !hasSkillFile(entries, name) {
+		return nil, fmt.Errorf("the build produced no %s", SkillFile)
+	}
+
+	sort.Slice(entries, func(i, j int) bool { return entries[i].name < entries[j].name })
+	return append([]entry{{name: name + "/", isDir: true}}, entries...), nil
+}
+
+// ancestors lists the directories p lives under, outermost first.
+//
+// A tar of a directory carries an entry for each directory as well as each
+// file, and an in-memory tree holds only files — so they are synthesised here,
+// and packing a tree loaded from a directory yields the same archive as packing
+// the directory itself.
+func ancestors(p string) []string {
+	var out []string
+	for i := range len(p) {
+		if p[i] == '/' {
+			out = append(out, p[:i])
+		}
+	}
+	return out
+}
+
 // entry is one tar member, already validated and named.
 type entry struct {
 	name  string // slash-separated, rooted at "<skill>/"

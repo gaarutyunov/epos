@@ -160,6 +160,69 @@ func TestSkillFileIsRequired(t *testing.T) {
 	assert.Error(t, err)
 }
 
+// PackDir and PackFiles are the same packing path reached from two sides, and
+// the only thing that keeps `epos build` and `epos pack` agreeing on what a
+// skill hashes to (2.4).
+func TestPackFilesMatchesPackDir(t *testing.T) {
+	files := map[string]string{
+		"SKILL.md":                minimalSkill,
+		"z.md":                    "z\n",
+		"a.md":                    "a\n",
+		"sections/checklist.md":   "- a\n",
+		"sections/nested/deep.md": "deep\n",
+		"reference/notes.txt":     "notes\n",
+	}
+
+	fromDir, err := PackDir(skillDir(t, files), "hello")
+	require.NoError(t, err)
+
+	inMemory := make(map[string][]byte, len(files))
+	for p, body := range files {
+		inMemory[p] = []byte(body)
+	}
+	fromFiles, err := PackFiles(inMemory, "hello")
+	require.NoError(t, err)
+
+	assert.Equal(t, fromDir, fromFiles,
+		"a tree packed in memory must hash the same as the directory it came from")
+}
+
+// The layer's entry names are slash-separated whatever the host does with
+// separators (2.5), which is what makes a build on Windows produce the digest
+// a build on Linux does.
+func TestPackFilesWritesForwardSlashesOnly(t *testing.T) {
+	layer, err := PackFiles(map[string][]byte{
+		"SKILL.md":                []byte(minimalSkill),
+		"sections/nested/deep.md": []byte("deep\n"),
+	}, "hello")
+	require.NoError(t, err)
+
+	got := names(headers(t, layer))
+	assert.Contains(t, got, "hello/sections/nested/deep.md")
+	for _, name := range got {
+		assert.NotContains(t, name, `\`, "2.5 is forward slashes exclusively")
+	}
+}
+
+// A Skillfile whose last instruction deleted SKILL.md has produced something
+// that is not a skill, and the layer is where that has to be caught.
+func TestPackFilesRequiresSkillFile(t *testing.T) {
+	_, err := PackFiles(map[string][]byte{"other.md": []byte("x\n")}, "hello")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), SkillFile)
+}
+
+// The same 2.5 boundary as the directory path: a base is somebody else's input,
+// and a build must not be able to write outside the skill root through it.
+func TestPackFilesRejectsEscapingPaths(t *testing.T) {
+	_, err := PackFiles(map[string][]byte{
+		"SKILL.md":     []byte(minimalSkill),
+		"../escape.md": []byte("x\n"),
+	}, "hello")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "escapes the skill root")
+}
+
 // checkPath is the security boundary of 2.5; the rejected set is exact, and so
 // is the accepted set.
 func TestCheckPath(t *testing.T) {
