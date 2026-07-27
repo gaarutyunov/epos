@@ -21,6 +21,7 @@ import (
 	"oras.land/oras-go/v2/content"
 	"oras.land/oras-go/v2/content/oci"
 
+	"github.com/gaarutyunov/epos/internal/artifact"
 	"github.com/gaarutyunov/epos/internal/store"
 )
 
@@ -340,6 +341,22 @@ func TestBuildRecordsProvenance(t *testing.T) {
 	assert.NotContains(t, m.Annotations, ocispec.AnnotationBaseImageDigest,
 		"8.3 gives a local base no pin, and an annotation asserting one would be a claim the build cannot back")
 	assert.Contains(t, m.Annotations[skillfileDigestAnnotation], "sha256:")
+}
+
+// SPEC.md 8.4 and 10.3: stage names are the values-scope keys at install time,
+// so the manifest has to say which stage each file came from. The annotation is
+// JSON of a map, and encoding/json sorts keys — otherwise the bytes, and with
+// them the manifest digest, would depend on Go's map iteration order (2.4).
+func TestBuildRecordsWhichStageContributedWhat(t *testing.T) {
+	dir := writeContext(t, buildFixtureFiles(), false)
+	s := store.Under(t.TempDir())
+	buildInto(t, s, buildOptions{contextDir: dir})
+
+	m := manifestOf(t, s, "reviewer:2.0.0")
+	var stages map[string]string
+	require.NoError(t, json.Unmarshal([]byte(m.Annotations[artifact.StagesAnnotation]), &stages))
+	assert.Equal(t, map[string]string{"references/style.md": "shared"}, stages,
+		"the COPY --from is the only file a stage contributed")
 }
 
 // SPEC.md 8.7: --build-arg beats the ARG default.

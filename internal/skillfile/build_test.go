@@ -1093,3 +1093,90 @@ EOF
 		assert.Equal(t, string(a), string(b), "%s differs between builds", p)
 	}
 }
+
+// SPEC.md 8.4: stage names are the values-scope keys at install time (10.3),
+// so which stage contributed which file has to survive the build.
+func TestReportRecordsWhichStageContributedWhat(t *testing.T) {
+	_, report := build(t, `FROM ./shared AS shared
+FROM ./base
+COPY --from=shared reference.md references/shared.md
+`, map[string]string{
+		"base/SKILL.md":       baseSkill,
+		"shared/reference.md": "# {{ .Values.title }}\n",
+	})
+
+	assert.Equal(t, map[string]string{"references/shared.md": "shared"}, report.Stages)
+}
+
+// A directory COPY --from records every file it brought, so a whole imported
+// subtree renders in the stage's scope rather than only its first file.
+func TestStageProvenanceCoversADirectoryCopy(t *testing.T) {
+	_, report := build(t, `FROM ./shared AS shared
+FROM ./base
+COPY --from=shared docs/ references/
+`, map[string]string{
+		"base/SKILL.md":      baseSkill,
+		"shared/docs/one.md": "one\n",
+		"shared/docs/two.md": "two\n",
+	})
+
+	assert.Equal(t, map[string]string{
+		"references/one.md": "shared",
+		"references/two.md": "shared",
+	}, report.Stages)
+}
+
+// A build that never composed anything has one scope, so it says nothing.
+func TestASingleStageBuildRecordsNoStages(t *testing.T) {
+	_, report := build(t, "FROM ./base\nAPPEND SKILL.md <<EOF\nmore\nEOF\n",
+		map[string]string{"base/SKILL.md": baseSkill})
+
+	assert.Nil(t, report.Stages)
+}
+
+// The context is not a stage, so copying from it clears any provenance the
+// destination had: those bytes are the context's now.
+func TestCopyingFromTheContextClearsProvenance(t *testing.T) {
+	_, report := build(t, `FROM ./shared AS shared
+FROM ./base
+COPY --from=shared reference.md references/shared.md
+COPY local.md references/shared.md
+`, map[string]string{
+		"base/SKILL.md":       baseSkill,
+		"shared/reference.md": "from the stage\n",
+		"local.md":            "from the context\n",
+	})
+
+	assert.Nil(t, report.Stages)
+}
+
+// A file an RM took is not in the artifact, so claiming a stage contributed it
+// would be a claim about nothing.
+func TestRemovedFilesLoseTheirProvenance(t *testing.T) {
+	_, report := build(t, `FROM ./shared AS shared
+FROM ./base
+COPY --from=shared reference.md references/shared.md
+RM references/
+`, map[string]string{
+		"base/SKILL.md":       baseSkill,
+		"shared/reference.md": "from the stage\n",
+	})
+
+	assert.Nil(t, report.Stages)
+}
+
+// A FROM starts a stage whose inherited content is its own: `FROM base` is a
+// continuation, not an import, so only the surviving stage's own COPY --from
+// instructions name a scope.
+func TestProvenanceResetsAtEachFrom(t *testing.T) {
+	_, report := build(t, `FROM ./shared AS shared
+FROM ./base AS middle
+COPY --from=shared reference.md references/shared.md
+FROM middle
+`, map[string]string{
+		"base/SKILL.md":       baseSkill,
+		"shared/reference.md": "from the stage\n",
+	})
+
+	assert.Nil(t, report.Stages)
+}

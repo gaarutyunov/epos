@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -116,7 +117,10 @@ func runBuild(ctx context.Context, out, warn io.Writer, s *store.Store, opts bui
 	// Packed through internal/artifact rather than by anything here: `build` and
 	// `pack` must agree on what a skill hashes to, and two packing paths would
 	// only agree until one of them was touched.
-	provenance := provenanceFor(report, src)
+	provenance, err := provenanceFor(report, src)
+	if err != nil {
+		return err
+	}
 	var built artifact.Skill
 	err = s.Push(ctx, tag, func(ctx context.Context, st *oci.Store) (ocispec.Descriptor, error) {
 		built, err = artifact.BuildFiles(ctx, st, files, provenance)
@@ -178,7 +182,7 @@ func writeReport(w io.Writer, r *skillfile.Report) {
 }
 
 // provenanceFor renders the annotations 2.3 records on a derived skill.
-func provenanceFor(r *skillfile.Report, skillfileSrc []byte) map[string]string {
+func provenanceFor(r *skillfile.Report, skillfileSrc []byte) (map[string]string, error) {
 	out := map[string]string{
 		// The Skillfile is the recipe, so its digest is what says two artifacts
 		// were built from the same one — which the artifact's own digest cannot,
@@ -193,5 +197,17 @@ func provenanceFor(r *skillfile.Report, skillfileSrc []byte) map[string]string {
 	if r.Base.Digest != "" {
 		out[ocispec.AnnotationBaseImageDigest] = r.Base.Digest
 	}
-	return out
+	// Which stage contributed which file, so install can scope the values the
+	// way 10.3 asks. encoding/json sorts map keys, so Go's randomised map
+	// iteration never reaches the annotation's bytes and therefore never
+	// reaches the manifest digest (2.4) — a build that rendered this by
+	// ranging the map would produce a different artifact every time.
+	if len(r.Stages) > 0 {
+		stages, err := json.Marshal(r.Stages)
+		if err != nil {
+			return nil, fmt.Errorf("encode the stage provenance: %w", err)
+		}
+		out[artifact.StagesAnnotation] = string(stages)
+	}
+	return out, nil
 }

@@ -35,7 +35,30 @@ func Build(sf *Skillfile, contextDir string, buildArgs map[string]string) (*Tree
 	if b.current == nil {
 		return nil, nil, fmt.Errorf("no FROM instruction in the Skillfile")
 	}
+	b.report.Stages = b.finalOrigins()
 	return b.current, b.report, nil
+}
+
+// finalOrigins is the provenance of the tree that actually shipped.
+//
+// Pruned against the tree rather than returned as it stands: a path can be
+// copied from a stage and then removed by a later instruction that is not RM
+// — a COPY over a directory prefix, say — and provenance for a file the
+// artifact does not contain would be a claim about nothing.
+//
+// nil rather than an empty map when there is nothing to say, so a caller can
+// tell "no stage contributed anything" without inspecting the length.
+func (b *builder) finalOrigins() map[string]string {
+	out := map[string]string{}
+	for p, stage := range b.origins {
+		if _, ok := b.current.Get(p); ok {
+			out[p] = stage
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 // Report is what the build wants to say afterwards.
@@ -53,6 +76,20 @@ type Report struct {
 	// actually built from — kept here so a later rebuild can be checked against
 	// them and so provenance has something to state.
 	GitBases []GitBase
+	// Stages maps a file in the built tree to the stage that contributed it,
+	// for the files an explicit COPY --from named. 8.4 makes stage names the
+	// values-scope keys at install time (10.3), and this is what carries them
+	// past the build: without it the installer has one flat tree and no way to
+	// tell two stages' `{{ .Values.title }}` apart.
+	//
+	// Only the final stage's imports appear. The artifact *is* the final
+	// stage, so its own files are the top-level scope — the way a Helm chart's
+	// own values are top level and a subchart's are nested under its name —
+	// and a stage a COPY --from named is the analogue of that subchart.
+	//
+	// Empty for a single-stage build, which is every build that never says
+	// COPY --from.
+	Stages map[string]string
 	// Base is the FROM the *final* stage started from — the one 2.3 records as
 	// the artifact's base. A multi-stage Skillfile declares several, but only
 	// the last FROM is what the result descends from; the earlier stages are
@@ -88,8 +125,14 @@ type builder struct {
 	// stage is the name the tree in current was declared under, empty while an
 	// anonymous stage is being built. A stage is only entered into stages once
 	// its instructions are over (see seal), so this is where its name waits.
-	stage  string
-	report *Report
+	stage string
+	// origins is Report.Stages under construction: the destination path of
+	// every COPY --from in the stage being built now, mapped to the stage it
+	// named. Reset by each FROM, because a FROM starts a stage whose inherited
+	// content is its own — `FROM base` is a continuation, not an import, and
+	// only the imports of the stage that survives are scopes.
+	origins map[string]string
+	report  *Report
 }
 
 // newBuilder prepares a build of sf.
@@ -99,6 +142,7 @@ func newBuilder(sf *Skillfile, contextDir string, buildArgs map[string]string) *
 		args:       map[string]string{},
 		stages:     map[string]*Tree{},
 		declared:   map[string]bool{},
+		origins:    map[string]string{},
 		report:     &Report{},
 	}
 	for k, v := range buildArgs {
@@ -215,6 +259,7 @@ func (b *builder) from(inst Instruction) error {
 	b.report.Base = Base{Ref: ref, Digest: pin}
 
 	b.current, b.stage = tree, stage
+	b.origins = map[string]string{}
 	return nil
 }
 
@@ -280,8 +325,12 @@ func (b *builder) copy(inst Instruction) error {
 
 	srcs, dest := inst.Args[:len(inst.Args)-1], b.expand(inst.Args[len(inst.Args)-1])
 
+	// The stage name travels with the copy: it is the values-scope key the
+	// destination file will render under at install time (8.4, 10.3).
 	var from *Tree
-	if stage, ok := inst.Flags["from"]; ok {
+	var stage string
+	if named, ok := inst.Flags["from"]; ok {
+		stage = named
 		from, ok = b.stages[stage]
 		if !ok {
 			return b.unusableStage(stage)
@@ -290,7 +339,7 @@ func (b *builder) copy(inst Instruction) error {
 
 	for _, src := range srcs {
 		src = b.expand(src)
-		if err := b.copyOne(from, src, dest); err != nil {
+		if err := b.copyOne(from, stage, src, dest); err != nil {
 			return err
 		}
 	}
@@ -321,7 +370,7 @@ func errStageNotYet(name string) error {
 		"stage %q is declared later in the Skillfile; a stage can only be used after its instructions have run", name)
 }
 
-func (b *builder) copyOne(from *Tree, src, dest string) error {
+func (b *builder) copyOne(from *Tree, stage, src, dest string) error {
 	// Without --from the source is the build context on disk, which is how a
 	// Skillfile adds a file that exists in neither base.
 	if from == nil {
@@ -329,11 +378,11 @@ func (b *builder) copyOne(from *Tree, src, dest string) error {
 		if err != nil {
 			return err
 		}
-		return b.current.Set(destPath(dest, src), body)
+		return b.write(destPath(dest, src), body, stage)
 	}
 
 	if body, ok := from.Get(src); ok {
-		return b.current.Set(destPath(dest, src), body)
+		return b.write(destPath(dest, src), body, stage)
 	}
 
 	// A directory source copies everything under it, keeping the layout.
@@ -345,7 +394,7 @@ func (b *builder) copyOne(from *Tree, src, dest string) error {
 		}
 		body, _ := from.Get(p)
 		target := path.Join(strings.TrimSuffix(dest, "/"), strings.TrimPrefix(p, prefix))
-		if err := b.current.Set(target, body); err != nil {
+		if err := b.write(target, body, stage); err != nil {
 			return err
 		}
 		copied++
@@ -354,6 +403,39 @@ func (b *builder) copyOne(from *Tree, src, dest string) error {
 		return fmt.Errorf("%s: no such file in the source", src)
 	}
 	return nil
+}
+
+// write puts a file into the current tree and records where it came from.
+//
+// stage is the COPY --from that produced it, or "" for the build context —
+// which clears any provenance the path had, because the bytes there are now
+// the context's and not the stage's.
+//
+// Only COPY goes through here. An APPEND, REPLACE, PATCH, AWK or SET writes
+// through Tree.Set and leaves the provenance alone: those edit a file in
+// place, and where its content came from is not changed by amending it.
+func (b *builder) write(p string, body []byte, stage string) error {
+	if err := b.current.Set(p, body); err != nil {
+		return err
+	}
+	if stage == "" {
+		delete(b.origins, p)
+		return nil
+	}
+	b.origins[p] = stage
+	return nil
+}
+
+// forget drops the provenance of everything an RM took, whether it named one
+// file or a directory prefix.
+func (b *builder) forget(p string) {
+	delete(b.origins, p)
+	prefix := strings.TrimSuffix(p, "/") + "/"
+	for existing := range b.origins {
+		if strings.HasPrefix(existing, prefix) {
+			delete(b.origins, existing)
+		}
+	}
 }
 
 // destPath resolves a destination, treating a trailing slash as a directory.
@@ -385,6 +467,7 @@ func (b *builder) rm(inst Instruction) error {
 			// built from a Skillfile that no longer describes its base.
 			return fmt.Errorf("%s: no such file", p)
 		}
+		b.forget(p)
 	}
 	return nil
 }
