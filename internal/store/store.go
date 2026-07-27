@@ -34,25 +34,12 @@ const lockName = "store.lock"
 
 // Store is a handle on the layout directory. It holds no open store and no
 // lock: those live for exactly the length of one operation.
+//
+// Construct one with Under or Default; where the layout lives is root.go's
+// single answer, never a path assembled at the call site.
 type Store struct {
 	root string
 }
-
-// Default is the store at ~/.epos/store (SPEC.md 9.1).
-//
-// It must be on a local filesystem — advisory locks are unreliable over NFS
-// and SMB (9.4) — which is why the location is not configurable to an
-// arbitrary mount.
-func Default() (*Store, error) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return nil, fmt.Errorf("locate home directory: %w", err)
-	}
-	return At(filepath.Join(home, ".epos", "store")), nil
-}
-
-// At returns a store rooted at dir.
-func At(dir string) *Store { return &Store{root: dir} }
 
 // Path is where the layout lives; `epos store path` prints it.
 func (s *Store) Path() string { return s.root }

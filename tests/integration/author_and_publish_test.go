@@ -23,13 +23,22 @@ import (
 	"oras.land/oras-go/v2/registry/remote"
 )
 
+// eposHomeEnv is spelled out rather than taken from internal/store: these
+// suites drive the CLI as a user does, and the variable's name is part of what
+// the user is promised.
+const eposHomeEnv = "EPOS_HOME"
+
 // author drives the epos CLI as a user would: a real binary, a real store
 // directory, a real registry. Nothing here reaches into the packages under
 // test.
 type author struct {
 	registryURL string
-	home        string // HOME, so the CLI's ~/.epos/store lands in the sandbox
-	secondHome  string // a "different machine" with an empty store
+	// eposHome is EPOS_HOME, so the CLI's store lands in the sandbox. Nothing
+	// here moves HOME: EPOS_HOME redirects epos and only epos, whereas HOME is
+	// read by everything else in the process too — and on Windows is not even
+	// the variable os.UserHomeDir consults.
+	eposHome       string
+	secondEposHome string // a "different machine" with an empty store
 
 	dir     string // the skill directory
 	altDir  string // an identical directory, written differently
@@ -45,9 +54,9 @@ type author struct {
 
 func (a *author) reset(t *testing.T) {
 	root := t.TempDir()
-	a.home = filepath.Join(root, "home")
-	a.secondHome = filepath.Join(root, "home2")
-	for _, d := range []string{a.home, a.secondHome} {
+	a.eposHome = filepath.Join(root, "epos")
+	a.secondEposHome = filepath.Join(root, "epos2")
+	for _, d := range []string{a.eposHome, a.secondEposHome} {
 		if err := os.MkdirAll(d, 0o755); err != nil {
 			t.Fatal(err)
 		}
@@ -57,11 +66,17 @@ func (a *author) reset(t *testing.T) {
 	a.packErr = nil
 }
 
-func (a *author) epos(home string, args ...string) (string, error) {
+func (a *author) epos(eposHome string, args ...string) (string, error) {
 	cmd := exec.Command(eposBin, args...)
-	cmd.Env = append(os.Environ(), "HOME="+home)
+	cmd.Env = append(os.Environ(), eposHomeEnv+"="+eposHome)
 	out, err := cmd.CombinedOutput()
 	return strings.TrimSpace(string(out)), err
+}
+
+// storeDir is where an EPOS_HOME puts the OCI layout, which is the one thing
+// these suites need to know about the root's internals.
+func storeDir(eposHome string) string {
+	return filepath.Join(eposHome, "store")
 }
 
 // --- Given ------------------------------------------------------------------
@@ -116,7 +131,7 @@ func (a *author) theDirectoryContainsASymlink() error {
 }
 
 func (a *author) anUnreferencedBlobIsInTheStore() error {
-	blobs := filepath.Join(a.home, ".epos", "store", "blobs", "sha256")
+	blobs := filepath.Join(storeDir(a.eposHome), "blobs", "sha256")
 	a.orphan = filepath.Join(blobs, "orphaned0000000000000000000000000000000000000000000000000000000")
 	return os.WriteFile(a.orphan, []byte("unreachable"), 0o644)
 }
@@ -124,7 +139,7 @@ func (a *author) anUnreferencedBlobIsInTheStore() error {
 // --- When -------------------------------------------------------------------
 
 func (a *author) packs() error {
-	out, err := a.epos(a.home, "pack", a.dir)
+	out, err := a.epos(a.eposHome, "pack", a.dir)
 	if err != nil {
 		a.packErr = fmt.Errorf("%v: %s", err, out)
 		return nil // scenarios that expect failure assert on packErr
@@ -139,7 +154,7 @@ func (a *author) packsBoth() error {
 	if err := a.packs(); err != nil {
 		return err
 	}
-	out, err := a.epos(a.home, "pack", a.altDir)
+	out, err := a.epos(a.eposHome, "pack", a.altDir)
 	if err != nil {
 		return fmt.Errorf("pack the second directory: %v: %s", err, out)
 	}
@@ -156,7 +171,7 @@ func (a *author) packsBoth() error {
 func (a *author) isPublished() error {
 	a.pushed = fmt.Sprintf("%s/demo/agent-skills/%s:%s", a.registryURL, a.name, a.version)
 
-	src, err := oci.New(filepath.Join(a.home, ".epos", "store"))
+	src, err := oci.New(storeDir(a.eposHome))
 	if err != nil {
 		return fmt.Errorf("open the author's store: %w", err)
 	}
@@ -176,16 +191,16 @@ func (a *author) isPublished() error {
 }
 
 func (a *author) aSecondMachinePulls() error {
-	out, err := a.epos(a.secondHome, "pull", a.pushed, "--plain-http")
+	out, err := a.epos(a.secondEposHome, "pull", a.pushed, "--plain-http")
 	if err != nil {
 		return fmt.Errorf("pull: %v: %s", err, out)
 	}
-	a.pulledTo = a.secondHome
+	a.pulledTo = a.secondEposHome
 	return nil
 }
 
 func (a *author) prunes() error {
-	out, err := a.epos(a.home, "store", "prune")
+	out, err := a.epos(a.eposHome, "store", "prune")
 	if err != nil {
 		return fmt.Errorf("prune: %v: %s", err, out)
 	}
@@ -213,8 +228,8 @@ func (a *author) plainOrasPulls() error {
 
 // --- Then -------------------------------------------------------------------
 
-func (a *author) manifestFromStore(home string) (ocispec.Manifest, error) {
-	root := filepath.Join(home, ".epos", "store")
+func (a *author) manifestFromStore(eposHome string) (ocispec.Manifest, error) {
+	root := storeDir(eposHome)
 	idxBody, err := os.ReadFile(filepath.Join(root, "index.json"))
 	if err != nil {
 		return ocispec.Manifest{}, err
@@ -237,7 +252,7 @@ func (a *author) manifestFromStore(home string) (ocispec.Manifest, error) {
 }
 
 func (a *author) exactlyOneContentLayer() error {
-	m, err := a.manifestFromStore(a.home)
+	m, err := a.manifestFromStore(a.eposHome)
 	if err != nil {
 		return err
 	}
@@ -251,7 +266,7 @@ func (a *author) exactlyOneContentLayer() error {
 }
 
 func (a *author) carriesTheArtifactType() error {
-	m, err := a.manifestFromStore(a.home)
+	m, err := a.manifestFromStore(a.eposHome)
 	if err != nil {
 		return err
 	}
@@ -262,7 +277,7 @@ func (a *author) carriesTheArtifactType() error {
 }
 
 func (a *author) configIsInlined() error {
-	m, err := a.manifestFromStore(a.home)
+	m, err := a.manifestFromStore(a.eposHome)
 	if err != nil {
 		return err
 	}
@@ -320,7 +335,7 @@ func (a *author) storeHolds(tag string) error {
 }
 
 func (a *author) authorStoreHolds(tag string) error {
-	out, err := a.epos(a.home, "store", "ls")
+	out, err := a.epos(a.eposHome, "store", "ls")
 	if err != nil {
 		return fmt.Errorf("store ls: %v: %s", err, out)
 	}
@@ -331,11 +346,11 @@ func (a *author) authorStoreHolds(tag string) error {
 }
 
 func (a *author) pulledMatchesPushed() error {
-	pulled, err := a.manifestFromStore(a.secondHome)
+	pulled, err := a.manifestFromStore(a.secondEposHome)
 	if err != nil {
 		return err
 	}
-	pushed, err := a.manifestFromStore(a.home)
+	pushed, err := a.manifestFromStore(a.eposHome)
 	if err != nil {
 		return err
 	}
@@ -348,7 +363,7 @@ func (a *author) pulledMatchesPushed() error {
 
 func (a *author) pulledArtifactMatches() error {
 	// The oras pull recorded a manifest digest; the store holds the same one.
-	m, err := a.manifestFromStore(a.home)
+	m, err := a.manifestFromStore(a.eposHome)
 	if err != nil {
 		return err
 	}

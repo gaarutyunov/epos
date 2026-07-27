@@ -17,8 +17,14 @@ import (
 // explicit cleanup there is nothing to make safe.
 func newStoreCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:          "store",
-		Short:        "Inspect and maintain the local artifact store",
+		Use:   "store",
+		Short: "Inspect and maintain the local artifact store",
+		Long: "store inspects and maintains the local OCI layout epos packs, builds\n" +
+			"and pulls into.\n\n" +
+			"It lives at ~/.epos/store, or at $EPOS_HOME/store when EPOS_HOME is\n" +
+			"set. Set EPOS_HOME to keep epos state somewhere other than your home\n" +
+			"directory; it must be on a local filesystem, because the store's\n" +
+			"advisory locks are unreliable over NFS and SMB.",
 		SilenceUsage: true,
 		Args:         cobra.NoArgs,
 		RunE:         func(cmd *cobra.Command, _ []string) error { return cmd.Help() },
@@ -29,8 +35,10 @@ func newStoreCommand() *cobra.Command {
 
 func newStorePathCommand() *cobra.Command {
 	return &cobra.Command{
-		Use:          "path",
-		Short:        "Print where the local store lives",
+		Use:   "path",
+		Short: "Print where the local store lives",
+		Long: "path prints the resolved store directory: $EPOS_HOME/store when\n" +
+			"EPOS_HOME is set, ~/.epos/store otherwise.",
 		Args:         cobra.NoArgs,
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {

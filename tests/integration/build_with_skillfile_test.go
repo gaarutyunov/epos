@@ -29,9 +29,11 @@ type skillBuilder struct {
 	bin     string
 	fixture gitFixture
 
-	home    string // HOME, so the CLI's ~/.epos/store lands in the sandbox
-	altHome string // a second machine, with a store that has never seen the skill
-	dir     string // the build context
+	// eposHome is EPOS_HOME, so the CLI's store lands in the sandbox — no
+	// HOME is moved, and so nothing but epos sees the redirect.
+	eposHome    string
+	altEposHome string // a second machine, with a store that has never seen the skill
+	dir         string // the build context
 
 	stdout   string
 	stderr   string
@@ -44,10 +46,10 @@ type skillBuilder struct {
 
 func (b *skillBuilder) reset(t *testing.T) {
 	root := t.TempDir()
-	b.home = filepath.Join(root, "home")
-	b.altHome = filepath.Join(root, "home2")
+	b.eposHome = filepath.Join(root, "epos")
+	b.altEposHome = filepath.Join(root, "epos2")
 	b.worktree = filepath.Join(root, "worktree")
-	for _, d := range []string{b.home, b.altHome, b.worktree} {
+	for _, d := range []string{b.eposHome, b.altEposHome, b.worktree} {
 		if err := os.MkdirAll(d, 0o755); err != nil {
 			t.Fatal(err)
 		}
@@ -63,9 +65,9 @@ func (b *skillBuilder) reset(t *testing.T) {
 
 // epos runs the CLI with stdout and stderr kept apart, which is the whole point
 // of the split: the digest goes to one and the warnings and pins to the other.
-func (b *skillBuilder) epos(home string, args ...string) (string, string, error) {
+func (b *skillBuilder) epos(eposHome string, args ...string) (string, string, error) {
 	cmd := exec.Command(b.bin, args...)
-	cmd.Env = append(os.Environ(), "HOME="+home)
+	cmd.Env = append(os.Environ(), eposHomeEnv+"="+eposHome)
 	var out, errOut bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &out, &errOut
 	err := cmd.Run()
@@ -182,30 +184,30 @@ language: 'Python'
 
 // --- When -------------------------------------------------------------------
 
-func (b *skillBuilder) builds(home string, args ...string) error {
-	b.stdout, b.stderr, b.buildErr = b.epos(home, append([]string{"build"}, append(args, b.dir)...)...)
+func (b *skillBuilder) builds(eposHome string, args ...string) error {
+	b.stdout, b.stderr, b.buildErr = b.epos(eposHome, append([]string{"build"}, append(args, b.dir)...)...)
 	if b.buildErr == nil {
 		b.digests = append(b.digests, lastField(b.stdout))
 	}
 	return nil // scenarios assert on buildErr
 }
 
-func (b *skillBuilder) theAuthorBuilds() error { return b.builds(b.home) }
+func (b *skillBuilder) theAuthorBuilds() error { return b.builds(b.eposHome) }
 
-func (b *skillBuilder) aSecondMachineBuilds() error { return b.builds(b.altHome) }
+func (b *skillBuilder) aSecondMachineBuilds() error { return b.builds(b.altEposHome) }
 
 func (b *skillBuilder) buildsWithArg(arg string) error {
-	return b.builds(b.home, "--build-arg", arg)
+	return b.builds(b.eposHome, "--build-arg", arg)
 }
 
 // extracts unpacks the content layer the way a client installing the skill
 // would: straight into the default install path of 10.2.
 func (b *skillBuilder) extracts() error {
-	m, err := b.manifest(b.home)
+	m, err := b.manifest(b.eposHome)
 	if err != nil {
 		return err
 	}
-	packed, err := b.blob(b.home, m.Layers[0])
+	packed, err := b.blob(b.eposHome, m.Layers[0])
 	if err != nil {
 		return err
 	}
@@ -260,7 +262,7 @@ func (b *skillBuilder) buildSucceeds() error {
 }
 
 func (b *skillBuilder) storeHoldsTag(tag string) error {
-	out, _, err := b.epos(b.home, "store", "ls")
+	out, _, err := b.epos(b.eposHome, "store", "ls")
 	if err != nil {
 		return fmt.Errorf("store ls: %v: %s", err, out)
 	}
@@ -273,7 +275,7 @@ func (b *skillBuilder) storeHoldsTag(tag string) error {
 }
 
 func (b *skillBuilder) exactlyOneContentLayer() error {
-	m, err := b.manifest(b.home)
+	m, err := b.manifest(b.eposHome)
 	if err != nil {
 		return err
 	}
@@ -287,7 +289,7 @@ func (b *skillBuilder) exactlyOneContentLayer() error {
 }
 
 func (b *skillBuilder) layerHolds(path, want string) error {
-	files, err := b.layer(b.home)
+	files, err := b.layer(b.eposHome)
 	if err != nil {
 		return err
 	}
@@ -305,7 +307,7 @@ func (b *skillBuilder) layerHolds(path, want string) error {
 // needs: a `contains` assertion cannot tell a preserved document from a
 // re-serialised one that happens to still hold the same words.
 func (b *skillBuilder) layerIsExactly(path string, want *godog.DocString) error {
-	files, err := b.layer(b.home)
+	files, err := b.layer(b.eposHome)
 	if err != nil {
 		return err
 	}
@@ -320,7 +322,7 @@ func (b *skillBuilder) layerIsExactly(path string, want *godog.DocString) error 
 }
 
 func (b *skillBuilder) layerDoesNotHold(path string) error {
-	files, err := b.layer(b.home)
+	files, err := b.layer(b.eposHome)
 	if err != nil {
 		return err
 	}
@@ -347,7 +349,7 @@ func (b *skillBuilder) reportsThePin() error {
 }
 
 func (b *skillBuilder) recordsProvenance() error {
-	m, err := b.manifest(b.home)
+	m, err := b.manifest(b.eposHome)
 	if err != nil {
 		return err
 	}
@@ -422,17 +424,17 @@ func (b *skillBuilder) worktreeHoldsTheSkill() error {
 
 // --- store helpers ----------------------------------------------------------
 
-func (b *skillBuilder) manifest(home string) (ocispec.Manifest, error) {
+func (b *skillBuilder) manifest(eposHome string) (ocispec.Manifest, error) {
 	var m ocispec.Manifest
-	body, err := b.resolveAndFetch(home)
+	body, err := b.resolveAndFetch(eposHome)
 	if err != nil {
 		return m, err
 	}
 	return m, json.Unmarshal(body, &m)
 }
 
-func (b *skillBuilder) resolveAndFetch(home string) ([]byte, error) {
-	st, err := oci.New(filepath.Join(home, ".epos", "store"))
+func (b *skillBuilder) resolveAndFetch(eposHome string) ([]byte, error) {
+	st, err := oci.New(storeDir(eposHome))
 	if err != nil {
 		return nil, err
 	}
@@ -444,8 +446,8 @@ func (b *skillBuilder) resolveAndFetch(home string) ([]byte, error) {
 	return content.FetchAll(ctx, st, desc)
 }
 
-func (b *skillBuilder) blob(home string, desc ocispec.Descriptor) ([]byte, error) {
-	st, err := oci.New(filepath.Join(home, ".epos", "store"))
+func (b *skillBuilder) blob(eposHome string, desc ocispec.Descriptor) ([]byte, error) {
+	st, err := oci.New(storeDir(eposHome))
 	if err != nil {
 		return nil, err
 	}
@@ -454,15 +456,15 @@ func (b *skillBuilder) blob(home string, desc ocispec.Descriptor) ([]byte, error
 
 // layer reads the content layer back as path → contents, which is what a
 // conforming client extracting the artifact sees.
-func (b *skillBuilder) layer(home string) (map[string]string, error) {
-	m, err := b.manifest(home)
+func (b *skillBuilder) layer(eposHome string) (map[string]string, error) {
+	m, err := b.manifest(eposHome)
 	if err != nil {
 		return nil, err
 	}
 	if len(m.Layers) != 1 {
 		return nil, fmt.Errorf("manifest has %d layers, want exactly 1", len(m.Layers))
 	}
-	packed, err := b.blob(home, m.Layers[0])
+	packed, err := b.blob(eposHome, m.Layers[0])
 	if err != nil {
 		return nil, err
 	}

@@ -23,10 +23,11 @@ func main() {
 
 func newRootCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:          "epos",
-		Short:        "OCI-native packaging and composition for agent skills",
-		Version:      Version,
-		Long:         "epos packages agent skills as OCI artifacts and composes them.",
+		Use:     "epos",
+		Short:   "OCI-native packaging and composition for agent skills",
+		Version: Version,
+		Long: "epos packages agent skills as OCI artifacts and composes them.\n\n" +
+			"State lives under ~/.epos, or under $EPOS_HOME when that is set.",
 		SilenceUsage: true,
 		Args:         cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
