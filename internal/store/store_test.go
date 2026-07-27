@@ -39,7 +39,7 @@ func push(t *testing.T, s *Store, tag, body string) ocispec.Descriptor {
 }
 
 func TestPushResolveRoundTrip(t *testing.T) {
-	s := At(filepath.Join(t.TempDir(), "store"))
+	s := Under(t.TempDir())
 	want := push(t, s, "hello:1.0.0", "layer one")
 
 	got, err := s.Resolve(context.Background(), "hello:1.0.0")
@@ -49,7 +49,7 @@ func TestPushResolveRoundTrip(t *testing.T) {
 
 // SPEC.md 9.1: many versions stay resident so any can be installed later.
 func TestManyVersionsCoexist(t *testing.T) {
-	s := At(filepath.Join(t.TempDir(), "store"))
+	s := Under(t.TempDir())
 	push(t, s, "hello:1.0.0", "one")
 	push(t, s, "hello:1.1.0", "two")
 	push(t, s, "other:0.1.0", "three")
@@ -63,7 +63,7 @@ func TestManyVersionsCoexist(t *testing.T) {
 // single-process, so two writers would silently lose each other's tags. Under
 // the lock, every tag must survive.
 func TestConcurrentPushesDoNotLoseTags(t *testing.T) {
-	s := At(filepath.Join(t.TempDir(), "store"))
+	s := Under(t.TempDir())
 
 	const writers = 8
 	var wg sync.WaitGroup
@@ -106,8 +106,8 @@ func TestConcurrentPushesDoNotLoseTags(t *testing.T) {
 // 9.2: index.json is replaced, never rewritten in place, so a reader never
 // sees a partial file.
 func TestIndexIsValidJSONAfterEveryWrite(t *testing.T) {
-	root := filepath.Join(t.TempDir(), "store")
-	s := At(root)
+	s := Under(t.TempDir())
+	root := s.Path()
 
 	for i := 0; i < 5; i++ {
 		push(t, s, fmt.Sprintf("skill:%d.0.0", i), fmt.Sprintf("body %d", i))
@@ -136,7 +136,7 @@ func TestIndexIsValidJSONAfterEveryWrite(t *testing.T) {
 
 // A store that has never been written must still be readable.
 func TestResolveOnEmptyStore(t *testing.T) {
-	s := At(filepath.Join(t.TempDir(), "store"))
+	s := Under(t.TempDir())
 
 	_, err := s.Resolve(context.Background(), "absent:1.0.0")
 	assert.Error(t, err)
@@ -149,8 +149,8 @@ func TestResolveOnEmptyStore(t *testing.T) {
 // SPEC.md 9.3: prune is mark-and-sweep from the tagged manifests. Anything a
 // tag reaches survives; anything else goes.
 func TestPruneKeepsReachableBlobsAndSweepsTheRest(t *testing.T) {
-	root := filepath.Join(t.TempDir(), "store")
-	s := At(root)
+	s := Under(t.TempDir())
+	root := s.Path()
 	push(t, s, "hello:1.0.0", "reachable")
 
 	blobs := filepath.Join(root, "blobs", "sha256")
@@ -176,8 +176,8 @@ func TestPruneKeepsReachableBlobsAndSweepsTheRest(t *testing.T) {
 // A read-only blob must still be removable: 9.3 calls out the defect that
 // makes rm -rf on GOMODCACHE fail.
 func TestPruneRemovesReadOnlyBlobs(t *testing.T) {
-	root := filepath.Join(t.TempDir(), "store")
-	s := At(root)
+	s := Under(t.TempDir())
+	root := s.Path()
 	push(t, s, "hello:1.0.0", "reachable")
 
 	orphan := filepath.Join(root, "blobs", "sha256", "readonlyorphan")

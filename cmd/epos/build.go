@@ -70,9 +70,10 @@ func newBuildCommand() *cobra.Command {
 // runBuild evaluates the Skillfile and writes the result into s.
 //
 // The store is a parameter rather than looked up here so a test can build into
-// a directory it owns. `epos build` is otherwise the one command whose whole
-// output is a side effect on ~/.epos/store, and a test that had to move HOME to
-// observe it would be testing the environment as much as the build.
+// a directory it owns — store.Under(t.TempDir()) — with nothing global
+// involved. `epos build` is otherwise the one command whose whole output is a
+// side effect on the local store, and a test that had to move an environment
+// variable to observe it would be testing the environment as much as the build.
 func runBuild(ctx context.Context, out, warn io.Writer, s *store.Store, opts buildOptions) error {
 	path := opts.skillfile
 	if path == "" {

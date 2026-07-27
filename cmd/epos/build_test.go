@@ -196,7 +196,7 @@ func layerOf(t *testing.T, s *store.Store, tag string) map[string]string {
 
 func TestBuildAppliesTheSkillfileAndTagsTheResult(t *testing.T) {
 	dir := writeContext(t, buildFixtureFiles(), false)
-	s := store.At(filepath.Join(t.TempDir(), "store"))
+	s := store.Under(t.TempDir())
 
 	stdout, _ := buildInto(t, s, buildOptions{contextDir: dir})
 	assert.Equal(t, "reviewer:2.0.0", strings.Fields(stdout)[0],
@@ -252,7 +252,7 @@ COPY --from=shared reference/style.md references/style.md
 		"shared/reference/style.md": "House style.\n",
 		"base/SKILL.md":             "---\nname: reviewer\nversion: 2.0.0\ndescription: reviews code\n---\n\n# Reviewer\n",
 	}, false)
-	s := store.At(filepath.Join(t.TempDir(), "store"))
+	s := store.Under(t.TempDir())
 
 	stdout, _ := buildInto(t, s, buildOptions{contextDir: dir})
 	assert.Equal(t, "reviewer:2.0.0", strings.Fields(stdout)[0],
@@ -278,12 +278,12 @@ COPY --from=shared reference/style.md references/style.md
 func TestBuildIsDeterministicAcrossStoresAndTime(t *testing.T) {
 	files := buildFixtureFiles()
 
-	first := store.At(filepath.Join(t.TempDir(), "store"))
+	first := store.Under(t.TempDir())
 	firstOut, _ := buildInto(t, first, buildOptions{contextDir: writeContext(t, files, false)})
 
 	time.Sleep(1100 * time.Millisecond)
 
-	second := store.At(filepath.Join(t.TempDir(), "store"))
+	second := store.Under(t.TempDir())
 	secondOut, _ := buildInto(t, second, buildOptions{contextDir: writeContext(t, files, true)})
 
 	// The manifest digest, not the layer's: the layer being identical is the
@@ -308,7 +308,7 @@ func TestBuildDigestDoesNotDependOnMapIteration(t *testing.T) {
 
 	seen := map[string]bool{}
 	for range 8 {
-		s := store.At(filepath.Join(t.TempDir(), "store"))
+		s := store.Under(t.TempDir())
 		stdout, _ := buildInto(t, s, buildOptions{contextDir: dir})
 		seen[digestOf(t, stdout)] = true
 	}
@@ -318,7 +318,7 @@ func TestBuildDigestDoesNotDependOnMapIteration(t *testing.T) {
 // SPEC.md 8.2.2 and 8.2.4: warnings, not errors — but visible ones.
 func TestBuildWarnsAboutNoOpEditsOnStderr(t *testing.T) {
 	dir := writeContext(t, buildFixtureFiles(), false)
-	s := store.At(filepath.Join(t.TempDir(), "store"))
+	s := store.Under(t.TempDir())
 
 	stdout, stderr := buildInto(t, s, buildOptions{contextDir: dir})
 
@@ -331,7 +331,7 @@ func TestBuildWarnsAboutNoOpEditsOnStderr(t *testing.T) {
 // SPEC.md 2.3: a skill built from a base records where it came from.
 func TestBuildRecordsProvenance(t *testing.T) {
 	dir := writeContext(t, buildFixtureFiles(), false)
-	s := store.At(filepath.Join(t.TempDir(), "store"))
+	s := store.Under(t.TempDir())
 	buildInto(t, s, buildOptions{contextDir: dir})
 
 	m := manifestOf(t, s, "reviewer:2.0.0")
@@ -345,7 +345,7 @@ func TestBuildRecordsProvenance(t *testing.T) {
 // SPEC.md 8.7: --build-arg beats the ARG default.
 func TestBuildArgOverridesTheDefault(t *testing.T) {
 	dir := writeContext(t, buildFixtureFiles(), false)
-	s := store.At(filepath.Join(t.TempDir(), "store"))
+	s := store.Under(t.TempDir())
 
 	buildInto(t, s, buildOptions{contextDir: dir, buildArgs: []string{"language=Rust"}})
 
@@ -369,7 +369,7 @@ func TestBuildHonoursFileAndTagFlags(t *testing.T) {
 	files := buildFixtureFiles()
 	files["recipes/Other"] = "FROM ./base\nSET description \"a second recipe\"\n"
 	dir := writeContext(t, files, false)
-	s := store.At(filepath.Join(t.TempDir(), "store"))
+	s := store.Under(t.TempDir())
 
 	stdout, _ := buildInto(t, s, buildOptions{
 		contextDir: dir,
@@ -385,7 +385,7 @@ func TestBuildHonoursFileAndTagFlags(t *testing.T) {
 }
 
 func TestBuildFailsWithoutASkillfile(t *testing.T) {
-	s := store.At(filepath.Join(t.TempDir(), "store"))
+	s := store.Under(t.TempDir())
 	var out, warn bytes.Buffer
 	err := runBuild(context.Background(), &out, &warn, s,
 		buildOptions{contextDir: t.TempDir()})
