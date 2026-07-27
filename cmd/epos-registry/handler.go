@@ -157,6 +157,33 @@ func (h *handler) route(w http.ResponseWriter, r *http.Request) {
 //
 // The repository name identifies the skill; 5.1 is explicit that no manifest
 // parsing is required.
+//
+// # Signature and attestation fetches inflate the unverified count
+//
+// Cosign signatures and attestations are referrers of the skill manifest
+// (SPEC.md 11), which means their blobs live in the skill's own repository.
+// `epos verify` fetches the signed payload with an ordinary blob GET, so every
+// verification adds one to epos.downloads for that repository — a download of
+// a few hundred bytes of signature, counted as a download of the skill.
+//
+// It is counted *unverified*, because verify deliberately does not send
+// Epos-Download: moving those fetches into the verified count would corrupt
+// the one number 5.2 promises is trustworthy, which is worse than inflating
+// the one it already says is not.
+//
+// Nothing here can tell the two apart. Doing so would mean knowing which
+// digests in this repository are signature blobs, and that is a digest→role
+// lookup table — precisely the durable state 4.4 says epos-registry does not
+// hold, and that N replicas behind a load balancer could not share anyway.
+// Parsing manifests on the fly would not help either: a blob GET carries no
+// manifest, and the client that fetched it may never have asked this replica
+// for one.
+//
+// So the inflation is accepted and written down rather than worked around.
+// The rule for a reader of these numbers: unverified counts are an upper
+// bound on human pulls, verified counts are the conforming-client figure, and
+// a heavily verified skill inflates the unverified column in proportion to how
+// often it is verified.
 func (h *handler) countDownload(r *http.Request, status int, repository string) {
 	if h.downloads == nil || r.Method != http.MethodGet {
 		return

@@ -62,6 +62,15 @@ type Download struct {
 	Repository string
 	// Verified is true iff the request carried a well-formed Epos-Download
 	// header (SPEC.md 5.2).
+	//
+	// The unverified side of this attribute is known to be inflated, and
+	// signatures are the largest single source: a cosign signature is a
+	// referrer of the skill manifest (SPEC.md 11), so its blob shares the
+	// skill's repository, and every `epos verify` fetches one. Those fetches
+	// are counted here as unverified downloads of the skill and cannot be
+	// distinguished without a digest→role table, which is the durable state
+	// SPEC.md 4.4 refuses. See cmd/epos-registry's countDownload for the
+	// consequences and how to read the numbers.
 	Verified bool
 	// Client is the request's User-Agent.
 	Client string
