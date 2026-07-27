@@ -24,15 +24,7 @@ import (
 // Pure by construction (SPEC.md 8.1): the only inputs are the bases, the
 // Skillfile and the context, and nothing executes.
 func Build(sf *Skillfile, contextDir string, buildArgs map[string]string) (*Tree, *Report, error) {
-	b := &builder{
-		contextDir: contextDir,
-		args:       map[string]string{},
-		stages:     map[string]*Tree{},
-		report:     &Report{},
-	}
-	for k, v := range buildArgs {
-		b.args[k] = v
-	}
+	b := newBuilder(sf, contextDir, buildArgs)
 
 	for _, inst := range sf.Instructions {
 		if err := b.apply(inst); err != nil {
@@ -86,8 +78,35 @@ type builder struct {
 	contextDir string
 	args       map[string]string
 	stages     map[string]*Tree
-	current    *Tree
-	report     *Report
+	// declared is every name the Skillfile binds with `FROM … AS <name>`,
+	// including the ones no FROM has reached yet. Knowing them up front is what
+	// lets a forward reference say so, instead of falling through to the
+	// filesystem and reporting a missing directory for a stage that is right
+	// there, three lines further down.
+	declared map[string]bool
+	current  *Tree
+	report   *Report
+}
+
+// newBuilder prepares a build of sf.
+func newBuilder(sf *Skillfile, contextDir string, buildArgs map[string]string) *builder {
+	b := &builder{
+		contextDir: contextDir,
+		args:       map[string]string{},
+		stages:     map[string]*Tree{},
+		declared:   map[string]bool{},
+		report:     &Report{},
+	}
+	for k, v := range buildArgs {
+		b.args[k] = v
+	}
+	for _, inst := range sf.Instructions {
+		if inst.Op != "FROM" || len(inst.Args) != 3 || !strings.EqualFold(inst.Args[1], "AS") {
+			continue
+		}
+		b.declared[inst.Args[2]] = true
+	}
+	return b
 }
 
 func (b *builder) apply(inst Instruction) error {
@@ -192,7 +211,28 @@ func (b *builder) from(inst Instruction) error {
 
 // resolve loads a FROM source, returning the tree and the source's pin. B1
 // supports the local and git schemes of 8.3; OCI arrives with B2.
+//
+// A stage name is answered before any of them. 8.4's worked example writes
+// `FROM base` after `FROM … AS base`, so a bare name that a previous FROM
+// bound is that stage — checked first, as Docker checks it first, because
+// otherwise a directory that happens to share the name would shadow the stage
+// the Skillfile plainly meant.
 func (b *builder) resolve(ref string) (*Tree, string, error) {
+	if stage, ok := b.stages[ref]; ok {
+		// A base, not an alias: the copy is what makes later instructions
+		// mutate this build's tree and not the stage, so a COPY --from naming
+		// the same stage afterwards still sees what the stage was declared as.
+		// Sharing the tree would let a stage be edited retroactively by the
+		// build that descends from it.
+		//
+		// No pin (8.3): the stage is whatever its own FROM resolved to, and the
+		// pin the report keeps is that FROM's.
+		return stage.Clone(), "", nil
+	}
+	if b.declared[ref] {
+		return nil, "", fmt.Errorf("stage %q is declared later in the Skillfile; a stage can only be used after its FROM", ref)
+	}
+
 	if strings.HasPrefix(ref, gitPrefix) {
 		return b.resolveGit(ref)
 	}

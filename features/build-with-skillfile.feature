@@ -63,6 +63,38 @@ Feature: Build a skill with a Skillfile
     And the layer holds "reviewer/references/style.md" containing "House style"
     And the layer does not hold "reviewer/extra.md"
 
+  # SPEC 8.4 -- the worked example writes `FROM base` after `FROM ... AS base`,
+  # so a bare name an earlier FROM bound is that stage and not a directory in
+  # the context.
+  Scenario: A later FROM starts from a stage declared earlier
+    Given a Skillfile whose last stage starts from a stage declared earlier
+    When the author builds it
+    Then the build succeeds
+    And the layer holds "reviewer/references/style.md" containing "House style"
+    And the layer holds "reviewer/references/house.md" containing "house rules"
+    And the layer does not hold "reviewer/extra.md"
+
+  # SPEC 8.2.4 -- SET edits the document, it does not rewrite it: the comments,
+  # the key order and the quoting are the skill author's, and an edit that
+  # normalised them would be rewriting a file it was asked to amend.
+  Scenario: SET leaves the frontmatter's comments, order and quoting alone
+    Given a Skillfile setting one key of a hand-written frontmatter block
+    When the author builds it
+    Then the build succeeds
+    And the layer's "reviewer/SKILL.md" is exactly:
+      """
+      ---
+      # the fields an agent reads before loading anything
+      name: reviewer
+      version: "2.0.0" # pinned by hand, and a string on purpose
+      description: reviews code
+      model: opus # the cheap one
+      language: 'Python'
+      ---
+
+      # Reviewer
+      """
+
   # SPEC 2.1 -- the layer extracts to something indistinguishable from a
   # hand-authored skill directory, which is what makes the built artifact
   # usable in a worktree.

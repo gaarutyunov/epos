@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/goccy/go-yaml"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -55,12 +56,7 @@ func failedBuild(t *testing.T, src string, files map[string]string) (*Tree, erro
 	sf, err := Parse([]byte(src))
 	require.NoError(t, err)
 
-	b := &builder{
-		contextDir: buildContext(t, files),
-		args:       map[string]string{},
-		stages:     map[string]*Tree{},
-		report:     &Report{},
-	}
+	b := newBuilder(sf, buildContext(t, files), nil)
 	for _, inst := range sf.Instructions {
 		if err := b.apply(inst); err != nil {
 			return b.current, fmt.Errorf("line %d: %s: %w", inst.Line, inst.Op, err)
@@ -68,6 +64,40 @@ func failedBuild(t *testing.T, src string, files map[string]string) (*Tree, erro
 	}
 	require.Fail(t, "the Skillfile was expected to fail but built cleanly")
 	return nil, nil
+}
+
+// yamlBlockOf is a built file's YAML: the frontmatter block of a SKILL.md, or
+// the whole file when it is plain YAML.
+func yamlBlockOf(body []byte) string {
+	if _, block, _, ok := splitFrontmatter(string(body)); ok {
+		return block
+	}
+	return string(body)
+}
+
+// frontmatterOf decodes a built file's YAML, for assertions about the values.
+func frontmatterOf(t *testing.T, body []byte) map[string]any {
+	t.Helper()
+	var out map[string]any
+	require.NoError(t, yaml.Unmarshal([]byte(yamlBlockOf(body)), &out))
+	return out
+}
+
+// frontmatterKeys is the same YAML's keys in document order.
+//
+// A map cannot express order, which is exactly the property 8.2.4 promises and
+// the one a marshal round trip destroys, so this decodes into goccy's ordered
+// MapSlice instead.
+func frontmatterKeys(t *testing.T, body []byte) []string {
+	t.Helper()
+	var items yaml.MapSlice
+	require.NoError(t, yaml.Unmarshal([]byte(yamlBlockOf(body)), &items))
+
+	out := make([]string, 0, len(items))
+	for _, item := range items {
+		out = append(out, fmt.Sprint(item.Key))
+	}
+	return out
 }
 
 func TestFromLocalLoadsTheBase(t *testing.T) {
@@ -443,9 +473,7 @@ func TestSetEditsFrontmatter(t *testing.T) {
 		map[string]string{"base/SKILL.md": baseSkill})
 
 	body, _ := tree.Get("SKILL.md")
-	doc, err := openYAML("SKILL.md", body)
-	require.NoError(t, err)
-	assert.Equal(t, "Go", doc.values["language"])
+	assert.Equal(t, "Go", frontmatterOf(t, body)["language"])
 	// The Markdown after the block survives.
 	assert.Contains(t, string(body), "# Reviewer")
 }
@@ -455,8 +483,7 @@ func TestSetAddsAnAbsentKey(t *testing.T) {
 		map[string]string{"base/SKILL.md": baseSkill})
 
 	body, _ := tree.Get("SKILL.md")
-	doc, _ := openYAML("SKILL.md", body)
-	assert.Equal(t, "strict", doc.values["reviewer-level"])
+	assert.Equal(t, "strict", frontmatterOf(t, body)["reviewer-level"])
 }
 
 func TestSetTargetsAnyYAMLWithFileFlag(t *testing.T) {
@@ -467,9 +494,7 @@ func TestSetTargetsAnyYAMLWithFileFlag(t *testing.T) {
 		})
 
 	body, _ := tree.Get("values.yaml")
-	doc, err := openYAML("values.yaml", body)
-	require.NoError(t, err)
-	assert.Equal(t, "sonnet", doc.values["model"])
+	assert.Equal(t, "sonnet", frontmatterOf(t, body)["model"])
 }
 
 // 8.2.4: untargeted files are never re-serialised and stay byte-identical.
@@ -485,13 +510,185 @@ func TestUntargetedFilesAreByteIdentical(t *testing.T) {
 	assert.Equal(t, fussy, string(body))
 }
 
+// fussySkill is frontmatter written the way an author writes it rather than
+// the way a serialiser would: a comment over one key, a comment trailing
+// another, a deliberate key order, and quoting chosen by hand.
+//
+// 8.2.4 promises all of that survives an edit, which is why it names the
+// mechanism — parser.ParseComments, AST mutation, File.String() — rather than
+// leaving the implementation free to unmarshal into a map and marshal back.
+// A map round trip loses every one of these properties at once.
+const fussySkill = `---
+# the fields an agent reads before loading anything
+name: reviewer
+version: "1.0.0" # pinned by hand, and a string on purpose
+description: reviews code
+model: sonnet # the cheap one
+language: 'Python'
+metadata:
+  author: acme
+---
+
+# Reviewer
+`
+
+// fussyOrder is the order fussySkill writes its keys in — which is not
+// alphabetical, so an implementation that sorts is visible.
+var fussyOrder = []string{"name", "version", "description", "model", "language", "metadata"}
+
+// 8.2.4: a SET that updates an existing key leaves it where it was.
+func TestSetKeepsKeyOrderWhenUpdatingAKey(t *testing.T) {
+	tree, _ := build(t, "FROM ./base\nSET model opus\n",
+		map[string]string{"base/SKILL.md": fussySkill})
+
+	body, _ := tree.Get("SKILL.md")
+	assert.Equal(t, fussyOrder, frontmatterKeys(t, body),
+		"an edited key must keep its place, not move to where a sort would put it")
+	assert.Equal(t, "opus", frontmatterOf(t, body)["model"])
+}
+
+// 8.2.4: a SET that adds a key appends it and disturbs nothing else.
+func TestSetAppendsANewKeyWithoutReorderingTheRest(t *testing.T) {
+	tree, _ := build(t, "FROM ./base\nSET allowed-tools \"[Read, Write]\"\n",
+		map[string]string{"base/SKILL.md": fussySkill})
+
+	body, _ := tree.Get("SKILL.md")
+	assert.Equal(t, append(append([]string{}, fussyOrder...), "allowed-tools"),
+		frontmatterKeys(t, body))
+}
+
+// 8.2.4: comments survive the edit — the one on its own line above a key and
+// the one trailing a key, including the trailing comment of the key being set.
+func TestSetPreservesComments(t *testing.T) {
+	tree, _ := build(t, "FROM ./base\nSET model opus\n",
+		map[string]string{"base/SKILL.md": fussySkill})
+
+	body, _ := tree.Get("SKILL.md")
+	assert.Contains(t, string(body), "# the fields an agent reads before loading anything\nname: reviewer",
+		"a full-line comment stays above the key it was written for")
+	assert.Contains(t, string(body), "# pinned by hand, and a string on purpose",
+		"an inline comment on an untouched key survives")
+	assert.Contains(t, string(body), "model: opus # the cheap one",
+		"the edited key keeps the comment trailing its line")
+}
+
+// 8.2.4: quoting is part of the document, and a key the edit does not name
+// must come back written exactly as its author wrote it.
+func TestSetPreservesQuotingStyleOfUntouchedKeys(t *testing.T) {
+	tree, _ := build(t, "FROM ./base\nSET description \"reviews Go\"\n",
+		map[string]string{"base/SKILL.md": fussySkill})
+
+	body, _ := tree.Get("SKILL.md")
+	assert.Contains(t, string(body), `version: "1.0.0"`,
+		"a double-quoted string must not silently become the bare 1.0.0")
+	assert.Contains(t, string(body), `language: 'Python'`,
+		"nor must a single-quoted one change style")
+	assert.Equal(t, "1.0.0", frontmatterOf(t, body)["version"],
+		"and it is still the string the quotes made it")
+}
+
+// 8.2.4: values are parsed as YAML scalars, so quoting forces a string.
+//
+// The YAML quotes have to reach the value intact, which means surviving the
+// Skillfile tokenizer (8.5) — it consumes one layer of quoting on every
+// argument, so `'"3"'` is how an author gets a `"3"` to the YAML editor.
+func TestSetParsesValuesAsYAMLScalars(t *testing.T) {
+	tree, _ := build(t, `FROM ./base
+SET count 3
+SET label '"3"'
+SET ratio 1.5
+SET pinned '"1.0"'
+SET enabled true
+`, map[string]string{"base/SKILL.md": fussySkill})
+
+	body, _ := tree.Get("SKILL.md")
+	values := frontmatterOf(t, body)
+	assert.Equal(t, uint64(3), values["count"])
+	assert.Equal(t, "3", values["label"], "quoting forces a string")
+	assert.Equal(t, 1.5, values["ratio"])
+	assert.Equal(t, "1.0", values["pinned"], "and keeps a version from becoming a float")
+	assert.Equal(t, true, values["enabled"])
+	assert.Contains(t, string(body), `label: "3"`, "the quotes the author wrote are the quotes written out")
+}
+
+// 8.2.4: keys use dotted paths for nested mappings.
+func TestSetWritesNestedKeysThroughDottedPaths(t *testing.T) {
+	tree, _ := build(t, "FROM ./base\nSET metadata.author globex\nSET metadata.team platform\nSET a.b.c deep\n",
+		map[string]string{"base/SKILL.md": fussySkill})
+
+	body, _ := tree.Get("SKILL.md")
+	values := frontmatterOf(t, body)
+	assert.Equal(t, map[string]any{"author": "globex", "team": "platform"}, values["metadata"])
+	assert.Equal(t, map[string]any{"b": map[string]any{"c": "deep"}}, values["a"])
+	assert.Equal(t, append(append([]string{}, fussyOrder...), "a"), frontmatterKeys(t, body),
+		"writing into an existing mapping must not move it")
+}
+
 func TestUnsetRemovesAKey(t *testing.T) {
 	tree, _ := build(t, "FROM ./base\nUNSET language\n",
 		map[string]string{"base/SKILL.md": baseSkill})
 
 	body, _ := tree.Get("SKILL.md")
-	doc, _ := openYAML("SKILL.md", body)
-	assert.NotContains(t, doc.values, "language")
+	assert.NotContains(t, frontmatterOf(t, body), "language")
+}
+
+// 8.2.4: UNSET takes its key and nothing else — every comment that stays is
+// still attached to the key it was written against.
+func TestUnsetRemovesOnlyItsKeyAndLeavesCommentsInPlace(t *testing.T) {
+	tree, _ := build(t, "FROM ./base\nUNSET description\n",
+		map[string]string{"base/SKILL.md": fussySkill})
+
+	body, _ := tree.Get("SKILL.md")
+	assert.Equal(t, []string{"name", "version", "model", "language", "metadata"},
+		frontmatterKeys(t, body))
+	assert.Contains(t, string(body), "# the fields an agent reads before loading anything\nname: reviewer")
+	assert.Contains(t, string(body), `version: "1.0.0" # pinned by hand, and a string on purpose`)
+	assert.Contains(t, string(body), "model: sonnet # the cheap one")
+}
+
+// 8.2.4: structure-aware, so no sequence of edits can produce invalid YAML —
+// including on a document whose shapes defeat a byte-oriented edit.
+func TestYAMLEditsCannotProduceInvalidYAML(t *testing.T) {
+	const awkward = `---
+name: reviewer
+summary: >
+  a folded scalar
+  spanning two lines
+allowed-tools:
+  - Read
+  - Write
+quoted: "colons: and # hashes"
+---
+
+# Reviewer
+`
+
+	tree, _ := build(t, "FROM ./base\nSET name auditor\nSET allowed-tools \"[Read]\"\nUNSET quoted\nSET added \"a: b # c\"\n",
+		map[string]string{"base/SKILL.md": awkward})
+
+	body, _ := tree.Get("SKILL.md")
+	values := frontmatterOf(t, body)
+	assert.Equal(t, "auditor", values["name"])
+	assert.Equal(t, []any{"Read"}, values["allowed-tools"])
+	assert.Equal(t, "a: b # c", values["added"], "a value that is not a scalar on its own is written as the string it is")
+	assert.NotContains(t, values, "quoted")
+	assert.Equal(t, "a folded scalar spanning two lines\n", values["summary"],
+		"the folded block scalar survives the edit")
+}
+
+// A second edit of an already-edited document must be a no-op when it writes
+// the same values, or the build is not the pure function 8.1 claims.
+func TestYAMLEditingIsIdempotent(t *testing.T) {
+	src := "FROM ./base\nSET model opus\nSET reviewer-level strict\nUNSET language\n"
+	files := map[string]string{"base/SKILL.md": fussySkill}
+
+	once, _ := build(t, src, files)
+	first, _ := once.Get("SKILL.md")
+
+	twice, _ := build(t, src+"SET model opus\nSET reviewer-level strict\n", files)
+	second, _ := twice.Get("SKILL.md")
+
+	assert.Equal(t, string(first), string(second))
 }
 
 // 8.2.4: UNSET on an absent key warns and continues.
@@ -521,6 +718,108 @@ COPY --from=pdf sections/pdf.md sections/
 	assert.Equal(t, []string{"SKILL.md", "sections/pdf.md"}, tree.Paths())
 }
 
+// SPEC.md 8.4's worked example writes `FROM base` after `FROM … AS base`, so a
+// bare name a previous FROM bound is that stage, not a directory in the
+// context.
+func TestFromResolvesAPreviouslyDeclaredStage(t *testing.T) {
+	tree, report := build(t, `FROM ./pdf AS pdf
+FROM pdf
+APPEND SKILL.md <<EOF
+built from the stage
+EOF
+`, map[string]string{
+		"pdf/SKILL.md":        baseSkill,
+		"pdf/sections/pdf.md": "pdf notes\n",
+	})
+
+	assert.Equal(t, []string{"SKILL.md", "sections/pdf.md"}, tree.Paths(),
+		"the stage's whole tree is the base")
+	body, _ := tree.Get("SKILL.md")
+	assert.Contains(t, string(body), "built from the stage")
+	assert.Equal(t, "pdf", report.Base.Ref)
+	assert.Empty(t, report.Base.Digest, "8.3 gives a stage no pin of its own")
+}
+
+// A stage name is checked before the filesystem, the way Docker checks it, so a
+// directory that happens to share the name cannot shadow the stage the
+// Skillfile plainly meant.
+func TestFromPrefersAStageOverASameNamedDirectory(t *testing.T) {
+	tree, _ := build(t, "FROM ./base AS base\nFROM base\n", map[string]string{
+		"base/SKILL.md":  baseSkill,
+		"base/stage.md":  "from the stage\n",
+		"./base/only.md": "also the stage\n",
+	})
+
+	assert.Equal(t, []string{"SKILL.md", "only.md", "stage.md"}, tree.Paths())
+}
+
+// The stage is a *base*: the build that descends from it mutates a copy, so a
+// COPY --from naming the same stage afterwards still sees what the stage was
+// declared as. Sharing the tree would let a derived stage edit its own
+// ancestor retroactively, which no later instruction could detect.
+func TestFromAStageCannotMutateTheStage(t *testing.T) {
+	tree, _ := build(t, `FROM ./pdf AS pdf
+FROM pdf
+RM sections/pdf.md
+APPEND notes.md <<EOF
+derived
+EOF
+COPY --from=pdf sections/pdf.md sections/pdf.md
+COPY --from=pdf notes.md original-notes.md
+`, map[string]string{
+		"pdf/SKILL.md":        baseSkill,
+		"pdf/notes.md":        "the stage's own notes\n",
+		"pdf/sections/pdf.md": "pdf notes\n",
+	})
+
+	restored, ok := tree.Get("sections/pdf.md")
+	require.True(t, ok, "the RM must not have reached the stage")
+	assert.Equal(t, "pdf notes\n", string(restored))
+
+	original, ok := tree.Get("original-notes.md")
+	require.True(t, ok)
+	assert.Equal(t, "the stage's own notes\n", string(original),
+		"the APPEND on the derived tree must not have reached back into the stage")
+
+	derived, _ := tree.Get("notes.md")
+	assert.Equal(t, "the stage's own notes\nderived\n", string(derived))
+}
+
+// `FROM <stage> AS <stage>` is two copies, not two names for one tree: what
+// the derived stage's instructions do reaches neither the stage it was taken
+// from nor the stage it declares.
+func TestAStageDerivedFromAStageIsItsOwnTree(t *testing.T) {
+	tree, _ := build(t, `FROM ./pdf AS pdf
+FROM pdf AS derived
+RM notes.md
+FROM ./pdf
+COPY --from=pdf notes.md from-pdf.md
+COPY --from=derived notes.md from-derived.md
+`, map[string]string{
+		"pdf/SKILL.md": baseSkill,
+		"pdf/notes.md": "base notes\n",
+	})
+
+	fromPDF, ok := tree.Get("from-pdf.md")
+	require.True(t, ok, "the RM must not have reached the stage it was derived from")
+	assert.Equal(t, "base notes\n", string(fromPDF))
+
+	fromDerived, ok := tree.Get("from-derived.md")
+	require.True(t, ok, "nor the stage the same FROM declared")
+	assert.Equal(t, "base notes\n", string(fromDerived))
+}
+
+// Order matters: a stage exists only once its own FROM has run, so a forward
+// reference says so rather than silently looking for a directory of that name.
+func TestFromAStageDeclaredLaterFails(t *testing.T) {
+	sf, err := Parse([]byte("FROM base\nFROM ./base AS base\n"))
+	require.NoError(t, err)
+
+	_, _, err = Build(sf, buildContext(t, map[string]string{"base/SKILL.md": baseSkill}), nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), `stage "base" is declared later in the Skillfile`)
+}
+
 func TestCopyFromAnUnknownStageFails(t *testing.T) {
 	sf, err := Parse([]byte("FROM ./base\nCOPY --from=ghost x.md .\n"))
 	require.NoError(t, err)
@@ -535,8 +834,7 @@ func TestLaterInstructionWins(t *testing.T) {
 		map[string]string{"base/SKILL.md": baseSkill})
 
 	body, _ := tree.Get("SKILL.md")
-	doc, _ := openYAML("SKILL.md", body)
-	assert.Equal(t, "Rust", doc.values["language"])
+	assert.Equal(t, "Rust", frontmatterOf(t, body)["language"])
 }
 
 func TestArgDefaultAndOverride(t *testing.T) {
@@ -549,15 +847,13 @@ func TestArgDefaultAndOverride(t *testing.T) {
 	tree, _, err := Build(sf, buildContext(t, files), nil)
 	require.NoError(t, err)
 	body, _ := tree.Get("SKILL.md")
-	doc, _ := openYAML("SKILL.md", body)
-	assert.Equal(t, "Python", doc.values["language"], "the ARG default applies")
+	assert.Equal(t, "Python", frontmatterOf(t, body)["language"], "the ARG default applies")
 
 	sf2, _ := Parse([]byte(src))
 	tree2, _, err := Build(sf2, buildContext(t, files), map[string]string{"lang": "Go"})
 	require.NoError(t, err)
 	body2, _ := tree2.Get("SKILL.md")
-	doc2, _ := openYAML("SKILL.md", body2)
-	assert.Equal(t, "Go", doc2.values["language"], "--build-arg beats the default")
+	assert.Equal(t, "Go", frontmatterOf(t, body2)["language"], "--build-arg beats the default")
 }
 
 // 2.5's path rules hold at build time too: a base that could escape its root

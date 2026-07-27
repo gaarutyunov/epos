@@ -57,11 +57,19 @@ EOF
 // pipeline ever iterates a map straight into its output.
 func buildFixtureFiles() map[string]string {
 	return map[string]string{
+		// The frontmatter is written the way an author writes one — a comment
+		// above a key, a comment trailing another, a deliberate rather than
+		// alphabetical key order, mixed quoting — because SET and UNSET edit it
+		// through goccy's AST (8.2.4) and this is the fixture that has to prove
+		// the edit neither reorders the document nor lets a Go map's iteration
+		// order anywhere near the digest.
 		"base/SKILL.md": "---\n" +
+			"# the fields an agent reads before loading anything\n" +
 			"name: reviewer\n" +
-			"version: 2.0.0\n" +
+			"version: \"2.0.0\" # pinned by hand\n" +
 			"description: reviews code\n" +
 			"model: sonnet\n" +
+			"language: 'Python'\n" +
 			"deprecated-field: yes\n" +
 			"---\n\n# Reviewer\n",
 		"base/sections/checklist.md": "- a\n- b\n",
@@ -208,6 +216,20 @@ func TestBuildAppliesTheSkillfileAndTagsTheResult(t *testing.T) {
 	assert.NotContains(t, layer, "reviewer/sections/obsolete.md", "RM")
 	assert.NotContains(t, layer, "reviewer/reference/unused.md",
 		"8.4 composes by explicit enumeration; an unnamed file must not come across")
+
+	// 8.2.4: SET and UNSET edit the document, they do not rewrite it. The
+	// frontmatter comes back in the order it was written, with its comments and
+	// with the quoting its author chose.
+	assert.Equal(t, "---\n"+
+		"# the fields an agent reads before loading anything\n"+
+		"name: reviewer\n"+
+		"version: \"2.0.0\" # pinned by hand\n"+
+		"description: reviews code\n"+
+		"model: opus\n"+
+		"language: Python\n"+
+		"metadata:\n"+
+		"  author: acme\n"+
+		"---\n\n# Reviewer\n", layer["reviewer/SKILL.md"])
 }
 
 // SPEC.md 2.4: same bases, same Skillfile, same context, same digest.

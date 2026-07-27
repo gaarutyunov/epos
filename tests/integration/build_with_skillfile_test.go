@@ -140,6 +140,46 @@ COPY --from=upstream references/style.md references/style.md
 `, b.gitBase()))
 }
 
+// aStageReusedAsABase is 8.4's worked example: a stage is declared, and a later
+// FROM names it instead of a path.
+func (b *skillBuilder) aStageReusedAsABase() error {
+	b.tag = "reviewer:2.0.0"
+	if err := b.write("local/house.md", "house rules\n"); err != nil {
+		return err
+	}
+	return b.write("Skillfile", fmt.Sprintf(`FROM %s AS upstream
+FROM ./local AS local
+FROM upstream
+SET name reviewer
+SET version 2.0.0
+SET description "reviews code"
+RM extra.md
+COPY --from=local house.md references/house.md
+`, b.gitBase()))
+}
+
+// aHandWrittenFrontmatter is a frontmatter block written the way a person
+// writes one rather than the way a serialiser would: a comment above a key, a
+// comment trailing another, a deliberate key order and quoting chosen by hand.
+func (b *skillBuilder) aHandWrittenFrontmatter() error {
+	b.tag = "reviewer:2.0.0"
+	err := b.write("base/SKILL.md", `---
+# the fields an agent reads before loading anything
+name: reviewer
+version: "2.0.0" # pinned by hand, and a string on purpose
+description: reviews code
+model: sonnet # the cheap one
+language: 'Python'
+---
+
+# Reviewer
+`)
+	if err != nil {
+		return err
+	}
+	return b.write("Skillfile", "FROM ./base\nSET model opus\n")
+}
+
 // --- When -------------------------------------------------------------------
 
 func (b *skillBuilder) builds(home string, args ...string) error {
@@ -257,6 +297,24 @@ func (b *skillBuilder) layerHolds(path, want string) error {
 	}
 	if !strings.Contains(body, want) {
 		return fmt.Errorf("%s does not contain %q:\n%s", path, want, body)
+	}
+	return nil
+}
+
+// layerIsExactly compares a whole file, which is what 8.2.4's fidelity claim
+// needs: a `contains` assertion cannot tell a preserved document from a
+// re-serialised one that happens to still hold the same words.
+func (b *skillBuilder) layerIsExactly(path string, want *godog.DocString) error {
+	files, err := b.layer(b.home)
+	if err != nil {
+		return err
+	}
+	body, ok := files[path]
+	if !ok {
+		return fmt.Errorf("the layer holds %v, not %s", sortedKeys(files), path)
+	}
+	if strings.TrimRight(body, "\n") != strings.TrimRight(want.Content, "\n") {
+		return fmt.Errorf("%s is\n%s\nwant\n%s", path, body, want.Content)
 	}
 	return nil
 }
@@ -470,6 +528,10 @@ func TestBuildWithSkillfile(t *testing.T) {
 			sc.Given(`^a Skillfile whose REPLACE matches nothing and whose UNSET key is absent$`,
 				b.aSkillfileWithNoOpEdits)
 			sc.Given(`^a Skillfile composing the git base with a local base$`, b.aComposedSkillfile)
+			sc.Given(`^a Skillfile whose last stage starts from a stage declared earlier$`,
+				b.aStageReusedAsABase)
+			sc.Given(`^a Skillfile setting one key of a hand-written frontmatter block$`,
+				b.aHandWrittenFrontmatter)
 
 			sc.When(`^the author builds it$`, b.theAuthorBuilds)
 			sc.When(`^a second machine builds it$`, b.aSecondMachineBuilds)
@@ -480,6 +542,7 @@ func TestBuildWithSkillfile(t *testing.T) {
 			sc.Then(`^the store holds "([^"]+)"$`, b.storeHoldsTag)
 			sc.Then(`^the artifact has exactly one content layer$`, b.exactlyOneContentLayer)
 			sc.Then(`^the layer holds "([^"]+)" containing "([^"]+)"$`, b.layerHolds)
+			sc.Then(`^the layer's "([^"]+)" is exactly:$`, b.layerIsExactly)
 			sc.Then(`^the layer does not hold "([^"]+)"$`, b.layerDoesNotHold)
 			sc.Then(`^the build reports the commit and tree of the git base$`, b.reportsThePin)
 			sc.Then(`^the artifact records the git base in its provenance annotations$`,
