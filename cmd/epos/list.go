@@ -24,7 +24,12 @@ func newListCommand() *cobra.Command {
 		Args:         cobra.NoArgs,
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runList(cmd.Context(), cmd.OutOrStdout(), &flags, versions)
+			client, err := flags.open()
+			if err != nil {
+				return err
+			}
+			return runList(cmd.Context(), cmd.OutOrStdout(), client,
+				flags.registry, flags.namespace, versions)
 		},
 	}
 	flags.bind(cmd)
@@ -33,12 +38,8 @@ func newListCommand() *cobra.Command {
 	return cmd
 }
 
-func runList(ctx context.Context, out io.Writer, flags *discoveryFlags, versions bool) error {
-	client, registry, namespace, err := flags.open()
-	if err != nil {
-		return err
-	}
-
+func runList(ctx context.Context, out io.Writer, client registryClient,
+	registry, namespace string, versions bool) error {
 	listing, err := discover(ctx, client, namespace, versions)
 	if err != nil {
 		if errors.Is(err, errNoCatalog) {

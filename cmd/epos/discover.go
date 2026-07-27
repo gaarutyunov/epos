@@ -187,17 +187,17 @@ func (f *discoveryFlags) bind(cmd *cobra.Command) {
 	flags.BoolVar(&f.plainHTTP, "plain-http", false, "talk to the registry over HTTP")
 }
 
-// open resolves the flags into a client, and returns the registry and
-// namespace the caller needs for its messages.
-func (f *discoveryFlags) open() (registryClient, string, string, error) {
+// open resolves the flags into a client.
+//
+// The commands take the client as an argument rather than building it inside
+// themselves, so a test can drive the whole of runList and runSearch — the
+// laziness of 7.2 and the missing-capability message of 7.1 included — without
+// a registry.
+func (f *discoveryFlags) open() (registryClient, error) {
 	if f.registry == "" {
-		return nil, "", "", errors.New("a registry is required: pass --registry")
+		return nil, errors.New("a registry is required: pass --registry")
 	}
-	c, err := newOCIRegistry(f.registry, f.plainHTTP)
-	if err != nil {
-		return nil, "", "", err
-	}
-	return c, f.registry, f.namespace, nil
+	return newOCIRegistry(f.registry, f.plainHTTP)
 }
 
 // ociRegistry is registryClient over the plain OCI Distribution API.

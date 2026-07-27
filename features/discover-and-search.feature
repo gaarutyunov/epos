@@ -93,6 +93,6 @@ Feature: Discover and search skills
   # not cost anything else.
   Scenario: A direct pull still works without a catalog
     Given the upstream does not implement _catalog
-    When the author pulls "demo/agent-skills/pdf:1.0.0" directly
+    When a second machine pulls "demo/agent-skills/pdf:1.0.0" directly
     Then the pull succeeded
-    And the local store holds "pdf:1.0.0"
+    And that machine's store holds "pdf:1.0.0"

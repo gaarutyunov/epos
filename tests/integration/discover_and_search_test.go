@@ -55,7 +55,17 @@ var publishedSkills = []struct {
 // discoverer drives epos list and epos search the way a user does: real
 // binaries, a real store directory, a real zot behind a real epos-registry.
 type discoverer struct {
-	home string
+	// eposHome is EPOS_HOME for the machine that packs and enumerates, and
+	// pullerHome is a second machine whose store starts empty. Nothing here
+	// moves HOME: EPOS_HOME redirects epos and only epos, whereas HOME is read
+	// by everything else in the process too — and on Windows is not even the
+	// variable os.UserHomeDir consults.
+	//
+	// The second home is what makes "a direct pull still works" mean anything:
+	// the Background packs every skill into the first one, so a pull asserted
+	// against that store would pass without pulling at all.
+	eposHome   string
+	pullerHome string
 
 	upstreamURL string // real zot
 	containers  []testcontainers.Container
@@ -101,9 +111,13 @@ func (d *discoverer) reset(t *testing.T) {
 		d.noCatalog = nil
 	}
 
-	d.home = filepath.Join(t.TempDir(), "home")
-	if err := os.MkdirAll(d.home, 0o755); err != nil {
-		t.Fatal(err)
+	root := t.TempDir()
+	d.eposHome = filepath.Join(root, "epos")
+	d.pullerHome = filepath.Join(root, "epos2")
+	for _, dir := range []string{d.eposHome, d.pullerHome} {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
 	}
 	d.upstreamURL = ""
 	d.out, d.err = "", nil
@@ -142,9 +156,16 @@ func (d *discoverer) recordedRequests() []string {
 	return append([]string(nil), d.requests...)
 }
 
+// epos runs the CLI against the first machine's store.
 func (d *discoverer) epos(args ...string) error {
+	return d.eposIn(d.eposHome, args...)
+}
+
+// eposIn runs the CLI with its root at eposHome, recording the run's output and
+// exit for the Then steps.
+func (d *discoverer) eposIn(eposHome string, args ...string) error {
 	cmd := exec.Command(discoverEposBin, args...)
-	cmd.Env = append(os.Environ(), "HOME="+d.home)
+	cmd.Env = append(os.Environ(), eposHomeEnv+"="+eposHome)
 	out, err := cmd.CombinedOutput()
 	d.out, d.err = strings.TrimRight(string(out), "\n"), err
 	return nil
@@ -200,7 +221,7 @@ func (d *discoverer) publish(ctx context.Context, repository, name, version, des
 		return fmt.Errorf("pack %s:%s: %v: %s", name, version, d.err, d.out)
 	}
 
-	src, err := oci.New(filepath.Join(d.home, ".epos", "store"))
+	src, err := oci.New(storeDir(d.eposHome))
 	if err != nil {
 		return fmt.Errorf("open the author's store: %w", err)
 	}
@@ -350,16 +371,19 @@ func (d *discoverer) searchesFor(query string) error {
 		"--registry", d.registryFlag(), "--namespace", skillNamespace, "--plain-http")
 }
 
-// pullsDirectly is the reference path of SPEC.md 7.1, which needs no catalog.
-// It goes straight at epos-registry: a direct pull is not discovery and has no
-// business being routed through the enumeration path.
-func (d *discoverer) pullsDirectly(ref string) error {
+// secondMachinePullsDirectly is the reference path of SPEC.md 7.1, which needs
+// no catalog. It goes straight at epos-registry: a direct pull is not discovery
+// and has no business being routed through the enumeration path.
+//
+// It runs against the second machine's empty store, so what the store holds
+// afterwards is what the pull put there and not what the Background packed.
+func (d *discoverer) secondMachinePullsDirectly(ref string) error {
 	repository, version, ok := strings.Cut(ref, ":")
 	if !ok {
 		return fmt.Errorf("reference %q is not <repository>:<version>", ref)
 	}
 	host := strings.TrimPrefix(d.registryURL, "http://")
-	return d.epos("pull", host+"/"+repository+":"+version, "--plain-http")
+	return d.eposIn(d.pullerHome, "pull", host+"/"+repository+":"+version, "--plain-http")
 }
 
 func (d *discoverer) requestsTheCatalogThroughEposRegistry() error {
@@ -566,9 +590,11 @@ func (d *discoverer) relayedCatalogContains(want string) error {
 	return fmt.Errorf("the relayed catalog is %v, want it to hold %q", catalog.Repositories, want)
 }
 
-func (d *discoverer) localStoreHolds(tag string) error {
+// pullerStoreHolds reads the second machine's store, which held nothing before
+// the pull.
+func (d *discoverer) pullerStoreHolds(tag string) error {
 	out := d.out
-	if err := d.epos("store", "ls"); err != nil {
+	if err := d.eposIn(d.pullerHome, "store", "ls"); err != nil {
 		return err
 	}
 	if d.err != nil {
@@ -639,7 +665,7 @@ func TestDiscoverAndSearch(t *testing.T) {
 			sc.When(`^the author lists the skills$`, d.listsTheSkills)
 			sc.When(`^the author lists the skills with versions$`, d.listsTheSkillsWithVersions)
 			sc.When(`^the author searches for "([^"]*)"$`, d.searchesFor)
-			sc.When(`^the author pulls "([^"]+)" directly$`, d.pullsDirectly)
+			sc.When(`^a second machine pulls "([^"]+)" directly$`, d.secondMachinePullsDirectly)
 			sc.When(`^a client requests the catalog through epos-registry$`,
 				d.requestsTheCatalogThroughEposRegistry)
 
@@ -660,7 +686,7 @@ func TestDiscoverAndSearch(t *testing.T) {
 				d.errorSaysCatalogUnsupported)
 			sc.Then(`^the response status is (\d+)$`, d.responseStatusIs)
 			sc.Then(`^the relayed catalog contains "([^"]+)"$`, d.relayedCatalogContains)
-			sc.Then(`^the local store holds "([^"]+)"$`, d.localStoreHolds)
+			sc.Then(`^that machine's store holds "([^"]+)"$`, d.pullerStoreHolds)
 		},
 		Options: &godog.Options{
 			Format:   "pretty,junit:junit-discover.xml",

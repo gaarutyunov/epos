@@ -23,19 +23,20 @@ func newSearchCommand() *cobra.Command {
 		Args:         cobra.ExactArgs(1),
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runSearch(cmd.Context(), cmd.OutOrStdout(), &flags, args[0])
+			client, err := flags.open()
+			if err != nil {
+				return err
+			}
+			return runSearch(cmd.Context(), cmd.OutOrStdout(), client,
+				flags.registry, flags.namespace, args[0])
 		},
 	}
 	flags.bind(cmd)
 	return cmd
 }
 
-func runSearch(ctx context.Context, out io.Writer, flags *discoveryFlags, query string) error {
-	client, registry, namespace, err := flags.open()
-	if err != nil {
-		return err
-	}
-
+func runSearch(ctx context.Context, out io.Writer, client registryClient,
+	registry, namespace, query string) error {
 	// Always the full pipeline: the skill name and description a query matches
 	// against live in the manifest annotations, so there is nothing to filter
 	// until steps 3 and 4 have run (SPEC.md 7.2).
