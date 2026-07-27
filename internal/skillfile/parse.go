@@ -25,6 +25,17 @@ type Instruction struct {
 	Op string
 	// Args are the positional arguments, quotes resolved.
 	Args []string
+	// Quoted says, for each argument in Args, whether the Skillfile wrote any
+	// part of it inside quotes. Parallel to Args, and read through quoted.
+	//
+	// Resolving the quotes is what makes `REPLACE SKILL.md "two words" x` work,
+	// but it also throws away the one thing 8.2.4 needs: `SET version "1.2"`
+	// and `SET version 1.2` arrive as the same three characters, and 8.2.4 says
+	// the first is a string and the second a float. Keeping the fact of the
+	// quoting alongside the argument is what lets SET tell them apart without
+	// changing what any other instruction receives — to COPY or RM a quoted
+	// path is still just a path.
+	Quoted []bool
 	// Flags are the --name=value options, keyed by name without the dashes.
 	Flags map[string]string
 	// Heredoc is the payload of an `<<EOF … EOF` form, empty otherwise. It is
@@ -33,6 +44,15 @@ type Instruction struct {
 	Heredoc string
 	// Line is the 1-based line the instruction started on, for diagnostics.
 	Line int
+}
+
+// quoted reports whether the i-th argument was written quoted.
+//
+// Tolerant of a short Quoted slice so an Instruction assembled by hand — a
+// test, or a caller building one instruction — behaves as if nothing was
+// quoted rather than panicking.
+func (inst Instruction) quoted(i int) bool {
+	return i < len(inst.Quoted) && inst.Quoted[i]
 }
 
 // Skillfile is a parsed build recipe: instructions in file order.
@@ -70,7 +90,9 @@ func Parse(src []byte) (*Skillfile, error) {
 			if err != nil {
 				return nil, err
 			}
-			inst.Args, inst.Heredoc, i = rest, body, after
+			// Quoted is parallel to Args, so dropping the marker from one drops
+			// it from the other.
+			inst.Args, inst.Quoted, inst.Heredoc, i = rest, inst.Quoted[:len(rest)], body, after
 		}
 
 		out.Instructions = append(out.Instructions, inst)
@@ -86,22 +108,25 @@ func parseInstruction(text string, line int) (Instruction, error) {
 		return Instruction{}, fmt.Errorf("line %d: %w", line, err)
 	}
 
-	inst := Instruction{Op: strings.ToUpper(fields[0]), Line: line, Flags: map[string]string{}}
+	inst := Instruction{Op: strings.ToUpper(fields[0].text), Line: line, Flags: map[string]string{}}
 	for _, f := range fields[1:] {
 		// Only --name=value is a flag. A bare `--name` would have to consume
 		// the next token, which makes `SET --file values.yaml model x`
 		// ambiguous with a positional argument — 8.2's flags all take values,
 		// so requiring `=` keeps the grammar unambiguous.
-		if name, value, ok := strings.Cut(f, "="); ok && strings.HasPrefix(name, "--") {
+		if name, value, ok := strings.Cut(f.text, "="); ok && strings.HasPrefix(name, "--") {
 			inst.Flags[strings.TrimPrefix(name, "--")] = value
 			continue
 		}
-		if strings.HasPrefix(f, "--") {
+		if strings.HasPrefix(f.text, "--") {
 			return Instruction{}, fmt.Errorf(
 				"line %d: flag %s needs a value, written --%s=<value>",
-				line, f, strings.TrimPrefix(f, "--"))
+				line, f.text, strings.TrimPrefix(f.text, "--"))
 		}
-		inst.Args = append(inst.Args, f)
+		// Appended together, which is what keeps the two slices parallel: a
+		// flag consumes neither.
+		inst.Args = append(inst.Args, f.text)
+		inst.Quoted = append(inst.Quoted, f.quoted)
 	}
 
 	if inst.Op == "" {
@@ -170,11 +195,23 @@ func splitLines(s string) []string {
 	return strings.Split(s, "\n")
 }
 
+// token is one field of an instruction line: the text with its quotes resolved,
+// and whether it had any.
+//
+// The quoting is remembered rather than merely consumed because 8.2.4 gives it
+// meaning that outlives the split — see Instruction.Quoted. Partial quoting
+// counts: `SET v 1."2"` is quoted, on the grounds that an author who reached
+// for quotes anywhere in a value meant them to do something.
+type token struct {
+	text   string
+	quoted bool
+}
+
 // tokenize splits on whitespace, honouring double and single quotes so a
 // REPLACE pattern can contain spaces.
-func tokenize(text string) ([]string, error) {
+func tokenize(text string) ([]token, error) {
 	var (
-		fields []string
+		fields []token
 		cur    strings.Builder
 		quote  rune
 		had    bool
@@ -182,7 +219,7 @@ func tokenize(text string) ([]string, error) {
 
 	flush := func() {
 		if had || cur.Len() > 0 {
-			fields = append(fields, cur.String())
+			fields = append(fields, token{text: cur.String(), quoted: had})
 			cur.Reset()
 			had = false
 		}

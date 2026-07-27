@@ -549,12 +549,14 @@ func TestSetKeepsKeyOrderWhenUpdatingAKey(t *testing.T) {
 
 // 8.2.4: a SET that adds a key appends it and disturbs nothing else.
 func TestSetAppendsANewKeyWithoutReorderingTheRest(t *testing.T) {
-	tree, _ := build(t, "FROM ./base\nSET allowed-tools \"[Read, Write]\"\n",
+	tree, _ := build(t, "FROM ./base\nSET allowed-tools [Read,Write]\n",
 		map[string]string{"base/SKILL.md": fussySkill})
 
 	body, _ := tree.Get("SKILL.md")
 	assert.Equal(t, append(append([]string{}, fussyOrder...), "allowed-tools"),
 		frontmatterKeys(t, body))
+	assert.Equal(t, []any{"Read", "Write"}, frontmatterOf(t, body)["allowed-tools"],
+		"unquoted, so 8.2.4 parses it rather than making it the string it looks like")
 }
 
 // 8.2.4: comments survive the edit — the one on its own line above a key and
@@ -587,28 +589,51 @@ func TestSetPreservesQuotingStyleOfUntouchedKeys(t *testing.T) {
 		"and it is still the string the quotes made it")
 }
 
-// 8.2.4: values are parsed as YAML scalars, so quoting forces a string.
-//
-// The YAML quotes have to reach the value intact, which means surviving the
-// Skillfile tokenizer (8.5) — it consumes one layer of quoting on every
-// argument, so `'"3"'` is how an author gets a `"3"` to the YAML editor.
-func TestSetParsesValuesAsYAMLScalars(t *testing.T) {
+// 8.2.4: an unquoted value is parsed as a YAML scalar, so it gets the type it
+// looks like.
+func TestSetParsesUnquotedValuesAsYAMLScalars(t *testing.T) {
 	tree, _ := build(t, `FROM ./base
 SET count 3
-SET label '"3"'
 SET ratio 1.5
-SET pinned '"1.0"'
+SET version 1.2
 SET enabled true
+SET nothing null
 `, map[string]string{"base/SKILL.md": fussySkill})
 
 	body, _ := tree.Get("SKILL.md")
 	values := frontmatterOf(t, body)
 	assert.Equal(t, uint64(3), values["count"])
-	assert.Equal(t, "3", values["label"], "quoting forces a string")
 	assert.Equal(t, 1.5, values["ratio"])
-	assert.Equal(t, "1.0", values["pinned"], "and keeps a version from becoming a float")
+	assert.Equal(t, 1.2, values["version"], "8.2.4's own example: SET version 1.2 yields a float")
 	assert.Equal(t, true, values["enabled"])
-	assert.Contains(t, string(body), `label: "3"`, "the quotes the author wrote are the quotes written out")
+	assert.Contains(t, values, "nothing")
+	assert.Nil(t, values["nothing"])
+}
+
+// 8.2.4: quote to force a string.
+//
+// The tokenizer (8.5) resolves the quotes before the value gets anywhere near
+// the YAML editor, so what carries the author's intent is the record that they
+// were there — without it a quoted value would be indistinguishable from a bare
+// one, and `SET version "1.2"` would write the float this test exists to rule
+// out.
+func TestSetQuotingForcesAString(t *testing.T) {
+	tree, _ := build(t, `FROM ./base
+SET count "3"
+SET version "1.2"
+SET enabled "true"
+SET nothing "null"
+SET single '4'
+`, map[string]string{"base/SKILL.md": fussySkill})
+
+	body, _ := tree.Get("SKILL.md")
+	values := frontmatterOf(t, body)
+	assert.Equal(t, "3", values["count"], "an integer that was quoted is a string")
+	assert.Equal(t, "1.2", values["version"], "and a version is not a float")
+	assert.Equal(t, "true", values["enabled"], "nor is a quoted true a bool")
+	assert.Equal(t, "null", values["nothing"], "nor a quoted null a null")
+	assert.Equal(t, "4", values["single"], "single quotes force a string just as double quotes do")
+	assert.Contains(t, string(body), `count: "3"`, "and it is written out as the string it is")
 }
 
 // 8.2.4: keys use dotted paths for nested mappings.
@@ -622,6 +647,43 @@ func TestSetWritesNestedKeysThroughDottedPaths(t *testing.T) {
 	assert.Equal(t, map[string]any{"b": map[string]any{"c": "deep"}}, values["a"])
 	assert.Equal(t, append(append([]string{}, fussyOrder...), "a"), frontmatterKeys(t, body),
 		"writing into an existing mapping must not move it")
+}
+
+// Quoting means something to SET (8.2.4) and nothing to anyone else, so an
+// otherwise identical Skillfile with every argument quoted has to build the
+// same tree — the tokenizer serves every instruction, and a quoted path that
+// stopped being the same path would be the change breaking them all at once.
+func TestQuotingChangesNothingOutsideSet(t *testing.T) {
+	files := map[string]string{
+		"base/SKILL.md":         fussySkill,
+		"base/stale.md":         "gone\n",
+		"base/sections/list.md": "- a\n- b\n",
+		"notes.md":              "in-house notes\n",
+		"scripts/upper.awk":     `{ print toupper($0) }` + "\n",
+	}
+
+	bare, _ := build(t, `ARG level=strict
+FROM ./base
+COPY notes.md references/notes.md
+RM stale.md
+APPEND references/notes.md notes.md
+REPLACE --count=1 SKILL.md "model: sonnet" "model: opus"
+AWK sections/list.md scripts/upper.awk
+SET reviewer-level $level
+`, files)
+
+	quoted, _ := build(t, `ARG "level=strict"
+FROM "./base"
+COPY "notes.md" "references/notes.md"
+RM "stale.md"
+APPEND "references/notes.md" "notes.md"
+REPLACE --count="1" "SKILL.md" "model: sonnet" "model: opus"
+AWK "sections/list.md" "scripts/upper.awk"
+SET "reviewer-level" $level
+`, files)
+
+	assert.Equal(t, bare.Files(), quoted.Files(),
+		"quoting a path, a pattern, an ARG default or a key must not change the build")
 }
 
 func TestUnsetRemovesAKey(t *testing.T) {
@@ -663,7 +725,7 @@ quoted: "colons: and # hashes"
 # Reviewer
 `
 
-	tree, _ := build(t, "FROM ./base\nSET name auditor\nSET allowed-tools \"[Read]\"\nUNSET quoted\nSET added \"a: b # c\"\n",
+	tree, _ := build(t, "FROM ./base\nSET name auditor\nSET allowed-tools [Read]\nUNSET quoted\nSET added \"a: b # c\"\n",
 		map[string]string{"base/SKILL.md": awkward})
 
 	body, _ := tree.Get("SKILL.md")
@@ -785,13 +847,15 @@ COPY --from=pdf notes.md original-notes.md
 	assert.Equal(t, "the stage's own notes\nderived\n", string(derived))
 }
 
-// `FROM <stage> AS <stage>` is two copies, not two names for one tree: what
-// the derived stage's instructions do reaches neither the stage it was taken
-// from nor the stage it declares.
+// `FROM <stage> AS <stage>` is two copies, not two names for one tree: the
+// derived stage's instructions make the derived stage, and reach nothing in
+// the stage it was taken from.
 func TestAStageDerivedFromAStageIsItsOwnTree(t *testing.T) {
 	tree, _ := build(t, `FROM ./pdf AS pdf
 FROM pdf AS derived
-RM notes.md
+APPEND notes.md <<EOF
+derived
+EOF
 FROM ./pdf
 COPY --from=pdf notes.md from-pdf.md
 COPY --from=derived notes.md from-derived.md
@@ -801,12 +865,98 @@ COPY --from=derived notes.md from-derived.md
 	})
 
 	fromPDF, ok := tree.Get("from-pdf.md")
-	require.True(t, ok, "the RM must not have reached the stage it was derived from")
-	assert.Equal(t, "base notes\n", string(fromPDF))
+	require.True(t, ok)
+	assert.Equal(t, "base notes\n", string(fromPDF),
+		"the APPEND must not have reached the stage it was derived from")
 
 	fromDerived, ok := tree.Get("from-derived.md")
-	require.True(t, ok, "nor the stage the same FROM declared")
-	assert.Equal(t, "base notes\n", string(fromDerived))
+	require.True(t, ok)
+	assert.Equal(t, "base notes\nderived\n", string(fromDerived),
+		"and the stage the same FROM declared is what its own instructions made of it")
+}
+
+// 8.4 follows Docker semantics, and Docker's COPY --from reads the named
+// stage's *final* filesystem. A stage recorded at its FROM line would put its
+// own edits out of reach, leaving it able to serve as nobody's source but its
+// own — which is the one composition 8.4 exists to express.
+func TestCopyFromAStageSeesTheEditsItMadeAfterItsFrom(t *testing.T) {
+	tree, _ := build(t, `FROM ./pdf AS pdf
+SET model opus
+APPEND notes.md <<EOF
+added by the stage
+EOF
+COPY house.md house.md
+FROM ./base
+COPY --from=pdf SKILL.md pdf/SKILL.md
+COPY --from=pdf notes.md pdf/notes.md
+COPY --from=pdf house.md pdf/house.md
+`, map[string]string{
+		"base/SKILL.md": baseSkill,
+		"pdf/SKILL.md":  baseSkill,
+		"pdf/notes.md":  "stage notes\n",
+		"house.md":      "house rules\n",
+	})
+
+	skill, ok := tree.Get("pdf/SKILL.md")
+	require.True(t, ok)
+	assert.Equal(t, "opus", frontmatterOf(t, skill)["model"], "the stage's SET is part of the stage")
+
+	notes, ok := tree.Get("pdf/notes.md")
+	require.True(t, ok)
+	assert.Equal(t, "stage notes\nadded by the stage\n", string(notes), "so is its APPEND")
+
+	house, ok := tree.Get("pdf/house.md")
+	require.True(t, ok)
+	assert.Equal(t, "house rules\n", string(house), "and a file it copied in from the context")
+}
+
+// The other direction of the same rule: what a stage removed is gone from what
+// a later COPY --from can take.
+func TestCopyFromAStageCannotTakeAFileTheStageRemoved(t *testing.T) {
+	_, err := failedBuild(t, `FROM ./pdf AS pdf
+RM stale.md
+FROM ./base
+COPY --from=pdf stale.md stale.md
+`, map[string]string{
+		"base/SKILL.md": baseSkill,
+		"pdf/SKILL.md":  baseSkill,
+		"pdf/stale.md":  "gone\n",
+	})
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "no such file in the source")
+}
+
+// A stage is readable from the moment its instructions are over, and every
+// earlier one stays readable: sealing one stage must not lose the ones before
+// it.
+func TestCopyFromReadsEveryStageThatHasFinished(t *testing.T) {
+	tree, _ := build(t, `FROM ./one AS one
+APPEND note.md <<EOF
+one
+EOF
+FROM ./two AS two
+APPEND note.md <<EOF
+two
+EOF
+FROM ./base
+COPY --from=one note.md from-one.md
+COPY --from=two note.md from-two.md
+`, map[string]string{
+		"base/SKILL.md": baseSkill,
+		"one/SKILL.md":  baseSkill,
+		"one/note.md":   "start\n",
+		"two/SKILL.md":  baseSkill,
+		"two/note.md":   "start\n",
+	})
+
+	one, ok := tree.Get("from-one.md")
+	require.True(t, ok)
+	assert.Equal(t, "start\none\n", string(one))
+
+	two, ok := tree.Get("from-two.md")
+	require.True(t, ok)
+	assert.Equal(t, "start\ntwo\n", string(two))
 }
 
 // Order matters: a stage exists only once its own FROM has run, so a forward
@@ -818,6 +968,51 @@ func TestFromAStageDeclaredLaterFails(t *testing.T) {
 	_, _, err = Build(sf, buildContext(t, map[string]string{"base/SKILL.md": baseSkill}), nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), `stage "base" is declared later in the Skillfile`)
+}
+
+// The same for a COPY --from, which now reads finished stages: a name whose
+// FROM is still ahead has to say so, not report a missing file or a typo.
+func TestCopyFromAStageDeclaredLaterFails(t *testing.T) {
+	_, err := failedBuild(t, "FROM ./base\nCOPY --from=later x.md .\nFROM ./base AS later\n",
+		map[string]string{"base/SKILL.md": baseSkill, "base/x.md": "x\n"})
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), `stage "later" is declared later in the Skillfile`)
+}
+
+// A stage cannot copy from itself: its contents are not settled until its
+// instructions are over, and the instruction doing the copying is one of them.
+func TestCopyFromTheStageBeingBuiltFails(t *testing.T) {
+	_, err := failedBuild(t, "FROM ./base AS self\nCOPY --from=self SKILL.md copy.md\n",
+		map[string]string{"base/SKILL.md": baseSkill})
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), `stage "self" is the stage being built`)
+}
+
+// 2.3 and 8.4: the artifact is the *last* stage. An earlier stage is a source
+// a COPY --from names, however much its own instructions edited it, and naming
+// one of them as the base would misreport the lineage.
+func TestTheLastStageIsWhatGetsBuilt(t *testing.T) {
+	tree, report := build(t, `FROM ./pdf AS pdf
+SET name pdf-stage
+APPEND only-in-pdf.md <<EOF
+stage
+EOF
+FROM ./base
+SET name reviewer
+`, map[string]string{
+		"base/SKILL.md": baseSkill,
+		"pdf/SKILL.md":  baseSkill,
+	})
+
+	assert.Equal(t, []string{"SKILL.md"}, tree.Paths(),
+		"the finished stage's own files are not merged into the result")
+
+	body, _ := tree.Get("SKILL.md")
+	assert.Equal(t, "reviewer", frontmatterOf(t, body)["name"],
+		"and the name the artifact is tagged by comes from the last stage")
+	assert.Equal(t, "./base", report.Base.Ref)
 }
 
 func TestCopyFromAnUnknownStageFails(t *testing.T) {

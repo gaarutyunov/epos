@@ -85,7 +85,11 @@ type builder struct {
 	// there, three lines further down.
 	declared map[string]bool
 	current  *Tree
-	report   *Report
+	// stage is the name the tree in current was declared under, empty while an
+	// anonymous stage is being built. A stage is only entered into stages once
+	// its instructions are over (see seal), so this is where its name waits.
+	stage  string
+	report *Report
 }
 
 // newBuilder prepares a build of sf.
@@ -190,6 +194,16 @@ func (b *builder) from(inst Instruction) error {
 		return fmt.Errorf("want <ref> [AS <stage>]")
 	}
 
+	// A FROM ends the stage before it, so that stage is now what its own
+	// instructions made of it. 8.4 follows Docker semantics, and Docker's
+	// COPY --from reads the named stage's *final* filesystem — a stage recorded
+	// at its FROM line would put its own edits out of reach of every later
+	// stage, which leaves it able to serve as nobody's source but its own.
+	//
+	// Sealed before the new reference is resolved, so `FROM s` on the line
+	// after s's last instruction finds s, and finds it finished.
+	b.seal()
+
 	ref := b.expand(args[0])
 	tree, pin, err := b.resolve(ref)
 	if err != nil {
@@ -200,13 +214,21 @@ func (b *builder) from(inst Instruction) error {
 	// final stage, and therefore the artifact, descends from (2.3).
 	b.report.Base = Base{Ref: ref, Digest: pin}
 
-	b.current = tree
-	if stage != "" {
-		// The stage keeps its own copy, so later instructions mutating the
-		// current tree do not reach back into it (8.4).
-		b.stages[stage] = tree.Clone()
-	}
+	b.current, b.stage = tree, stage
 	return nil
+}
+
+// seal records the finished stage under the name it was declared with.
+//
+// No copy is taken here and none is needed: current is about to be replaced by
+// a whole new tree, so nothing mutates the sealed one afterwards. The copy that
+// does matter is resolve's — `FROM <stage>` clones, so a build descending from
+// a stage cannot edit it retroactively — and COPY --from only ever reads.
+func (b *builder) seal() {
+	if b.stage != "" {
+		b.stages[b.stage] = b.current
+	}
+	b.stage = ""
 }
 
 // resolve loads a FROM source, returning the tree and the source's pin. B1
@@ -219,18 +241,18 @@ func (b *builder) from(inst Instruction) error {
 // the Skillfile plainly meant.
 func (b *builder) resolve(ref string) (*Tree, string, error) {
 	if stage, ok := b.stages[ref]; ok {
-		// A base, not an alias: the copy is what makes later instructions
-		// mutate this build's tree and not the stage, so a COPY --from naming
-		// the same stage afterwards still sees what the stage was declared as.
-		// Sharing the tree would let a stage be edited retroactively by the
-		// build that descends from it.
+		// The stage as its own instructions left it, and a copy of it: the copy
+		// is what makes the instructions that follow mutate this build's tree
+		// and not the stage, so a COPY --from naming the same stage afterwards
+		// still sees the stage. Sharing the tree would let a stage be edited
+		// retroactively by the build that descends from it.
 		//
 		// No pin (8.3): the stage is whatever its own FROM resolved to, and the
 		// pin the report keeps is that FROM's.
 		return stage.Clone(), "", nil
 	}
 	if b.declared[ref] {
-		return nil, "", fmt.Errorf("stage %q is declared later in the Skillfile; a stage can only be used after its FROM", ref)
+		return nil, "", errStageNotYet(ref)
 	}
 
 	if strings.HasPrefix(ref, gitPrefix) {
@@ -262,7 +284,7 @@ func (b *builder) copy(inst Instruction) error {
 	if stage, ok := inst.Flags["from"]; ok {
 		from, ok = b.stages[stage]
 		if !ok {
-			return fmt.Errorf("no stage named %q", stage)
+			return b.unusableStage(stage)
 		}
 	}
 
@@ -273,6 +295,30 @@ func (b *builder) copy(inst Instruction) error {
 		}
 	}
 	return nil
+}
+
+// unusableStage says why a COPY --from names nothing it can read.
+//
+// A stage is entered into stages when its instructions are over, so the name
+// missing there means one of three quite different mistakes, and a flat "no
+// stage named" would send an author looking for a typo in the two cases where
+// the name is right and the position is wrong.
+func (b *builder) unusableStage(name string) error {
+	switch {
+	case name == b.stage:
+		return fmt.Errorf(
+			"stage %q is the stage being built; COPY --from reads a stage that has finished", name)
+	case b.declared[name]:
+		return errStageNotYet(name)
+	default:
+		return fmt.Errorf("no stage named %q", name)
+	}
+}
+
+// errStageNotYet is what a forward reference to a stage gets.
+func errStageNotYet(name string) error {
+	return fmt.Errorf(
+		"stage %q is declared later in the Skillfile; a stage can only be used after its instructions have run", name)
 }
 
 func (b *builder) copyOne(from *Tree, src, dest string) error {
@@ -683,8 +729,14 @@ func (b *builder) setKey(inst Instruction) error {
 	if len(inst.Args) != 2 {
 		return fmt.Errorf("want [--file=<path>] <key> <value>")
 	}
+	// 8.2.4: the value is a YAML scalar, and quoting forces a string. The
+	// tokenizer resolves the quotes but records that they were there, which is
+	// what keeps `SET version "1.2"` from writing the float 1.2. Read before
+	// expansion, because it is the argument that was quoted, not whatever an
+	// ARG puts inside it.
+	forceString := inst.quoted(1)
 	return b.editYAML(inst, func(doc *yamlDoc) error {
-		return doc.set(b.expand(inst.Args[0]), b.expand(inst.Args[1]))
+		return doc.set(b.expand(inst.Args[0]), b.expand(inst.Args[1]), forceString)
 	})
 }
 

@@ -56,22 +56,23 @@ func openYAML(p string, body []byte) (*yamlDoc, error) {
 
 // set writes a dotted key, creating intermediate mappings.
 //
-// raw is the YAML literal to write, parsed as a scalar: `3` is a number and
-// `"3"` is a string, so quoting forces one. The quotes have to be in raw to do
-// that, and the Skillfile tokenizer (8.5) consumes one layer of them on every
-// argument — which is why an author writes `SET count '"3"'`.
+// raw is the value as the Skillfile wrote it, with the tokenizer's quotes
+// already off; forceString says whether those quotes were there. 8.2.4 parses
+// an unquoted value as a YAML scalar — `SET count 3` is a number — and makes a
+// quoted one a string, which is the only reason the tokenizer bothers to
+// remember the quoting at all.
 //
 // An existing key keeps its place in the mapping and its trailing comment;
 // only its value moves. A new key is appended, which leaves every key already
 // in the document exactly where its author put it.
-func (d *yamlDoc) set(key, raw string) error {
+func (d *yamlDoc) set(key, raw string, forceString bool) error {
 	parts := strings.Split(key, ".")
 
 	mapping := d.rootMapping()
 	if mapping == nil {
 		// An empty document — or one holding nothing but comments — has no
 		// mapping to mutate, so the first SET establishes one.
-		file, err := parseNested(parts, raw)
+		file, err := parseNested(parts, raw, forceString)
 		if err != nil {
 			return fmt.Errorf("%s: %w", d.path, err)
 		}
@@ -83,7 +84,7 @@ func (d *yamlDoc) set(key, raw string) error {
 		existing := lookup(mapping, part)
 
 		if i == len(parts)-1 {
-			pair, err := parsePair(part, raw)
+			pair, err := parsePair(part, raw, forceString)
 			if err != nil {
 				return fmt.Errorf("%s: %w", d.path, err)
 			}
@@ -104,7 +105,7 @@ func (d *yamlDoc) set(key, raw string) error {
 		// one nested block. Overwriting a scalar is what the map-based
 		// implementation did, and `SET metadata.author acme` against
 		// `metadata: none` has no other reading.
-		pair, err := nestedPair(parts[i:], raw)
+		pair, err := nestedPair(parts[i:], raw, forceString)
 		if err != nil {
 			return fmt.Errorf("%s: %w", d.path, err)
 		}
@@ -260,8 +261,8 @@ func alignPair(pair *ast.MappingValueNode, col int) {
 // parseNested renders a dotted path as a nested block and parses it, so
 // `SET metadata.author acme` on a document without `metadata` writes the
 // mapping and the key together.
-func parseNested(parts []string, raw string) (*ast.File, error) {
-	value, err := valueLiteral(raw)
+func parseNested(parts []string, raw string, forceString bool) (*ast.File, error) {
+	value, err := valueLiteral(raw, forceString)
 	if err != nil {
 		return nil, err
 	}
@@ -288,8 +289,8 @@ func parseNested(parts []string, raw string) (*ast.File, error) {
 }
 
 // nestedPair is parseNested's document as the single entry it holds.
-func nestedPair(parts []string, raw string) (*ast.MappingValueNode, error) {
-	file, err := parseNested(parts, raw)
+func nestedPair(parts []string, raw string, forceString bool) (*ast.MappingValueNode, error) {
+	file, err := parseNested(parts, raw, forceString)
 	if err != nil {
 		return nil, err
 	}
@@ -298,8 +299,8 @@ func nestedPair(parts []string, raw string) (*ast.MappingValueNode, error) {
 }
 
 // parsePair builds one `key: value` entry.
-func parsePair(key, raw string) (*ast.MappingValueNode, error) {
-	return nestedPair([]string{key}, raw)
+func parsePair(key, raw string, forceString bool) (*ast.MappingValueNode, error) {
+	return nestedPair([]string{key}, raw, forceString)
 }
 
 // onePair returns a parsed document's single top-level entry.
@@ -327,22 +328,24 @@ func keyLiteral(key string) string {
 
 // valueLiteral renders a value as the YAML the author wrote.
 //
-// 8.2.4 parses values as YAML scalars, and the quotes are part of that syntax
-// — `SET count 3` is a number and `SET count "3"` is a string — so the literal
-// goes in as written rather than through a Go value and back out, which is the
-// round trip that would lose the distinction.
+// 8.2.4 parses values as YAML scalars, so an unquoted value goes in as written
+// rather than through a Go value and back out — that round trip is what would
+// lose `SET count 3` being a number.
+//
+// forceString is 8.2.4's other half: quote to force a string. The author's
+// quotes are gone by the time the value gets here (the tokenizer resolves
+// them), so the string is re-quoted for YAML, which is what keeps `1.2` from
+// being read back as a float.
 //
 // Anything that is not a scalar the parser can put after a `key: ` becomes the
 // string it looks like, which is what the map-based implementation did with a
 // value that failed to unmarshal. An alias is refused the same way: `*x` would
 // parse but name an anchor that is not in the document, so writing it through
 // would produce YAML that no longer loads.
-func valueLiteral(raw string) (string, error) {
-	if strings.TrimSpace(raw) == "" {
-		// Distinct from a null: the instruction gave a value, and it was empty.
-		return `""`, nil
-	}
-	if usable(raw) {
+func valueLiteral(raw string, forceString bool) (string, error) {
+	// An empty value is a string too, and distinct from a null: the
+	// instruction gave a value, and it was empty.
+	if !forceString && strings.TrimSpace(raw) != "" && usable(raw) {
 		return raw, nil
 	}
 	quoted := strconv.Quote(raw)

@@ -233,6 +233,38 @@ func TestBuildAppliesTheSkillfileAndTagsTheResult(t *testing.T) {
 		"---\n\n# Reviewer\n", layer["reviewer/SKILL.md"])
 }
 
+// SPEC.md 8.4 and 2.3, end to end: a stage is what its own instructions made
+// of it by the time a COPY --from reads it, and the artifact is still the last
+// stage — the tag comes from that stage's SKILL.md and not from the earlier one
+// that names itself something else.
+func TestBuildReadsAnEditedStageAndStillTagsTheLastOne(t *testing.T) {
+	dir := writeContext(t, map[string]string{
+		"Skillfile": `FROM ./shared AS shared
+SET name shared-stage
+SET version 9.9.9
+APPEND reference/style.md <<EOF
+edited by the stage
+EOF
+FROM ./base
+COPY --from=shared reference/style.md references/style.md
+`,
+		"shared/SKILL.md":           "---\nname: shared\nversion: 1.0.0\ndescription: shared\n---\n\n# Shared\n",
+		"shared/reference/style.md": "House style.\n",
+		"base/SKILL.md":             "---\nname: reviewer\nversion: 2.0.0\ndescription: reviews code\n---\n\n# Reviewer\n",
+	}, false)
+	s := store.At(filepath.Join(t.TempDir(), "store"))
+
+	stdout, _ := buildInto(t, s, buildOptions{contextDir: dir})
+	assert.Equal(t, "reviewer:2.0.0", strings.Fields(stdout)[0],
+		"the tag is the last stage's, not the edited stage's")
+
+	layer := layerOf(t, s, "reviewer:2.0.0")
+	assert.Equal(t, "House style.\nedited by the stage\n", layer["reviewer/references/style.md"],
+		"and COPY --from read the stage as its own APPEND left it")
+	assert.Contains(t, layer["reviewer/SKILL.md"], "name: reviewer",
+		"the stage's SET reached the stage and not the artifact")
+}
+
 // SPEC.md 2.4: same bases, same Skillfile, same context, same digest.
 //
 // Deliberately not two runs of one function against one directory, which would

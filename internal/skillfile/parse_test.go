@@ -134,6 +134,73 @@ SET description ""
 	assert.Equal(t, []string{"description", ""}, sf.Instructions[1].Args)
 }
 
+// 8.2.4 needs to know which values were quoted, so the tokenizer records it
+// alongside every argument — for every instruction, since the tokenizer serves
+// them all. Quoted stays parallel to Args: a flag consumes neither, and a
+// heredoc marker leaves both.
+func TestQuotingIsRecordedAlongsideEveryArgument(t *testing.T) {
+	sf, err := Parse([]byte(`COPY --from=pdf "sections/a b.md" docs/
+REPLACE SKILL.md "two words" 'single quoted'
+SET version "1.2"
+SET version 1.2
+APPEND "notes.md" <<EOF
+body
+EOF
+`))
+	require.NoError(t, err)
+	require.Len(t, sf.Instructions, 5)
+
+	assert.Equal(t, []string{"sections/a b.md", "docs/"}, sf.Instructions[0].Args)
+	assert.Equal(t, []bool{true, false}, sf.Instructions[0].Quoted,
+		"the --from flag is not an argument, so it shifts nothing")
+
+	assert.Equal(t, []bool{false, true, true}, sf.Instructions[1].Quoted,
+		"single quotes are quotes too")
+
+	assert.Equal(t, []string{"version", "1.2"}, sf.Instructions[2].Args)
+	assert.Equal(t, []bool{false, true}, sf.Instructions[2].Quoted)
+	assert.Equal(t, sf.Instructions[2].Args, sf.Instructions[3].Args,
+		"quoted or not, the argument itself is the same text")
+	assert.Equal(t, []bool{false, false}, sf.Instructions[3].Quoted)
+
+	assert.Equal(t, []string{"notes.md"}, sf.Instructions[4].Args)
+	assert.Equal(t, []bool{true}, sf.Instructions[4].Quoted,
+		"the heredoc marker left Args, so it left Quoted with it")
+}
+
+// The record is SET's alone (8.2.4). Every other instruction sees exactly what
+// it saw before: a quoted path is the same path.
+func TestQuotingDoesNotChangeWhatOtherInstructionsReceive(t *testing.T) {
+	quoted, err := Parse([]byte(`ARG "language=Go"
+FROM "./base" AS "base"
+COPY "notes.md" "references/notes.md"
+RM "stale.md"
+REPLACE --count="1" "SKILL.md" "model: sonnet" "model: opus"
+PATCH "docs/guide.md" "patches/guide.diff"
+AWK "sections/list.md" "scripts/upper.awk"
+`))
+	require.NoError(t, err)
+
+	bare, err := Parse([]byte(`ARG language=Go
+FROM ./base AS base
+COPY notes.md references/notes.md
+RM stale.md
+REPLACE --count=1 SKILL.md "model: sonnet" "model: opus"
+PATCH docs/guide.md patches/guide.diff
+AWK sections/list.md scripts/upper.awk
+`))
+	require.NoError(t, err)
+
+	require.Len(t, quoted.Instructions, len(bare.Instructions))
+	for i, inst := range quoted.Instructions {
+		assert.Equal(t, bare.Instructions[i].Op, inst.Op)
+		assert.Equal(t, bare.Instructions[i].Args, inst.Args,
+			"line %d: quoting must not change the arguments an instruction gets", inst.Line)
+		assert.Equal(t, bare.Instructions[i].Flags, inst.Flags,
+			"line %d: nor its flags", inst.Line)
+	}
+}
+
 func TestUnterminatedQuote(t *testing.T) {
 	_, err := Parse([]byte(`REPLACE SKILL.md "unclosed bar` + "\n"))
 	require.Error(t, err)
