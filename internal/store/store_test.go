@@ -8,8 +8,10 @@ import (
 	"path/filepath"
 	"sync"
 	"testing"
+	"time"
 
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
+	"github.com/rogpeppe/go-internal/lockedfile"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"oras.land/oras-go/v2"
@@ -187,4 +189,69 @@ func TestPruneRemovesReadOnlyBlobs(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 1, removed)
 	assert.NoFileExists(t, orphan)
+}
+
+// SPEC.md 9.2: shared for fetch, resolve and install-into-worktree, so
+// parallel worktree installs do not serialise.
+//
+// Asserted by making the two readers wait for each other. Under a shared lock
+// both are inside at once and each one's signal releases the other; under an
+// exclusive one the first would hold the lock while waiting for a second that
+// cannot enter, and neither would ever arrive.
+func TestSharedReadsDoNotSerialise(t *testing.T) {
+	s := Under(t.TempDir())
+	push(t, s, "hello:1.0.0", "layer one")
+
+	inside := [2]chan struct{}{make(chan struct{}), make(chan struct{})}
+	done := make(chan error, 2)
+	for i := range inside {
+		go func() {
+			done <- s.Read(context.Background(), func(context.Context, *oci.Store) error {
+				close(inside[i])
+				select {
+				case <-inside[1-i]:
+					return nil
+				case <-time.After(30 * time.Second):
+					return fmt.Errorf("reader %d was alone in the store; the lock serialised", i)
+				}
+			})
+		}()
+	}
+	for range inside {
+		require.NoError(t, <-done)
+	}
+}
+
+// The other half of the discipline: shared does not mean absent. A reader must
+// still wait behind a writer, or the atomic index write has nothing to be
+// atomic against.
+func TestASharedReadWaitsForAnExclusiveHolder(t *testing.T) {
+	root := t.TempDir()
+	s := Under(root)
+	push(t, s, "hello:1.0.0", "layer one")
+
+	// The same file Store takes, taken the way Store takes it for a write.
+	held, err := lockedfile.OpenFile(filepath.Join(root, lockName),
+		os.O_RDWR|os.O_CREATE, 0o644)
+	require.NoError(t, err)
+
+	read := make(chan error, 1)
+	go func() {
+		read <- s.Read(context.Background(), func(context.Context, *oci.Store) error { return nil })
+	}()
+
+	select {
+	case err := <-read:
+		_ = held.Close()
+		t.Fatalf("the read entered the store while a writer held it exclusively: %v", err)
+	case <-time.After(250 * time.Millisecond):
+	}
+
+	require.NoError(t, held.Close())
+	select {
+	case err := <-read:
+		require.NoError(t, err)
+	case <-time.After(30 * time.Second):
+		t.Fatal("the read never entered the store after the writer let go")
+	}
 }

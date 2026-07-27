@@ -26,6 +26,19 @@ const (
 // SkillFile is the file whose frontmatter becomes the config blob.
 const SkillFile = "SKILL.md"
 
+// StagesAnnotation records which Skillfile stage contributed each file of a
+// derived skill: a JSON object of slash-separated path to stage name, carried
+// on the manifest the way the rest of the build's provenance is (SPEC.md 2.3).
+//
+// It exists because 8.4 makes stage names the values-scope keys at install
+// time (10.3). The artifact is one flat tree, so without this the installer
+// cannot tell which of two stages' `{{ .Values.title }}` it is looking at.
+//
+// Descriptive only, and absent from a skill that was packed rather than built.
+// A conforming client ignores it, and nothing about the layer or the config
+// depends on it (2.2).
+const StagesAnnotation = "dev.epos.skillfile.stages"
+
 // DownloadHeader marks a download verified (SPEC.md 5.2). The epos CLI sends
 // it; stock oras does not, which is what lets epos-registry tell a verified
 // download from an inflated one.
