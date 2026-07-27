@@ -40,8 +40,8 @@ type handler struct {
 // newHandler returns the registry handler.
 //
 // The read surface of SPEC.md 4.1 is served here, including blob GET with the
-// 4.2 transfer posture. _catalog (7) is a separate milestone; the write path
-// (4.5) is not served at all — see the routing comment below. Content Management (DELETE) is never implemented.
+// 4.2 transfer posture and the _catalog discovery relies on (7.2). The write
+// path (4.5) is not served at all — see the routing comment below. Content Management (DELETE) is never implemented.
 //
 // epos-registry holds no state (4.4): every request is relayed, nothing is
 // cached, and two replicas behave identically. Counting does not change that —
@@ -108,6 +108,18 @@ func (h *handler) route(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	case kindTagsList, kindReferrers:
+		if r.Method != http.MethodGet {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+	case kindCatalog:
+		// 4.1: _catalog is proxied when the upstream supports it, and is the
+		// basis for discovery (7.2). It sits outside the Content Discovery
+		// conformance category and several hosted registries disable it, so
+		// where upstream does not support it its response is relayed
+		// unchanged: nothing is synthesised here, and no catalog is invented
+		// from the requests epos-registry has happened to see. The client
+		// reports the capability as unavailable off upstream's own answer.
 		if r.Method != http.MethodGet {
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 			return
@@ -209,6 +221,7 @@ const (
 	kindTagsList  = "tags/list"
 	kindReferrers = "referrers"
 	kindBlobs     = "blobs"
+	kindCatalog   = "_catalog"
 )
 
 type ociRef struct {
@@ -227,6 +240,12 @@ func parseRef(path string) (ociRef, bool) {
 	p := strings.TrimPrefix(path, "/v2/")
 	if p == "" {
 		return ociRef{}, false
+	}
+
+	// _catalog is registry-wide, so it is the one endpoint with no repository
+	// name in front of it (SPEC.md 4.1).
+	if p == kindCatalog {
+		return ociRef{kind: kindCatalog}, true
 	}
 
 	if name, found := strings.CutSuffix(p, "/"+kindTagsList); found && name != "" {
