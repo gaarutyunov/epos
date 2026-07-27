@@ -55,6 +55,12 @@ type Report struct {
 	NoOpReplaces []string
 	// MissingUnsets are UNSET instructions whose key was already absent.
 	MissingUnsets []string
+	// GitBases are the pins of the git bases this build resolved, in
+	// instruction order (8.3). A ref like `main` or `v1.2.0` is mutable, so the
+	// commit and tree SHAs it resolved to are the only record of what was
+	// actually built from — kept here so a later rebuild can be checked against
+	// them and so provenance has something to state.
+	GitBases []GitBase
 }
 
 type builder struct {
@@ -161,11 +167,11 @@ func (b *builder) from(inst Instruction) error {
 	return nil
 }
 
-// resolve loads a FROM source. B1 supports local paths; git arrives with the
-// rest of 8.3.
+// resolve loads a FROM source. B1 supports the local and git schemes of 8.3;
+// OCI arrives with B2.
 func (b *builder) resolve(ref string) (*Tree, error) {
-	if strings.HasPrefix(ref, "git+") {
-		return nil, fmt.Errorf("git sources are not implemented yet")
+	if strings.HasPrefix(ref, gitPrefix) {
+		return b.resolveGit(ref)
 	}
 	if strings.Contains(ref, "://") {
 		return nil, fmt.Errorf("%s: unsupported source", ref)
