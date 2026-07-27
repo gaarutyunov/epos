@@ -61,6 +61,25 @@ type Report struct {
 	// actually built from — kept here so a later rebuild can be checked against
 	// them and so provenance has something to state.
 	GitBases []GitBase
+	// Base is the FROM the *final* stage started from — the one 2.3 records as
+	// the artifact's base. A multi-stage Skillfile declares several, but only
+	// the last FROM is what the result descends from; the earlier stages are
+	// sources a COPY --from names, and naming one of them as the base would
+	// misreport the lineage.
+	Base Base
+}
+
+// Base is a resolved FROM: the reference as written, and the pin it resolved
+// to.
+type Base struct {
+	// Ref is the reference exactly as the Skillfile wrote it, after ARG
+	// expansion.
+	Ref string
+	// Digest is the pin, written `<commit>+<tree>` for a git base — the two
+	// SHAs 8.3 makes the pin of that scheme. Empty for a local base, which 8.3
+	// gives no pin at all: there is no stable name for a directory on somebody's
+	// disk, and inventing one would claim more than the build can know.
+	Digest string
 }
 
 type builder struct {
@@ -153,10 +172,14 @@ func (b *builder) from(inst Instruction) error {
 	}
 
 	ref := b.expand(args[0])
-	tree, err := b.resolve(ref)
+	tree, pin, err := b.resolve(ref)
 	if err != nil {
 		return err
 	}
+
+	// Overwritten by each FROM, so what survives is the last one — the base the
+	// final stage, and therefore the artifact, descends from (2.3).
+	b.report.Base = Base{Ref: ref, Digest: pin}
 
 	b.current = tree
 	if stage != "" {
@@ -167,16 +190,18 @@ func (b *builder) from(inst Instruction) error {
 	return nil
 }
 
-// resolve loads a FROM source. B1 supports the local and git schemes of 8.3;
-// OCI arrives with B2.
-func (b *builder) resolve(ref string) (*Tree, error) {
+// resolve loads a FROM source, returning the tree and the source's pin. B1
+// supports the local and git schemes of 8.3; OCI arrives with B2.
+func (b *builder) resolve(ref string) (*Tree, string, error) {
 	if strings.HasPrefix(ref, gitPrefix) {
 		return b.resolveGit(ref)
 	}
 	if strings.Contains(ref, "://") {
-		return nil, fmt.Errorf("%s: unsupported source", ref)
+		return nil, "", fmt.Errorf("%s: unsupported source", ref)
 	}
-	return LoadDir(filepath.Join(b.contextDir, filepath.FromSlash(ref)))
+	// A local base has no pin (8.3): it is whatever is on disk right now.
+	tree, err := LoadDir(filepath.Join(b.contextDir, filepath.FromSlash(ref)))
+	return tree, "", err
 }
 
 // copy moves files between a stage and the current tree, or from the context.

@@ -93,6 +93,20 @@ func (t *Tree) Paths() []string {
 	return out
 }
 
+// Files returns every file, keyed by its slash-separated path.
+//
+// A copy, and a deep one: the packer is handed the result of a build, and a map
+// sharing the tree's own slices would let it observe — or be observed by — a
+// tree the caller still holds. The paths are slash-separated on every platform
+// (2.5), which is also what an OCI layer entry name has to be.
+func (t *Tree) Files() map[string][]byte {
+	out := make(map[string][]byte, len(t.files))
+	for p, body := range t.files {
+		out[p] = append([]byte(nil), body...)
+	}
+	return out
+}
+
 // Get returns a file's contents.
 func (t *Tree) Get(p string) ([]byte, bool) {
 	body, ok := t.files[p]

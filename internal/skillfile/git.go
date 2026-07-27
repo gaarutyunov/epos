@@ -115,10 +115,10 @@ func ParseGitRef(ref string) (GitRef, error) {
 }
 
 // resolveGit fetches a git base and records its pin on the report.
-func (b *builder) resolveGit(ref string) (*Tree, error) {
+func (b *builder) resolveGit(ref string) (*Tree, string, error) {
 	parsed, err := ParseGitRef(ref)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), gitTimeout)
@@ -126,7 +126,7 @@ func (b *builder) resolveGit(ref string) (*Tree, error) {
 
 	tree, base, err := fetchGitBase(ctx, parsed)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	base.Ref = ref
 
@@ -134,8 +134,12 @@ func (b *builder) resolveGit(ref string) (*Tree, error) {
 	// than discarded once the bytes are in hand: a rebuild is only verifiable
 	// against the commit and tree SHAs the first build actually saw.
 	b.report.GitBases = append(b.report.GitBases, base)
-	return tree, nil
+	return tree, base.Pin(), nil
 }
+
+// Pin renders the two SHAs 8.3 pins a git base with as one string, for the
+// provenance annotation 2.3 defines as "commit+tree SHA".
+func (g GitBase) Pin() string { return g.Commit + "+" + g.Tree }
 
 // fetchGitBase resolves a reference to its pin and materialises the subpath.
 //

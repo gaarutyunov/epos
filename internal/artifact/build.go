@@ -42,13 +42,42 @@ func Build(ctx context.Context, target content.Storage, dir string) (Skill, erro
 	if err != nil {
 		return Skill{}, fmt.Errorf("read %s: %w", SkillFile, err)
 	}
+	return assemble(ctx, target, src, func(name string) ([]byte, error) {
+		return PackDir(dir, name)
+	}, nil)
+}
 
+// BuildFiles is Build for a skill that only exists in memory: the result of a
+// Skillfile (SPEC.md 8.7), which the evaluator never writes to disk.
+//
+// Same config derivation, same manifest and same layer writer as Build. The two
+// differ in where the bytes come from and in nothing else, because a build and
+// a pack of the same skill must produce the same digest — 2.4 is a property of
+// the inputs, not of which command was run.
+//
+// annotations carry provenance (2.3). They are additional: the title and the
+// description come from the frontmatter and are not the caller's to contradict.
+func BuildFiles(ctx context.Context, target content.Storage,
+	files map[string][]byte, annotations map[string]string) (Skill, error) {
+	src, ok := files[SkillFile]
+	if !ok {
+		return Skill{}, fmt.Errorf("the build produced no %s", SkillFile)
+	}
+	return assemble(ctx, target, src, func(name string) ([]byte, error) {
+		return PackFiles(files, name)
+	}, annotations)
+}
+
+// assemble derives the config from SKILL.md, packs the layer with pack, and
+// writes the manifest.
+func assemble(ctx context.Context, target content.Storage, src []byte,
+	pack func(name string) ([]byte, error), extra map[string]string) (Skill, error) {
 	cfg, err := ParseFrontmatter(src)
 	if err != nil {
 		return Skill{}, err
 	}
 
-	layer, err := PackDir(dir, cfg.Name())
+	layer, err := pack(cfg.Name())
 	if err != nil {
 		return Skill{}, err
 	}
@@ -70,16 +99,27 @@ func Build(ctx context.Context, target content.Storage, dir string) (Skill, erro
 	}
 	configDesc.Data = configJSON
 
+	// encoding/json sorts map keys, so which order the annotations were added
+	// in never reaches the manifest bytes and therefore never reaches the
+	// digest (2.4).
+	annotations := map[string]string{
+		ocispec.AnnotationTitle:       cfg.Name(),
+		ocispec.AnnotationDescription: cfg.Description(),
+	}
+	for k, v := range extra {
+		if _, derived := annotations[k]; derived || v == "" {
+			continue
+		}
+		annotations[k] = v
+	}
+
 	manifest := ocispec.Manifest{
 		Versioned:    specs.Versioned{SchemaVersion: 2},
 		MediaType:    ocispec.MediaTypeImageManifest,
 		ArtifactType: ArtifactType,
 		Config:       configDesc,
 		Layers:       []ocispec.Descriptor{layerDesc},
-		Annotations: map[string]string{
-			ocispec.AnnotationTitle:       cfg.Name(),
-			ocispec.AnnotationDescription: cfg.Description(),
-		},
+		Annotations:  annotations,
 	}
 	body, err := json.Marshal(manifest)
 	if err != nil {
@@ -90,7 +130,7 @@ func Build(ctx context.Context, target content.Storage, dir string) (Skill, erro
 		return Skill{}, fmt.Errorf("write manifest: %w", err)
 	}
 	manifestDesc.ArtifactType = ArtifactType
-	manifestDesc.Annotations = manifest.Annotations
+	manifestDesc.Annotations = annotations
 
 	return Skill{Config: cfg, Manifest: manifestDesc}, nil
 }

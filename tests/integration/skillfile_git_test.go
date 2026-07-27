@@ -8,6 +8,7 @@ import (
 	"io"
 	"sort"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -84,14 +85,43 @@ type gitFixture struct {
 	tagTree   plumbing.Hash
 }
 
-// TestFromGitBase covers SPEC.md 8.3's git scheme against a real Gitea.
+// sharedGitea is the one Gitea the whole package uses.
 //
-// One container and one push serve every subtest: Gitea takes tens of seconds
-// to come up, and nothing here mutates the repository.
+// Gitea takes the better part of a minute to become healthy, so a container per
+// test — let alone per godog scenario — would dominate the integration job.
+// Nothing that reads the fixture mutates it, so one server and one push serve
+// every test here. It is torn down by TestMain rather than by t.Cleanup,
+// because a cleanup registered on whichever test happened to ask for it first
+// would take the container down while later tests still needed it.
+func sharedGitea(ctx context.Context, t *testing.T) gitFixture {
+	t.Helper()
+	giteaOnce.Do(func() {
+		base, stop := startGitea(ctx, t)
+		giteaStop = stop
+		giteaFixture = seedGitFixture(ctx, t, base)
+	})
+	require.NotEmpty(t, giteaFixture.url, "the shared gitea fixture failed to start")
+	return giteaFixture
+}
+
+var (
+	giteaOnce    sync.Once
+	giteaFixture gitFixture
+	giteaStop    func()
+)
+
+// stopSharedGitea terminates the shared container, if one was ever started.
+func stopSharedGitea() {
+	if giteaStop != nil {
+		giteaStop()
+		giteaStop = nil
+	}
+}
+
+// TestFromGitBase covers SPEC.md 8.3's git scheme against a real Gitea.
 func TestFromGitBase(t *testing.T) {
 	ctx := context.Background()
-	base := startGitea(ctx, t)
-	fx := seedGitFixture(ctx, t, base)
+	fx := sharedGitea(ctx, t)
 
 	t.Run("a branch resolves to a commit and a tree SHA", func(t *testing.T) {
 		_, report := buildFromGit(t, fx.url+"#main:skills/pdf")
@@ -235,13 +265,13 @@ func buildFromGit(t *testing.T, ref string) (*skillfile.Tree, *skillfile.Report)
 	return tree, report
 }
 
-// startGitea brings up Gitea and returns its base URL.
+// startGitea brings up Gitea and returns its base URL and a stop function.
 //
 // Installed headlessly through GITEA__* environment overrides — the web
 // installer would otherwise sit on the first request waiting for a form — and
 // with push-to-create on, so seeding needs one authenticated push and no API
 // calls at all.
-func startGitea(ctx context.Context, t *testing.T) string {
+func startGitea(ctx context.Context, t *testing.T) (string, func()) {
 	t.Helper()
 
 	c, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
@@ -265,11 +295,7 @@ func startGitea(ctx context.Context, t *testing.T) string {
 		Started: true,
 	})
 	require.NoError(t, err, "start gitea")
-	t.Cleanup(func() {
-		if err := c.Terminate(context.Background()); err != nil {
-			t.Logf("terminate gitea: %v", err)
-		}
-	})
+	stop := func() { _ = c.Terminate(context.Background()) }
 
 	// The push needs an account to authenticate as, and Gitea's CLI is the only
 	// way to make the first one without a token that does not exist yet. It
@@ -286,7 +312,7 @@ func startGitea(ctx context.Context, t *testing.T) string {
 
 	endpoint, err := c.PortEndpoint(ctx, "3000/tcp", "http")
 	require.NoError(t, err, "gitea endpoint")
-	return endpoint
+	return endpoint, stop
 }
 
 // seedGitFixture pushes the fixture repository over HTTP and returns the
