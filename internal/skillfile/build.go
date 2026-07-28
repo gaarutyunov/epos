@@ -189,31 +189,19 @@ func newBuilder(sf *Skillfile, contextDir string, buildArgs map[string]string,
 	return b
 }
 
+// apply dispatches one instruction through the instruction table.
+//
+// The table lives in reference.go and carries each instruction's documentation
+// alongside its binding. That is not tidiness: SPEC.md 14.1 requires the
+// reference page to be generated from the same source as the instruction
+// table, so the two have to be one thing. A switch here would let the page go
+// on describing an instruction set the builder no longer has.
 func (b *builder) apply(inst Instruction) error {
-	switch inst.Op {
-	case "ARG":
-		return b.arg(inst)
-	case "FROM":
-		return b.from(inst)
-	case "COPY":
-		return b.copy(inst)
-	case "RM":
-		return b.rm(inst)
-	case "APPEND":
-		return b.append(inst)
-	case "REPLACE":
-		return b.replace(inst)
-	case "SET":
-		return b.setKey(inst)
-	case "UNSET":
-		return b.unsetKey(inst)
-	case "PATCH":
-		return b.patch(inst)
-	case "AWK":
-		return b.awk(inst)
-	default:
+	doc, ok := instructionByOp[inst.Op]
+	if !ok {
 		return fmt.Errorf("unknown instruction")
 	}
+	return doc.apply(b, inst)
 }
 
 // arg declares a build argument, with an optional default.
