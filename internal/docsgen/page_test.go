@@ -34,9 +34,12 @@ func TestCheckFailsOnAHandEditedPage(t *testing.T) {
 	original, err := os.ReadFile(committed())
 	require.NoError(t, err)
 
+	// One word, changed the way a reader who spotted a wording nit would change
+	// it. Nothing about the edit needs to be malformed for the check to catch
+	// it — that is the property being pinned.
 	edited := filepath.Join(t.TempDir(), "skillfile.astro")
 	require.NoError(t, os.WriteFile(edited,
-		[]byte(strings.Replace(string(original), "Reference", "Refrence", 1)), 0o644))
+		[]byte(strings.Replace(string(original), "Skillfile reference", "Skillfile handbook", 1)), 0o644))
 
 	err = run(edited, true)
 	require.Error(t, err)
