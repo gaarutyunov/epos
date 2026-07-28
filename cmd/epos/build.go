@@ -34,6 +34,7 @@ type buildOptions struct {
 	skillfile  string
 	buildArgs  []string
 	tag        string
+	plainHTTP  bool
 }
 
 func newBuildCommand() *cobra.Command {
@@ -43,8 +44,9 @@ func newBuildCommand() *cobra.Command {
 		Use:   "build <context>",
 		Short: "Build a skill from a Skillfile into the local store",
 		Long: "build evaluates a Skillfile against a context directory and writes\n" +
-			"one conformant artifact into the local store. Nothing executes and\n" +
-			"nothing is fetched from a registry: with local and git bases the whole\n" +
+			"one conformant artifact into the local store. Nothing executes.\n\n" +
+			"Only an OCI FROM touches a registry, and it is pinned by the manifest\n" +
+			"digest the reference resolved to; with local and git bases the whole\n" +
 			"workflow is standalone.\n\n" +
 			"The build is a pure function of its bases, the Skillfile and the\n" +
 			"context, so the same three inputs always produce the same digest.",
@@ -65,6 +67,8 @@ func newBuildCommand() *cobra.Command {
 		"set a build argument, as k=v; repeatable")
 	cmd.Flags().StringVarP(&opts.tag, "tag", "t", "",
 		"tag as <name>:<version> (default: the name and version of the built SKILL.md)")
+	cmd.Flags().BoolVar(&opts.plainHTTP, "plain-http", false,
+		"talk to the registry of an OCI FROM over HTTP")
 	return cmd
 }
 
@@ -94,7 +98,8 @@ func runBuild(ctx context.Context, out, warn io.Writer, s *store.Store, opts bui
 		return err
 	}
 
-	tree, report, err := skillfile.Build(sf, opts.contextDir, args)
+	tree, report, err := skillfile.Build(sf, opts.contextDir, args,
+		skillfile.WithPlainHTTP(opts.plainHTTP))
 	if err != nil {
 		return err
 	}
@@ -160,9 +165,10 @@ func parseBuildArgs(pairs []string) (map[string]string, error) {
 // warning some pipeline parses as a digest.
 //
 // The pins come first because they are the build's provenance, not a
-// complaint: a ref like `main` or `v1.2.0` is mutable (8.3), so the commit and
-// tree SHAs printed here are the only record of what this artifact actually
-// descended from, and the thing a rebuild is checked against.
+// complaint: a ref like `main` or `v1.2.0` is mutable (8.3), so the SHAs
+// printed here — commit and tree for a git base, the manifest digest for an OCI
+// one — are the only record of what this artifact actually descended from, and
+// the thing a rebuild is checked against.
 //
 // The warnings are printed on every build rather than behind a flag. A zero-
 // match REPLACE (8.2.2) and an absent-key UNSET (8.2.4) are warnings so that
@@ -172,6 +178,9 @@ func parseBuildArgs(pairs []string) (map[string]string, error) {
 func writeReport(w io.Writer, r *skillfile.Report) {
 	for _, base := range r.GitBases {
 		fmt.Fprintf(w, "%s\n  commit %s\n  tree   %s\n", base.Ref, base.Commit, base.Tree)
+	}
+	for _, base := range r.OCIBases {
+		fmt.Fprintf(w, "%s\n  digest %s\n", base.Ref, base.Digest)
 	}
 	for _, warning := range r.NoOpReplaces {
 		fmt.Fprintf(w, "warning: %s\n", warning)
