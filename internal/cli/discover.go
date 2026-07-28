@@ -1,4 +1,4 @@
-package main
+package cli
 
 import (
 	"context"
@@ -17,7 +17,7 @@ import (
 	"oras.land/oras-go/v2/registry/remote/errcode"
 )
 
-//go:generate go tool mockgen -source=discover.go -destination=mocks_test.go -package=main
+//go:generate go tool mockgen -source=discover.go -destination=mocks_test.go -package=cli
 
 // errNoCatalog reports a registry that does not implement GET /v2/_catalog.
 //
