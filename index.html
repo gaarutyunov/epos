@@ -39,9 +39,17 @@ Every instruction — <code data-astro-cid-j7pv25f6>FROM</code>, <code data-astr
 <code data-astro-cid-j7pv25f6>UNSET</code>, <code data-astro-cid-j7pv25f6>ARG</code> — with its syntax and a worked
       example is in the <a href="/epos/skillfile" data-astro-cid-j7pv25f6>Skillfile reference</a>.
 </p> </section> <section data-astro-cid-j7pv25f6> <h2 data-astro-cid-j7pv25f6>Publish it back</h2> <p data-astro-cid-j7pv25f6>
-Publishing is a plain OCI push. Epos holds no credentials of its own — it
-      uses the ones your registry client already has.
-</p> <ga-code prompt="$" data-astro-cid-j7pv25f6="true">epos push reviewer:ours ghcr.io/your-org/skills/reviewer:1.0.0</ga-code> </section> <footer data-astro-cid-j7pv25f6> <p data-astro-cid-j7pv25f6> <ga-button variant="primary" href="https://github.com/gaarutyunov/epos" data-astro-cid-j7pv25f6="true">
+Epos has no <code data-astro-cid-j7pv25f6>push</code>. It does not need one: what it produced is
+      an ordinary OCI artifact, so publishing is a plain OCI push with the
+      client that already holds your credentials.
+</p> <ga-code prompt="$" data-astro-cid-j7pv25f6="true">oras cp --from-oci-layout-path "$(epos store path)" reviewer:ours ghcr.io/your-org/agent-skills/reviewer:1.0.0</ga-code> </section> <section data-astro-cid-j7pv25f6> <h2 data-astro-cid-j7pv25f6>The whole round trip</h2> <p data-astro-cid-j7pv25f6>
+The <a href="/epos/quickstart" data-astro-cid-j7pv25f6>quick start</a> runs it end to end —
+      author a skill, publish it, pull it back onto a machine that has never
+      seen it, and install it with your own values filled in. It assumes no
+      prior knowledge of OCI or registries.
+</p> </section> <footer data-astro-cid-j7pv25f6> <p data-astro-cid-j7pv25f6> <ga-button variant="primary" href="/epos/quickstart" data-astro-cid-j7pv25f6="true">
+Quick start
+</ga-button> <ga-button href="https://github.com/gaarutyunov/epos" data-astro-cid-j7pv25f6="true">
 Source on GitHub
 </ga-button> </p> </footer>  </main> <!--
       Registering every <ga-*> element is a side effect of this import. Astro
