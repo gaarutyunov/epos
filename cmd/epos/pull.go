@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 	"oras.land/oras-go/v2"
 	"oras.land/oras-go/v2/content/oci"
+	"oras.land/oras-go/v2/registry"
 	"oras.land/oras-go/v2/registry/remote"
 
 	"github.com/gaarutyunov/epos/internal/artifact"
@@ -40,6 +41,13 @@ func runPull(ctx context.Context, out io.Writer, ref string, plainHTTP bool) err
 	repo, srcTag, err := newRepository(ref, plainHTTP)
 	if err != nil {
 		return err
+	}
+	// The store tags what it holds (9.1) and a digest is not a tag: `sha256:…`
+	// is not even in the character set a tag is allowed. Rather than invent a
+	// tag for the caller, pull says what it needs. `verify`, which only
+	// resolves, takes a digest reference happily.
+	if strings.Contains(srcTag, ":") {
+		return fmt.Errorf("pull needs a tag; %s names a digest", ref)
 	}
 
 	// SPEC.md 5.2: the epos CLI sends Epos-Download and stock oras does not,
@@ -73,27 +81,33 @@ func runPull(ctx context.Context, out io.Writer, ref string, plainHTTP bool) err
 	return nil
 }
 
-// newRepository splits "<registry>/<repo>:<tag>" and returns a client for it.
+// newRepository splits a registry reference and returns a client for it, along
+// with the tag or digest it named.
 //
-// The tag separator is the last colon *after* the last slash: a registry may
-// carry a port, so cutting at the first colon splits "127.0.0.1:45100/…" in
-// the wrong place.
+// oras-go's own parser does the splitting. Three things in a reference are
+// separated by a colon — the registry's port, the tag, and the digest algorithm
+// — and no single rule about which colon to cut at gets all three right. "The
+// last colon after the last slash" handles the port and the tag, and cuts
+// "…/pdf@sha256:abcd" in the middle of the digest, which is precisely the
+// reference an 8.3 pin is written as.
 func newRepository(ref string, plainHTTP bool) (*remote.Repository, string, error) {
-	colon := strings.LastIndex(ref, ":")
-	if colon < 0 || colon < strings.LastIndex(ref, "/") {
-		return nil, "", fmt.Errorf("reference %q has no tag", ref)
+	parsed, err := registry.ParseReference(ref)
+	if err != nil {
+		return nil, "", fmt.Errorf("reference %q: %w", ref, err)
 	}
-	base, tag := ref[:colon], ref[colon+1:]
-	if tag == "" {
-		return nil, "", fmt.Errorf("reference %q has no tag", ref)
+	if parsed.Reference == "" {
+		return nil, "", fmt.Errorf("reference %q has no tag or digest", ref)
 	}
 
-	repo, err := remote.NewRepository(base)
+	// Rebuilt from the parsed parts rather than handed the whole string: the
+	// repository is the thing requests are addressed to, and the tag or digest
+	// is passed per call.
+	repo, err := remote.NewRepository(parsed.Registry + "/" + parsed.Repository)
 	if err != nil {
 		return nil, "", fmt.Errorf("reference %q: %w", ref, err)
 	}
 	repo.PlainHTTP = plainHTTP
-	return repo, tag, nil
+	return repo, parsed.Reference, nil
 }
 
 // downloadClient adds Epos-Download to every request.

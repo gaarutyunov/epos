@@ -384,7 +384,7 @@ func seedGitFixture(ctx context.Context, t *testing.T, base string) gitFixture {
 		{"refs/tags/v1.0.0", tagObject},
 	}
 	auth := &githttp.BasicAuth{Username: giteaUser, Password: giteaPassword}
-	for _, r := range refs {
+	for i, r := range refs {
 		name := plumbing.ReferenceName(r.name)
 		require.NoError(t, repo.Storer.SetReference(plumbing.NewHashReference(name, r.hash)))
 		require.NoError(t, repo.PushContext(ctx, &git.PushOptions{
@@ -392,6 +392,17 @@ func seedGitFixture(ctx context.Context, t *testing.T, base string) gitFixture {
 			RefSpecs:   []config.RefSpec{config.RefSpec("+" + r.name + ":" + r.name)},
 			Auth:       auth,
 		}), "push %s", r.name)
+
+		// Gitea creates the repository on the first push and takes its default
+		// branch from it, but it marks the repository non-empty in work it does
+		// after answering. A second push that lands before that is finished can
+		// be treated as another create and take the default branch with it,
+		// which surfaces much later — and confusingly — as a FROM with no
+		// fragment resolving a commit nobody asked for. So nothing else is
+		// pushed until the server advertises main as its HEAD.
+		if i == 0 {
+			waitForRemoteHead(ctx, t, repo, auth, r.hash)
+		}
 	}
 
 	return gitFixture{
@@ -404,6 +415,49 @@ func seedGitFixture(ctx context.Context, t *testing.T, base string) gitFixture {
 		tagObject:  tagObject,
 		tagTree:    subtreeHash(t, st, root1, "skills/pdf"),
 	}
+}
+
+// waitForRemoteHead blocks until the remote advertises want as its HEAD.
+//
+// Polled rather than assumed, because the default branch is chosen by the
+// server and only observable through what it advertises. A symbolic HEAD is
+// followed to the branch it names, which is the same thing the resolver under
+// test does with an empty rev.
+func waitForRemoteHead(ctx context.Context, t *testing.T, repo *git.Repository,
+	auth *githttp.BasicAuth, want plumbing.Hash) {
+	t.Helper()
+
+	remote, err := repo.Remote("origin")
+	require.NoError(t, err)
+
+	var got plumbing.Hash
+	deadline := time.Now().Add(30 * time.Second)
+	for {
+		advertised, err := remote.ListContext(ctx, &git.ListOptions{Auth: auth})
+		require.NoError(t, err, "list the remote's refs")
+
+		byName := map[plumbing.ReferenceName]*plumbing.Reference{}
+		for _, ref := range advertised {
+			byName[ref.Name()] = ref
+		}
+		if head, ok := byName[plumbing.HEAD]; ok {
+			got = head.Hash()
+			if head.Type() == plumbing.SymbolicReference {
+				if target, ok := byName[head.Target()]; ok {
+					got = target.Hash()
+				}
+			}
+			if got == want {
+				return
+			}
+		}
+		if time.Now().After(deadline) {
+			break
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
+	require.Equal(t, want.String(), got.String(),
+		"the remote's HEAD never settled on the branch the repository was created from")
 }
 
 // replaceFile returns files with the entry at f's path swapped for f.

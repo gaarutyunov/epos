@@ -23,8 +23,9 @@ import (
 //
 // Pure by construction (SPEC.md 8.1): the only inputs are the bases, the
 // Skillfile and the context, and nothing executes.
-func Build(sf *Skillfile, contextDir string, buildArgs map[string]string) (*Tree, *Report, error) {
-	b := newBuilder(sf, contextDir, buildArgs)
+func Build(sf *Skillfile, contextDir string, buildArgs map[string]string,
+	opts ...Option) (*Tree, *Report, error) {
+	b := newBuilder(sf, contextDir, buildArgs, opts...)
 
 	for _, inst := range sf.Instructions {
 		if err := b.apply(inst); err != nil {
@@ -76,6 +77,12 @@ type Report struct {
 	// actually built from — kept here so a later rebuild can be checked against
 	// them and so provenance has something to state.
 	GitBases []GitBase
+	// OCIBases are the pins of the OCI bases this build resolved, in
+	// instruction order (8.3). A tag is mutable — `1.2.0` can be re-pushed over
+	// different content — so the manifest digest it resolved to is the only
+	// record of what was actually built from, and the thing a later rebuild is
+	// checked against.
+	OCIBases []OCIBase
 	// Stages maps a file in the built tree to the stage that contributed it,
 	// for the files an explicit COPY --from named. 8.4 makes stage names the
 	// values-scope keys at install time (10.3), and this is what carries them
@@ -104,11 +111,30 @@ type Base struct {
 	// Ref is the reference exactly as the Skillfile wrote it, after ARG
 	// expansion.
 	Ref string
-	// Digest is the pin, written `<commit>+<tree>` for a git base — the two
-	// SHAs 8.3 makes the pin of that scheme. Empty for a local base, which 8.3
-	// gives no pin at all: there is no stable name for a directory on somebody's
-	// disk, and inventing one would claim more than the build can know.
+	// Digest is the pin: the manifest digest for an OCI base, and
+	// `<commit>+<tree>` for a git one — the two SHAs 8.3 makes the pin of that
+	// scheme. Empty for a local base, which 8.3 gives no pin at all: there is no
+	// stable name for a directory on somebody's disk, and inventing one would
+	// claim more than the build can know.
 	Digest string
+}
+
+// Option configures a build.
+//
+// Variadic rather than a parameter, because everything a build needs to be
+// pure — the bases, the Skillfile, the context (8.1) — is already an argument,
+// and what is left is transport detail that the great majority of builds have
+// no opinion about.
+type Option func(*builder)
+
+// WithPlainHTTP resolves OCI bases over HTTP rather than TLS.
+//
+// The same escape hatch `pull` and `verify` carry, and for the same reason: a
+// registry on localhost — a test's, a mirror on a developer's machine — serves
+// no certificate, and a build that could not reach one would make 8.3's OCI
+// scheme untestable against a real registry.
+func WithPlainHTTP(plain bool) Option {
+	return func(b *builder) { b.plainHTTP = plain }
 }
 
 type builder struct {
@@ -133,10 +159,13 @@ type builder struct {
 	// only the imports of the stage that survives are scopes.
 	origins map[string]string
 	report  *Report
+	// plainHTTP resolves OCI bases over HTTP. See WithPlainHTTP.
+	plainHTTP bool
 }
 
 // newBuilder prepares a build of sf.
-func newBuilder(sf *Skillfile, contextDir string, buildArgs map[string]string) *builder {
+func newBuilder(sf *Skillfile, contextDir string, buildArgs map[string]string,
+	opts ...Option) *builder {
 	b := &builder{
 		contextDir: contextDir,
 		args:       map[string]string{},
@@ -144,6 +173,9 @@ func newBuilder(sf *Skillfile, contextDir string, buildArgs map[string]string) *
 		declared:   map[string]bool{},
 		origins:    map[string]string{},
 		report:     &Report{},
+	}
+	for _, opt := range opts {
+		opt(b)
 	}
 	for k, v := range buildArgs {
 		b.args[k] = v
@@ -276,8 +308,8 @@ func (b *builder) seal() {
 	b.stage = ""
 }
 
-// resolve loads a FROM source, returning the tree and the source's pin. B1
-// supports the local and git schemes of 8.3; OCI arrives with B2.
+// resolve loads a FROM source, returning the tree and the source's pin — all
+// three schemes of 8.3: local, git and OCI.
 //
 // A stage name is answered before any of them. 8.4's worked example writes
 // `FROM base` after `FROM … AS base`, so a bare name that a previous FROM
@@ -305,6 +337,11 @@ func (b *builder) resolve(ref string) (*Tree, string, error) {
 	}
 	if strings.Contains(ref, "://") {
 		return nil, "", fmt.Errorf("%s: unsupported source", ref)
+	}
+	// An OCI reference carries no scheme, so it is told from a directory by
+	// what precedes the first slash. See looksLikeOCIRef.
+	if looksLikeOCIRef(ref) {
+		return b.resolveOCI(ref)
 	}
 	// A local base has no pin (8.3): it is whatever is on disk right now.
 	tree, err := LoadDir(filepath.Join(b.contextDir, filepath.FromSlash(ref)))
