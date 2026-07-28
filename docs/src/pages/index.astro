@@ -88,15 +88,29 @@ const href = (path: string) =>
   <section>
     <h2>Publish it back</h2>
     <p>
-      Publishing is a plain OCI push. Epos holds no credentials of its own — it
-      uses the ones your registry client already has.
+      Epos has no <code>push</code>. It does not need one: what it produced is
+      an ordinary OCI artifact, so publishing is a plain OCI push with the
+      client that already holds your credentials.
     </p>
-    <ga-code prompt="$">epos push reviewer:ours ghcr.io/your-org/skills/reviewer:1.0.0</ga-code>
+    <ga-code prompt="$">oras cp --from-oci-layout-path "$(epos store path)" reviewer:ours ghcr.io/your-org/agent-skills/reviewer:1.0.0</ga-code>
+  </section>
+
+  <section>
+    <h2>The whole round trip</h2>
+    <p>
+      The <a href={href("quickstart")}>quick start</a> runs it end to end —
+      author a skill, publish it, pull it back onto a machine that has never
+      seen it, and install it with your own values filled in. It assumes no
+      prior knowledge of OCI or registries.
+    </p>
   </section>
 
   <footer>
     <p>
-      <ga-button variant="primary" href="https://github.com/gaarutyunov/epos">
+      <ga-button variant="primary" href={href("quickstart")}>
+        Quick start
+      </ga-button>
+      <ga-button href="https://github.com/gaarutyunov/epos">
         Source on GitHub
       </ga-button>
     </p>
