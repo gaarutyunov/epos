@@ -24,16 +24,20 @@ jobs:
         run: go vet ./...
       # SPEC.md 14.1: the reference pages are generated from the same source as
       # the implementation, "so they cannot drift". This is the clause: the
-      # generator runs against the instruction table and the job fails if the
-      # committed page is not what it produces. Lives here rather than in
-      # docs.yml because that workflow only triggers on docs/**, so a change to
-      # the instruction table alone — the exact way the page drifts — would
-      # never reach it.
-      - name: the Skillfile reference matches the instruction table
+      # generator runs against the cobra command tree and the instruction table,
+      # and the job fails if a committed page is not what it produces. Lives
+      # here rather than in docs.yml because that workflow only triggers on
+      # docs/**, so a change to a command's flags alone — the exact way the page
+      # drifts — would never reach it.
+      #
+      # One step for both pages, because one program writes both. A second
+      # generator with a check of its own is how one of the pages quietly stops
+      # being checked.
+      - name: the reference pages match the code they are generated from
         run: |
           go run ./internal/docsgen
-          if ! git diff --exit-code -- docs/src/pages/skillfile.astro; then
-            echo "::error::docs/src/pages/skillfile.astro is out of date." \
+          if ! git diff --exit-code -- docs/src/pages/cli.astro docs/src/pages/skillfile.astro; then
+            echo "::error::A generated reference page is out of date." \
               "Run 'go run ./internal/docsgen' and commit the result."
             exit 1
           fi
