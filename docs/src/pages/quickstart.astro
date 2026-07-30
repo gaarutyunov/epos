@@ -197,21 +197,23 @@ See `references/checklist.md` before you start.</pre>
     <h2>4. Publish it</h2>
 
     <p>
-      <strong>Epos has no <code>push</code> command.</strong> Publishing is
-      done with any OCI client you already have — here, <code>oras</code>. The
-      write path was withdrawn deliberately: <code>epos-registry</code>, which
-      fronts your registry to count downloads, would have had to redirect the
-      upload session to the registry behind it, and <code>oras-go</code>
-      refuses an upload redirect that crosses hosts. That refusal is the fix
-      for a real credential-leak advisory, so it is not something to work
-      around. See SPEC §4.5 for the full reasoning.
+      <strong>Publishing is <a href={href("cli")}><code>epos push</code></a></strong>
+      — a direct copy from the local store to your registry, with
+      <a href={href("cli")}><code>epos registry login</code></a> for the
+      credential. What was withdrawn is publishing <em>through</em>
+      <code>epos-registry</code>, the component that fronts your registry to
+      count downloads: it would have had to redirect the upload session to the
+      registry behind it, and <code>oras-go</code> refuses an upload redirect
+      that crosses hosts. That refusal is the fix for a real credential-leak
+      advisory, so it is not something to work around — and it does not apply
+      to a client pointed straight at your registry, which is what
+      <code>epos push</code> is. See SPEC §4.5 for the full reasoning.
     </p>
 
     <p>
-      This costs you nothing, because the artifact Epos produced is not an
-      Epos format. It is a plain OCI artifact, so plain OCI tools handle it —
-      and the credentials stay where they already are, in the client that
-      already has them.
+      Any other OCI client works too, because the artifact Epos produced is not
+      an Epos format. It is a plain OCI artifact, so plain OCI tools handle it —
+      which is what the rest of this section shows with <code>oras</code>.
     </p>
 
     <p>Point at your registry and log in:</p>

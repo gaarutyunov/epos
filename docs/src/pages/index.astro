@@ -88,9 +88,15 @@ const href = (path: string) =>
   <section>
     <h2>Publish it back</h2>
     <p>
-      Epos has no <code>push</code>. It does not need one: what it produced is
-      an ordinary OCI artifact, so publishing is a plain OCI push with the
-      client that already holds your credentials.
+      <code>epos push</code> copies it straight out of the local store into
+      your registry — nothing is repacked, so the digest that lands upstream is
+      the one <code>epos pack</code> printed. Use
+      <code>epos registry login</code> first if the registry wants a credential.
+    </p>
+    <ga-code prompt="$">epos push reviewer:ours oci://ghcr.io/your-org/agent-skills</ga-code>
+    <p>
+      What it produced is an ordinary OCI artifact, so any other OCI client
+      publishes it just as well.
     </p>
     <ga-code prompt="$">oras cp --from-oci-layout-path "$(epos store path)" reviewer:ours ghcr.io/your-org/agent-skills/reviewer:1.0.0</ga-code>
   </section>
