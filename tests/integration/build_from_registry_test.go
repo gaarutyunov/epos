@@ -285,9 +285,9 @@ func (r *registryBuilder) buildsFromTheRecordedDigest() error {
 }
 
 // publishedWithPlainOras copies the built artifact out of the local store with
-// a stock client. `epos push` does not exist — the write path is withdrawn
-// (4.5) — and a skill reaches a registry through whatever client already holds
-// the user's credentials.
+// a stock client. `epos push` would do the same job; using a stock client here
+// is the point of the scenario — what epos produces is an ordinary OCI artifact
+// (2.1), so a client that has never heard of epos can publish it.
 func (r *registryBuilder) publishedWithPlainOras(ctx context.Context) error {
 	src, err := oci.New(storeDir(r.eposHome))
 	if err != nil {

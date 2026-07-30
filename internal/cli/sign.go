@@ -83,8 +83,8 @@ func writeNew(path string, body []byte, mode os.FileMode) error {
 // newSignCommand attaches a cosign signature to a published skill.
 func newSignCommand() *cobra.Command {
 	var (
-		keyPath   string
-		plainHTTP bool
+		keyPath string
+		opts    registryOptions
 	)
 
 	cmd := &cobra.Command{
@@ -99,16 +99,16 @@ func newSignCommand() *cobra.Command {
 		Args:         cobra.ExactArgs(1),
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runSign(cmd.Context(), cmd.OutOrStdout(), args[0], keyPath, plainHTTP)
+			return runSign(cmd.Context(), cmd.OutOrStdout(), args[0], keyPath, opts)
 		},
 	}
 	cmd.Flags().StringVar(&keyPath, "key", sign.PrivateKeyFile, "private key to sign with")
-	cmd.Flags().BoolVar(&plainHTTP, "plain-http", false, "talk to the registry over HTTP")
+	opts.bind(cmd)
 	return cmd
 }
 
-func runSign(ctx context.Context, out io.Writer, ref, keyPath string, plainHTTP bool) error {
-	repo, tag, err := newRepository(ref, plainHTTP)
+func runSign(ctx context.Context, out io.Writer, ref, keyPath string, opts registryOptions) error {
+	repo, tag, err := newRepository(ref, opts)
 	if err != nil {
 		return err
 	}
@@ -119,7 +119,7 @@ func runSign(ctx context.Context, out io.Writer, ref, keyPath string, plainHTTP 
 
 	subject, err := repo.Resolve(ctx, tag)
 	if err != nil {
-		return fmt.Errorf("resolve %s: %w", ref, err)
+		return fmt.Errorf("resolve %s: %w", ref, opts.explainAuth(ctx, repo.Reference.Registry, err))
 	}
 
 	// The identity the payload records is the repository, without the tag: a
@@ -127,7 +127,7 @@ func runSign(ctx context.Context, out io.Writer, ref, keyPath string, plainHTTP 
 	identity := repo.Reference.Registry + "/" + repo.Reference.Repository
 	desc, err := sign.Sign(ctx, repo, identity, subject, key)
 	if err != nil {
-		return fmt.Errorf("sign %s: %w", ref, err)
+		return fmt.Errorf("sign %s: %w", ref, opts.explainAuth(ctx, repo.Reference.Registry, err))
 	}
 
 	fmt.Fprintf(out, "signature %s %s\n", desc.Digest, subject.Digest)
@@ -140,7 +140,7 @@ func newAttestCommand() *cobra.Command {
 		keyPath       string
 		predicatePath string
 		predicateType string
-		plainHTTP     bool
+		opts          registryOptions
 	)
 
 	cmd := &cobra.Command{
@@ -153,20 +153,20 @@ func newAttestCommand() *cobra.Command {
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runAttest(cmd.Context(), cmd.OutOrStdout(), args[0],
-				keyPath, predicatePath, predicateType, plainHTTP)
+				keyPath, predicatePath, predicateType, opts)
 		},
 	}
 	cmd.Flags().StringVar(&keyPath, "key", sign.PrivateKeyFile, "private key to sign with")
 	cmd.Flags().StringVar(&predicatePath, "predicate", "", "JSON predicate document")
 	cmd.Flags().StringVar(&predicateType, "type", sign.DefaultPredicateType,
 		"predicate type the document conforms to")
-	cmd.Flags().BoolVar(&plainHTTP, "plain-http", false, "talk to the registry over HTTP")
+	opts.bind(cmd)
 	return cmd
 }
 
 func runAttest(ctx context.Context, out io.Writer, ref, keyPath, predicatePath,
-	predicateType string, plainHTTP bool) error {
-	repo, tag, err := newRepository(ref, plainHTTP)
+	predicateType string, opts registryOptions) error {
+	repo, tag, err := newRepository(ref, opts)
 	if err != nil {
 		return err
 	}
@@ -186,13 +186,13 @@ func runAttest(ctx context.Context, out io.Writer, ref, keyPath, predicatePath,
 
 	subject, err := repo.Resolve(ctx, tag)
 	if err != nil {
-		return fmt.Errorf("resolve %s: %w", ref, err)
+		return fmt.Errorf("resolve %s: %w", ref, opts.explainAuth(ctx, repo.Reference.Registry, err))
 	}
 
 	name := repo.Reference.Registry + "/" + repo.Reference.Repository
 	desc, err := sign.Attest(ctx, repo, name, subject, predicateType, predicate, key)
 	if err != nil {
-		return fmt.Errorf("attest %s: %w", ref, err)
+		return fmt.Errorf("attest %s: %w", ref, opts.explainAuth(ctx, repo.Reference.Registry, err))
 	}
 
 	fmt.Fprintf(out, "attestation %s %s\n", desc.Digest, subject.Digest)

@@ -172,10 +172,15 @@ func catalogUnavailable(registry string) error {
 }
 
 // discoveryFlags configure which registry the discovery commands enumerate.
+//
+// --registry names a registry to *read*; the `epos registry` command group
+// names registry *credentials*. The echo is knowing: helm carries the same
+// pair, and renaming either to avoid it would cost more familiarity than it
+// buys.
 type discoveryFlags struct {
 	registry  string
 	namespace string
-	plainHTTP bool
+	registryOptions
 }
 
 func (f *discoveryFlags) bind(cmd *cobra.Command) {
@@ -184,7 +189,7 @@ func (f *discoveryFlags) bind(cmd *cobra.Command) {
 		"registry to enumerate, as host[:port] (required)")
 	flags.StringVar(&f.namespace, "namespace", "",
 		"only enumerate repositories under this namespace (default: the whole registry)")
-	flags.BoolVar(&f.plainHTTP, "plain-http", false, "talk to the registry over HTTP")
+	f.registryOptions.bind(cmd)
 }
 
 // open resolves the flags into a client.
@@ -197,12 +202,13 @@ func (f *discoveryFlags) open() (registryClient, error) {
 	if f.registry == "" {
 		return nil, errors.New("a registry is required: pass --registry")
 	}
-	return newOCIRegistry(f.registry, f.plainHTTP)
+	return newOCIRegistry(f.registry, f.registryOptions)
 }
 
 // ociRegistry is registryClient over the plain OCI Distribution API.
 type ociRegistry struct {
-	reg *remote.Registry
+	reg  *remote.Registry
+	opts registryOptions
 }
 
 // newOCIRegistry returns a client for a registry host.
@@ -210,13 +216,22 @@ type ociRegistry struct {
 // remote.NewRegistry parses the host as an OCI reference, so a host carrying a
 // port — "127.0.0.1:45100" — stays intact rather than being split at the colon
 // as if the port were a tag.
-func newOCIRegistry(host string, plainHTTP bool) (*ociRegistry, error) {
+//
+// The client carries credentials, like every other registry client the CLI
+// builds. `list` and `search` were unconditionally anonymous before this, so a
+// user with a stored credential for the registry now sends it — which is why
+// each method below routes its error through explainAuth: a stale credential
+// has to say so rather than surface as an unexplained 401.
+func newOCIRegistry(host string, opts registryOptions) (*ociRegistry, error) {
 	reg, err := remote.NewRegistry(host)
 	if err != nil {
 		return nil, fmt.Errorf("registry %q: %w", host, err)
 	}
-	reg.PlainHTTP = plainHTTP
-	return &ociRegistry{reg: reg}, nil
+	reg.PlainHTTP = opts.plainHTTP
+	if reg.Client, err = opts.client(nil); err != nil {
+		return nil, err
+	}
+	return &ociRegistry{reg: reg, opts: opts}, nil
 }
 
 func (o *ociRegistry) Catalog(ctx context.Context) ([]string, error) {
@@ -229,7 +244,8 @@ func (o *ociRegistry) Catalog(ctx context.Context) ([]string, error) {
 		if unsupported(err) {
 			return nil, errNoCatalog
 		}
-		return nil, fmt.Errorf("list the repositories of %s: %w", o.reg.Reference.Registry, err)
+		return nil, fmt.Errorf("list the repositories of %s: %w", o.reg.Reference.Registry,
+			o.explain(ctx, err))
 	}
 	return repositories, nil
 }
@@ -245,9 +261,14 @@ func (o *ociRegistry) Tags(ctx context.Context, repository string) ([]string, er
 		tags = append(tags, page...)
 		return nil
 	}); err != nil {
-		return nil, err
+		return nil, o.explain(ctx, err)
 	}
 	return tags, nil
+}
+
+// explain names the registry and the cause when it answered 401.
+func (o *ociRegistry) explain(ctx context.Context, err error) error {
+	return o.opts.explainAuth(ctx, o.reg.Reference.Registry, err)
 }
 
 func (o *ociRegistry) Annotations(ctx context.Context, repository, reference string) (map[string]string, error) {
@@ -258,7 +279,7 @@ func (o *ociRegistry) Annotations(ctx context.Context, repository, reference str
 
 	desc, body, err := repo.FetchReference(ctx, reference)
 	if err != nil {
-		return nil, err
+		return nil, o.explain(ctx, err)
 	}
 	defer func() { _ = body.Close() }()
 

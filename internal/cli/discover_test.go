@@ -226,7 +226,7 @@ func statusError(status int) error {
 // A registry host carries a port far more often than not — every local zot and
 // every test registry does — and the reference parser must not read it as a tag.
 func TestRegistryHostMayCarryAPort(t *testing.T) {
-	client, err := newOCIRegistry("127.0.0.1:45100", true)
+	client, err := newOCIRegistry("127.0.0.1:45100", registryOptions{plainHTTP: true})
 	require.NoError(t, err)
 	assert.Equal(t, "127.0.0.1:45100", client.reg.Reference.Registry)
 	assert.True(t, client.reg.PlainHTTP)

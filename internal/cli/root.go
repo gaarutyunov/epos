@@ -1,9 +1,15 @@
 // Package cli is the epos command tree.
 //
-// pack, pull and the store subcommands are here (A2), build (B1), list and
-// search (A3), install, uninstall and ls (A4), and generate-key-pair, sign,
-// attest and verify (A5). push is deliberately absent — see the write-path
-// note on the A2 issue.
+// pack, push, pull and the store subcommands are here (A2), registry login and
+// logout, build (B1), list and search (A3), install, uninstall and ls (A4), and
+// generate-key-pair, sign, attest and verify (A5).
+//
+// push publishes straight from the local store to the upstream registry. What
+// stays withdrawn is the epos-registry *write path* (SPEC.md 4.5): relaying an
+// upload contradicts 4.2, and redirecting one produced a blob-upload Location
+// on a different host from the one the client targeted, which oras-go refuses
+// as the fix for GHSA-jxpm-75mh-9fp7. A client pointed straight at the upstream
+// gets that upstream's own Location, so the CLI's push was never affected.
 //
 // It is a library rather than the `package main` of cmd/epos so that the
 // documentation generator can import it. SPEC.md 14.1 requires the CLI
@@ -32,7 +38,8 @@ func NewRootCommand(version string) *cobra.Command {
 			return cmd.Help()
 		},
 	}
-	cmd.AddCommand(newPackCommand(), newPullCommand(), newStoreCommand(), newBuildCommand(),
+	cmd.AddCommand(newPackCommand(), newPushCommand(), newPullCommand(), newStoreCommand(),
+		newRegistryCommand(), newBuildCommand(),
 		newListCommand(), newSearchCommand(),
 		newInstallCommand(), newUninstallCommand(), newLsCommand(),
 		newGenerateKeyPairCommand(), newSignCommand(), newAttestCommand(), newVerifyCommand())

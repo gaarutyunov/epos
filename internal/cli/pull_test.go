@@ -51,7 +51,7 @@ func TestNewRepositorySplitsEveryFormOfReference(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			repo, reference, err := newRepository(tc.ref, true)
+			repo, reference, err := newRepository(tc.ref, registryOptions{plainHTTP: true})
 			require.NoError(t, err)
 			assert.Equal(t, tc.repository, repo.Reference.Repository)
 			assert.Equal(t, tc.reference, reference)
@@ -61,13 +61,13 @@ func TestNewRepositorySplitsEveryFormOfReference(t *testing.T) {
 }
 
 func TestNewRepositoryRejectsAReferenceThatNamesNothing(t *testing.T) {
-	_, _, err := newRepository("ghcr.io/demo/agent-skills/reviewer", false)
+	_, _, err := newRepository("ghcr.io/demo/agent-skills/reviewer", registryOptions{})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "has no tag or digest")
 }
 
 func TestNewRepositoryRejectsSomethingThatIsNotAReference(t *testing.T) {
-	_, _, err := newRepository("reviewer:1.0.0", false)
+	_, _, err := newRepository("reviewer:1.0.0", registryOptions{})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "reviewer:1.0.0")
 }
@@ -77,7 +77,7 @@ func TestNewRepositoryRejectsSomethingThatIsNotAReference(t *testing.T) {
 func TestPullByDigestSaysItNeedsATag(t *testing.T) {
 	var out bytes.Buffer
 	err := runPull(context.Background(), &out,
-		"127.0.0.1:1/demo/agent-skills/reviewer@"+zeroDigest, true)
+		"127.0.0.1:1/demo/agent-skills/reviewer@"+zeroDigest, registryOptions{plainHTTP: true})
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "pull needs a tag")

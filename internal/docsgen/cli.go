@@ -255,32 +255,68 @@ func (p *page) subcommands(cmd *cobra.Command) {
 	p.w(`    <p class="subcommands">Subcommands: ` + strings.Join(links, ", ") + `</p>`)
 }
 
-// publishing is the one thing a reader looks for on this page and does not
-// find as a command.
+// publishing ties together the commands that make up one publish, which no
+// single command's own help can do.
 //
-// It is here rather than as an `epos push` section because there is no push:
-// the write path was withdrawn (SPEC.md 4.5, 5.4), and what epos produces is an
-// ordinary OCI artifact that any client can move. Explaining that once, with a
-// link to where it is demonstrated, beats a page that stays silent about it.
+// It names them explicitly — see publishingCommands, and the test that holds
+// this prose to it. `cliDescription`'s comment warns about "the sentence that
+// still says push a year after the write path was withdrawn"; this block was
+// that sentence's mirror image, asserting for months that a push does not exist
+// because the *`epos-registry`* write path was withdrawn (SPEC.md 4.5). The
+// drift gate regenerates commands from the cobra tree and so catches a missing
+// command, but prose is invisible to it. Anything claimed here must be a claim
+// about a command in publishingCommands.
 func (p *page) publishing() {
 	p.w(
 		`  <section id="publishing">`,
 		`    <h2>Publishing</h2>`,
 		`    <p>`,
-		`      There is no <code>epos push</code>. A packed or built skill is an`,
-		`      ordinary OCI artifact sitting in an OCI layout, so it is published with`,
-		`      whichever OCI client already holds your registry credentials — epos does`,
-		`      not need to grow a second copy of that, and your credentials do not need`,
-		`      to move.`,
+		`      <a href="#epos-push"><code>epos push</code></a> copies a packed or built`,
+		`      skill from the local store to a registry. It is a direct`,
+		`      client-to-registry copy of bytes that already exist: nothing is repacked`,
+		`      and no digest is re-derived, so what lands upstream is what`,
+		`      <a href="#epos-pack"><code>epos pack</code></a> printed.`,
 		`    </p>`,
 		`    <p>`,
-		`      The <a href={href("quickstart")}>quick start</a> does it with`,
-		`      <code>oras cp</code>, straight out of the directory`,
+		`      For a registry that wants a credential, run`,
+		`      <a href="#epos-registry-login"><code>epos registry login</code></a>`,
+		`      first; <a href="#epos-registry-logout"><code>epos registry logout</code></a>`,
+		`      discards it. Both use the Docker credential store, so a credential a`,
+		`      <code>docker login</code> already placed there is found without being`,
+		`      copied.`,
+		`    </p>`,
+		`    <p>`,
+		`      Publishing <em>through</em> <code>epos-registry</code> is a separate`,
+		`      matter and stays withdrawn (SPEC.md 4.5): it would have to redirect the`,
+		`      upload session to the registry behind it, and oras-go refuses a`,
+		`      cross-host upload location. A client pointed straight at your registry`,
+		`      gets that registry's own location and is unaffected, which is what`,
+		`      <code>epos push</code> is.`,
+		`    </p>`,
+		`    <p>`,
+		`      What epos produces is an ordinary OCI artifact in an OCI layout, so any`,
+		`      other OCI client publishes it too — the`,
+		`      <a href={href("quickstart")}>quick start</a> shows`,
+		`      <code>oras cp</code> reading straight out of the directory`,
 		`      <a href="#epos-store-path"><code>epos store path</code></a> prints.`,
 		`    </p>`,
 		`  </section>`,
 		"",
 	)
+}
+
+// publishingCommands is the set of commands the publishing block claims exist.
+//
+// It is the seam that makes that prose testable: TestPublishingNamesRealCommands
+// asserts every entry is a real command in the cobra tree *and* that the
+// rendered block links to it. A command that disappears, or prose that drifts
+// off the commands, fails there rather than a year later in a bug report.
+var publishingCommands = []string{
+	"epos push",
+	"epos pack",
+	"epos registry login",
+	"epos registry logout",
+	"epos store path",
 }
 
 // paragraphs splits a cobra Long into paragraphs.

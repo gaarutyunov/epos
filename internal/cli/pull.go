@@ -13,32 +13,35 @@ import (
 	"oras.land/oras-go/v2/content/oci"
 	"oras.land/oras-go/v2/registry"
 	"oras.land/oras-go/v2/registry/remote"
+	"oras.land/oras-go/v2/registry/remote/auth"
 
 	"github.com/gaarutyunov/epos/internal/artifact"
 	"github.com/gaarutyunov/epos/internal/store"
 )
 
 func newPullCommand() *cobra.Command {
-	var plainHTTP bool
+	var opts registryOptions
 
 	cmd := &cobra.Command{
 		Use:   "pull <ref>",
 		Short: "Pull a skill from a registry into the local store",
 		Long: "pull fetches a skill and tags it in the local store. It sends\n" +
 			"Epos-Download, so a registry fronted by epos-registry records the\n" +
-			"download as verified.",
+			"download as verified.\n\n" +
+			"A credential stored for the registry is sent; finding none is normal\n" +
+			"and the fetch is made anonymously.",
 		Args:         cobra.ExactArgs(1),
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runPull(cmd.Context(), cmd.OutOrStdout(), args[0], plainHTTP)
+			return runPull(cmd.Context(), cmd.OutOrStdout(), args[0], opts)
 		},
 	}
-	cmd.Flags().BoolVar(&plainHTTP, "plain-http", false, "talk to the registry over HTTP")
+	opts.bind(cmd)
 	return cmd
 }
 
-func runPull(ctx context.Context, out io.Writer, ref string, plainHTTP bool) error {
-	repo, srcTag, err := newRepository(ref, plainHTTP)
+func runPull(ctx context.Context, out io.Writer, ref string, opts registryOptions) error {
+	repo, srcTag, err := newRepository(ref, opts)
 	if err != nil {
 		return err
 	}
@@ -57,7 +60,11 @@ func runPull(ctx context.Context, out io.Writer, ref string, plainHTTP bool) err
 	if i := strings.LastIndex(name, "/"); i >= 0 {
 		name = name[i+1:]
 	}
-	repo.Client = downloadClient(name + "@" + srcTag)
+	// Composed, not replaced: the header transport goes *inside* the credential
+	// client, so an authenticated pull is still a counted one.
+	if repo.Client, err = opts.downloadClient(name + "@" + srcTag); err != nil {
+		return err
+	}
 
 	s, err := store.Default()
 	if err != nil {
@@ -74,7 +81,7 @@ func runPull(ctx context.Context, out io.Writer, ref string, plainHTTP bool) err
 		return pulled, err
 	})
 	if err != nil {
-		return fmt.Errorf("pull %s: %w", ref, err)
+		return fmt.Errorf("pull %s: %w", ref, opts.explainAuth(ctx, repo.Reference.Registry, err))
 	}
 
 	fmt.Fprintf(out, "%s %s\n", tag, pulled.Digest)
@@ -90,7 +97,10 @@ func runPull(ctx context.Context, out io.Writer, ref string, plainHTTP bool) err
 // last colon after the last slash" handles the port and the tag, and cuts
 // "…/pdf@sha256:abcd" in the middle of the digest, which is precisely the
 // reference an 8.3 pin is written as.
-func newRepository(ref string, plainHTTP bool) (*remote.Repository, string, error) {
+//
+// It is also where credentials reach the wire, which is why `pull`, `push`,
+// `sign`, `attest` and `verify` all go through it (SPEC.md 6.2).
+func newRepository(ref string, opts registryOptions) (*remote.Repository, string, error) {
 	parsed, err := registry.ParseReference(ref)
 	if err != nil {
 		return nil, "", fmt.Errorf("reference %q: %w", ref, err)
@@ -106,22 +116,29 @@ func newRepository(ref string, plainHTTP bool) (*remote.Repository, string, erro
 	if err != nil {
 		return nil, "", fmt.Errorf("reference %q: %w", ref, err)
 	}
-	repo.PlainHTTP = plainHTTP
+	repo.PlainHTTP = opts.plainHTTP
+	if repo.Client, err = opts.client(nil); err != nil {
+		return nil, "", err
+	}
 	return repo, parsed.Reference, nil
 }
 
-// downloadClient adds Epos-Download to every request.
+// downloadClient adds Epos-Download to every request, inside the credential
+// client rather than instead of it.
 //
 // Sent on all of them rather than only blob GETs: the header is a reporting
 // hint, epos-registry counts only what 5.1 says counts, and a client that
 // tried to guess which request is "the" blob fetch would have to model the
 // registry's redirect behaviour to get it right.
-func downloadClient(value string) remote.Client {
-	return &http.Client{Transport: headerTransport{
+//
+// `epos push` deliberately does not use this: a publish is not a download, and
+// 5.1 counts only blob GETs.
+func (o registryOptions) downloadClient(value string) (*auth.Client, error) {
+	return o.client(headerTransport{
 		header: artifact.DownloadHeader,
 		value:  value,
 		next:   http.DefaultTransport,
-	}}
+	})
 }
 
 type headerTransport struct {
