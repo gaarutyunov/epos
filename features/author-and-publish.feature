@@ -50,6 +50,16 @@ Feature: Author and publish a skill
     And the pulled digest matches the pushed digest
     And every digest reported is the digest pack printed
 
+  # SPEC 2.4 -- content addressing makes a repeat publish a no-op by
+  # definition, so a second push must neither fail nor land on a new digest.
+  Scenario: Pushing an unchanged skill twice changes nothing
+    Given a skill directory "reviewer" version "1.0.0"
+    And the author packs it
+    And the author pushes it to the registry
+    When the author pushes it to the registry
+    Then every digest reported is the digest pack printed
+    And the tags of "demo/agent-skills/reviewer" are exactly "1.0.0"
+
   # SPEC 2.1 -- what `epos push` publishes is conformant, so a client that has
   # never heard of Epos can consume it. This is the claim the new publishing
   # path must not quietly break.
