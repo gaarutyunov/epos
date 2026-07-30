@@ -20,10 +20,10 @@ Epos consists of two independent tracks:
 ### 1.1 Out of scope (v2.0)
 
 - Identity provider integration; Epos does not issue credentials.
-- Private-registry credential brokering and authenticated upstreams.
+- Private-registry credential *brokering*. An authenticated upstream is reachable — `epos registry login` stores a credential locally and `push`/`pull` present it (§6.1) — but no Epos service holds, issues or exchanges credentials on a user’s behalf.
 - Caching or blob-streaming modes.
 - `RUN`-style arbitrary command execution in builds.
-- A write server that packs, validates, or holds credentials. `epos-registry` relays writes (§4.5) but transforms nothing; the CLI packs and holds the user’s own credentials.
+- A write server that packs, validates, or holds credentials. `epos-registry` serves no writes at all (§4.5); the CLI packs, and `epos push` sends the finished bytes straight to the upstream registry under the user’s own credentials.
 - **Kubernetes and cluster install.** Deferred to a separate spec (`EPOS-K8S.md`).
 
 ### 1.2 Hard constraints
@@ -157,9 +157,9 @@ Consequence, stated plainly: clients need network egress to the upstream’s CDN
 
 `epos-registry` holds no durable state. No manifest cache, no digest→role lookup table, no shared store between replicas. Scaling is N replicas behind a load balancer; any request may land on any replica.
 
-### 4.5 Write path — withdrawn
+### 4.5 `epos-registry` write path — withdrawn
 
-**`epos-registry` does not serve writes.** Skills are published to the upstream registry directly, with whatever OCI client already holds the user’s credentials. `epos` has no `push` command.
+**`epos-registry` does not serve writes.** What is withdrawn is *routing a publish through `epos-registry`* — not publishing. Skills are published straight to the upstream registry, by `epos push` (§6.1) or by any other OCI client that already holds the user’s credentials.
 
 This reverses the earlier design, which had `epos-registry` serve both directions so users configured one registry reference rather than two. Upload sessions were to receive a **307** so the client re-issued against upstream and got upstream’s `Location` natively — sidestepping `Location` normalisation, session mapping and chunked-resume accounting, and keeping the §4.2 promise that blob bytes never cross `epos-registry` in either direction.
 
@@ -170,7 +170,9 @@ blob upload Location "upstream:5000" is on a different host
 than the registry "epos-registry:8080"
 ```
 
-That check is deliberate. It is the fix for [GHSA-jxpm-75mh-9fp7](https://github.com/oras-project/oras-go/security/advisories/GHSA-jxpm-75mh-9fp7) — *“to prevent credentials from being forwarded to an attacker-controlled endpoint”* — and it compares the `Location` against the **originally targeted** registry, so following the 307 transparently does not satisfy it. Every `oras-go` client is affected, which includes `oras` itself and included Epos’s own `epos push`. The redirect design was therefore unimplementable, not merely inconvenient.
+That check is deliberate. It is the fix for [GHSA-jxpm-75mh-9fp7](https://github.com/oras-project/oras-go/security/advisories/GHSA-jxpm-75mh-9fp7) — *“to prevent credentials from being forwarded to an attacker-controlled endpoint”* — and it compares the `Location` against the **originally targeted** registry, so following the 307 transparently does not satisfy it. Every `oras-go` client pointed at `epos-registry` is affected, `oras` itself included — and `epos push` would have been too, had it published through the relay. The redirect design was therefore unimplementable, not merely inconvenient.
+
+**Why the CLI’s direct push is unaffected.** The check compares the upload `Location` against *the registry the client was pointed at*. The withdrawn design pointed the client at `epos-registry:8080` and had upstream answer with `upstream:5000` — two hosts, refused. `epos push reviewer:1.0.0 oci://ghcr.io/acme/agent-skills` points the client at `ghcr.io` and receives ghcr.io’s own `Location` — one host, accepted. This is not an argument that the check is wrong; it is the observation that `oras cp` publishes successfully today through the same library, and `epos push` is the same call from the same module. The advisory constrains *cross-host relaying*, which is what §4.5 withdraws; it says nothing about a client publishing to the registry it addressed.
 
 **Why not the alternatives.** Each contradicts something this specification asserts elsewhere:
 
@@ -182,7 +184,7 @@ That check is deliberate. It is the fix for [GHSA-jxpm-75mh-9fp7](https://github
 
 Withdrawing the write path costs the least. §4.2’s transfer posture is the load-bearing promise — it is why `epos-registry` is cheap to run and can be N replicas behind a load balancer (§4.4) — and relaying uploads would give that up on every publish.
 
-**Consequence.** Users configure two references, not one: `epos-registry` for reading, the upstream registry for publishing. Reading is where the value is, because that is where §5.1’s counting happens; publishing is a plain OCI push that any existing client already does well.
+**Consequence.** Users configure two references, not one: `epos-registry` for reading, the upstream registry for publishing — `epos push` takes that upstream reference as its destination. Reading is where the value is, because that is where §5.1’s counting happens; publishing is a plain OCI push, which the CLI now performs itself rather than deferring to a second client.
 
 **If this is revisited**, the question to answer first is whether `oras-go` will ever accept a cross-host upload `Location` under some opt-in. If not, the only route to one configured host is relaying uploads, and §4.2 has to be amended to say so.
 
@@ -225,7 +227,7 @@ Attributes: `repository`, `verified`, `client` (from `User-Agent`; `oras-go` set
 
 ### 5.4 Publishes — withdrawn
 
-There is no publish counter. `epos.publishes` was to be recorded from the relayed manifest `PUT`, and §4.5 withdraws that path: a publish goes straight to upstream, where `epos-registry` never sees it.
+There is no publish counter. `epos.publishes` was to be recorded from the relayed manifest `PUT`, and §4.5 withdraws that path: a publish goes straight to upstream — including `epos push`’s — where `epos-registry` never sees it.
 
 Publishes per repository would have answered “which skill changes most often” directly. Nothing replaces it, because the only place to observe a publish is now the upstream registry’s own logs. Blob uploads would not have been counted in any case — content addressing means a new version reusing an existing layer uploads nothing, so upload volume does not track publishing.
 
@@ -238,16 +240,23 @@ Publishes per repository would have answered “which skill changes most often�
 
 ```
 epos pack <dir> [-t <name>:<version>]     # directory → artifact in local store
-epos pull <ref>                           # registry → local store
+epos pull <ref>                            # registry → local store
+epos push <name>:<version> <destination>   # local store → registry
+epos registry login <host>                 # store a credential for <host>
+epos registry logout <host>                # discard it
 ```
 
 `pack` derives the config blob from `SKILL.md` frontmatter, builds the deterministic content layer (§2.4), and writes the artifact into the local store (§9).
 
-There is no `epos push`, and no Epos write server. A skill is published to the registry with whatever OCI client already holds the user’s credentials — `oras`, `docker`, a CI job. §4.5 records why the write path was withdrawn.
+`push` copies an artifact already in the store to the destination registry, unchanged: nothing is repacked and no digest is re-derived, so what lands upstream is byte-identical to what `pack` printed. The published repository is `<destination-namespace>/<skill-name>` and the remote tag is the version alone. There is still **no Epos write server** — `push` talks to the upstream registry directly, and §4.5 records why routing a publish through `epos-registry` was withdrawn.
+
+`registry login` / `logout` manage the credentials `push` and an authenticated `pull` use. They write to the Docker credential store — native helper where one is configured, otherwise a config file — so a credential already stored by `docker login` is found without being copied.
 
 ### 6.2 Non-goals
 
-The CLI does not validate skills server-side, mediate credentials, or transform artifacts in transit. A malformed skill that reaches a registry will fail at install time, not when it was published.
+The CLI does not validate skills server-side or transform artifacts in transit. A malformed skill that reaches a registry will fail at install time, not when it was published.
+
+It *does* hold the user’s credentials, and always did (§1.1): `epos push` and `epos registry login` are where that becomes visible. What Epos does not do is broker them — it issues no credentials, runs no service that holds them on a user’s behalf, and forwards none to any host other than the registry the user named.
 
 -----
 
@@ -549,7 +558,7 @@ Every milestone delivers a usable solution with full integration coverage agains
 |ID    |Deliverable                                                                                                                                    |Gate                                                                                                                                                                                                                                   |
 |------|-----------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 |**A1**|`epos-registry`: `/v2/` Pull + Content Discovery, 307 pass-through, stateless counting, OTel stdout exporter. **Full CI stack (§13.6)**        |OCI Pull conformance suite green, godog scenarios driving real `oras` against real zot through `epos-registry`, and every CI workflow green — lint, vet, format, vulncheck, three-platform unit tests, integration suite, release build|
-|**A2**|`epos pack` / `pull`; deterministic packing; local store with locking; verified counting lights up. The write path was attempted and withdrawn (§4.5)|A published artifact pulled back by plain `oras`; identical inputs produce identical digests across platforms                                                                     |
+|**A2**|`epos pack` / `push` / `pull`; deterministic packing; local store with locking; verified counting lights up. The `epos-registry` write path was attempted and withdrawn (§4.5); the CLI publishes straight to upstream|A published artifact pulled back by plain `oras`; identical inputs produce identical digests across platforms                                                                     |
 |**A3**|Discovery: `_catalog` passthrough, `epos search` / `list`                                                                                      |Skills enumerated and searched against real zot; a registry without `_catalog` reports the capability as unavailable rather than failing obscurely                                                                                     |
 |**A4**|Install local: `values.yaml`, `text/template` rendering, `skills.json` + `skills.lock.json`, `additionalBasePaths`                             |Parameterised skill installs into `.claude/skills`; two worktrees pin different digests from one store simultaneously                                                                                                                  |
 |**A5**|Sign and verify: cosign referrers, `epos verify`                                                                                               |Tampered artifact fails verification against a real registry                                                                                                                                                                           |
@@ -559,7 +568,7 @@ Every milestone delivers a usable solution with full integration coverage agains
 |ID    |Deliverable                                                                                                                |Gate                                                                                      |
 |------|---------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------|
 |**B1**|Skillfile: `FROM` local and git, multi-stage, `COPY`/`RM`/`APPEND`/`REPLACE`/`PATCH`, build to local store, install locally|A skill derived from a git base builds and installs with **no registry involved anywhere**|
-|**B2**|`FROM` OCI; the built result is published with an ordinary OCI client (§4.5)                                                |Derived skill published and pulled back by plain `oras`; provenance annotations present   |
+|**B2**|`FROM` OCI; the built result is published by `epos push`, or by any ordinary OCI client (§4.5)                              |Derived skill published and pulled back by plain `oras`; provenance annotations present   |
 
 **Sequencing rationale.** Install precedes Skillfile because packing and installing are basic functionality — a user can clone a repo, pack it and install it without ever writing a Skillfile. Skillfile is for advanced users and is a parallel track, not a prerequisite.
 
@@ -844,7 +853,7 @@ jobs:
 |1 |Wire format          |Conform to `vnd.agentskills.skill.v1`; extend with `vnd.epos.*` for Epos-native concepts                                |
 |2 |Registry protocol    |`/v2/` only; no second API surface. Epos semantics would ride on `Accept` negotiation if ever needed — none are, in v2.0|
 |3 |Rendering location   |Helm model — templates rendered at install, never by the registry or a server                                           |
-|4 |Write path           |No write server, and no `epos push`. Skills are published with an ordinary OCI client (§4.5)                            |
+|4 |Write path           |No write server. `epos push` copies from the local store to the upstream registry directly; only publishing *through* `epos-registry` is withdrawn (§4.5)|
 |5 |Blob transfer        |Redirect pass-through. Blobs never cross `epos-registry`                                                                |
 |6 |Download counting    |Stateless. Content blob GET counts; `Epos-Download` header marks verified; manifests never count                        |
 |7 |Metrics sink         |OpenTelemetry SDK; exporter configurable (stdout / Prometheus / OTLP)                                                   |
@@ -864,15 +873,15 @@ jobs:
 |21|Structural text edits|`AWK` via `benhoyt/goawk`, sandboxed with `NoExec`/`NoFileWrites`/`NoFileReads` and a timeout                           |
 |22|Frontmatter edits    |`SET` / `UNSET` via `goccy/go-yaml` AST; measured 2-line drift versus 6 for `yaml/v3`                                   |
 |23|Discovery            |Only where upstream implements `_catalog`; native discovery deferred to a later `epos-registry` capability              |
-|24|Write path routing   |**Withdrawn.** `epos-registry` was to serve writes for one configured host; `oras-go` rejects the cross-host upload `Location` the 307 produces (GHSA-jxpm-75mh-9fp7), so no client could publish through it (§4.5) |
+|24|Write path routing   |**Withdrawn.** `epos-registry` was to serve writes for one configured host; `oras-go` rejects the cross-host upload `Location` the 307 produces (GHSA-jxpm-75mh-9fp7), so no client could publish *through* it. A client pointed at the upstream itself is unaffected, which is what `epos push` does (§4.5) |
 
 ### Removed from scope
 
 |Was                                         |Reason                                                                                                                                                    |
 |--------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------|
-|Upload/write **server**                     |Helm has none; the CLI packs and holds the user’s credentials. `epos-registry` relays writes (§4.5) but transforms nothing — one host, not a write service|
+|Upload/write **server**                     |Helm has none; the CLI packs, holds the user’s credentials and pushes. `epos-registry` serves no writes at all (§4.5) — the publish never goes near it|
 |Overlay as an OCI artifact                  |Superseded by Skillfile; recipe lives in git                                                                                                              |
-|Private registries and credential resolution|Over-complication for v2.0                                                                                                                                |
+|Credential *brokering* — an Epos service holding registry credentials|Over-complication for v2.0. Client-side credential resolution shipped instead: `epos registry login` writes to the Docker credential store, and `push`/`pull` read from it (§6.1)|
 |Caching / streaming mode                    |Over-complication for v2.0                                                                                                                                |
 |`-target` distributed mode                  |No second resource profile exists to separate                                                                                                             |
 |Kubernetes / cluster install                |Separate spec (`EPOS-K8S.md`); runtime support for mounting non-image OCI artifacts is unsettled                                                          |
