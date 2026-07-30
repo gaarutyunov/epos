@@ -24,7 +24,7 @@ jobs:
         # be rebased onto it — otherwise the preview loads the main
         # deployment's bundle and shows content that is not in this PR.
         env:
-          BASE_PATH: /epos/pr-preview/pr-${{ github.event.number }}
+          BASE_PATH: /pr-preview/pr-${{ github.event.number }}
         run: npm ci && npm run build
         working-directory: docs
       - uses: rossjrw/pr-preview-action@ffa7509e91a3ec8dfc2e5536c4d5c1acdf7a6de9 # v1.8.1

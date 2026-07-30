@@ -45,6 +45,6 @@ an upstream registry and counts downloads.
 
 ## Docs
 
-Start with the [quick start](https://gaarutyunov.github.io/epos/quickstart/).
-There is also a [CLI reference](https://gaarutyunov.github.io/epos/cli/) and the
-[`Skillfile` reference](https://gaarutyunov.github.io/epos/skillfile/).
+Start with the [quick start](https://epos.garutyunov.com/quickstart/).
+There is also a [CLI reference](https://epos.garutyunov.com/cli/) and the
+[`Skillfile` reference](https://epos.garutyunov.com/skillfile/).

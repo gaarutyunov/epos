@@ -13,7 +13,7 @@ APPEND sections/checklist.md <<EOF
 EOF`;
 
 // BASE_URL carries a trailing slash only when `base` was written with one, so
-// joining by hand is what keeps a link off /eposskillfile.
+// joining by hand is what keeps a link off /pr-preview/pr-1skillfile.
 const href = (path: string) =>
   `${import.meta.env.BASE_URL.replace(/\/$/, "")}/${path}`;
 ---
