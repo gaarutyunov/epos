@@ -20,8 +20,8 @@ import (
 // verification through epos-registry are the same requests.
 func newVerifyCommand() *cobra.Command {
 	var (
-		keyPath   string
-		plainHTTP bool
+		keyPath string
+		opts    registryOptions
 	)
 
 	cmd := &cobra.Command{
@@ -39,16 +39,16 @@ func newVerifyCommand() *cobra.Command {
 		Args:         cobra.ExactArgs(1),
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runVerify(cmd.Context(), cmd.OutOrStdout(), args[0], keyPath, plainHTTP)
+			return runVerify(cmd.Context(), cmd.OutOrStdout(), args[0], keyPath, opts)
 		},
 	}
 	cmd.Flags().StringVar(&keyPath, "key", sign.PublicKeyFile, "public key to verify against")
-	cmd.Flags().BoolVar(&plainHTTP, "plain-http", false, "talk to the registry over HTTP")
+	opts.bind(cmd)
 	return cmd
 }
 
-func runVerify(ctx context.Context, out io.Writer, ref, keyPath string, plainHTTP bool) error {
-	repo, tag, err := newRepository(ref, plainHTTP)
+func runVerify(ctx context.Context, out io.Writer, ref, keyPath string, opts registryOptions) error {
+	repo, tag, err := newRepository(ref, opts)
 	if err != nil {
 		return err
 	}
@@ -68,12 +68,12 @@ func runVerify(ctx context.Context, out io.Writer, ref, keyPath string, plainHTT
 	// verified count instead, which is a worse lie than the one 11 documents.
 	subject, err := repo.Resolve(ctx, tag)
 	if err != nil {
-		return fmt.Errorf("resolve %s: %w", ref, err)
+		return fmt.Errorf("resolve %s: %w", ref, opts.explainAuth(ctx, repo.Reference.Registry, err))
 	}
 
 	result, err := sign.Verify(ctx, repo, ref, subject, pub)
 	if err != nil {
-		return err
+		return opts.explainAuth(ctx, repo.Reference.Registry, err)
 	}
 
 	fmt.Fprintf(out, "verified %s %s\n", ref, result.Subject.Digest)
