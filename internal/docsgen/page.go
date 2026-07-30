@@ -32,7 +32,7 @@ func (p *page) frontmatter(banner string) {
 		`import Base from "../layouts/Base.astro";`,
 		"",
 		"// BASE_URL carries a trailing slash only when `base` was written with one,",
-		"// so joining by hand is what keeps a link off /eposskillfile.",
+		"// so joining by hand is what keeps a link off /pr-preview/pr-1skillfile.",
 		"const href = (path: string) =>",
 		"  `${import.meta.env.BASE_URL.replace(/\\/$/, \"\")}/${path}`;",
 		"---",
