@@ -216,6 +216,22 @@ func TestAnAuthenticationFailureSaysWhatToDo(t *testing.T) {
 		assert.NotContains(t, err.Error(), "YWxpY2U=")
 	})
 
+	// A registry that challenges with Basic never answers a second request when
+	// nothing is stored: oras-go gives up with ErrBasicCredentialNotFound and
+	// there is no 401 to read a status code off. zot with htpasswd is exactly
+	// this, so reading the status code alone would leave the command that most
+	// needs the message without one.
+	t.Run("a Basic challenge with nothing to send is explained too", func(t *testing.T) {
+		t.Setenv("DOCKER_CONFIG", t.TempDir())
+
+		err := registryOptions{}.explainAuth(ctx, host,
+			fmt.Errorf("perform Exists: %w", auth.ErrBasicCredentialNotFound))
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), host)
+		assert.Contains(t, err.Error(), "epos registry login "+host)
+	})
+
 	// 403 is not folded in: a credential that is valid but unauthorised is a
 	// different problem, and telling the user to log in again aims them at the
 	// wrong thing (design D10).

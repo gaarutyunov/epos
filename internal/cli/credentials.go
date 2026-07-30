@@ -97,11 +97,20 @@ func (o registryOptions) client(transport http.RoundTripper) (*auth.Client, erro
 	}, nil
 }
 
-// explainAuth turns a registry's 401 into a message that says what to do.
+// explainAuth turns a registry's refusal to serve an unauthenticated — or
+// wrongly authenticated — request into a message that says what to do.
 //
-// The status code is read the way discover.go's unsupported() reads one —
-// errors.As for an *errcode.ErrorResponse, then a switch — rather than through
-// a second way of asking a registry what it answered.
+// Two shapes, because oras-go reports the same refusal in two ways, and the
+// design's "read the status code" only covers the first:
+//
+//   - A registry that challenges with Bearer answers the request 401, and the
+//     response arrives as an *errcode.ErrorResponse. That is read the way
+//     discover.go's unsupported() reads one — errors.As, then the status code —
+//     rather than through a second way of asking what a registry answered.
+//   - A registry that challenges with Basic never gets a second request at all
+//     when nothing is stored: the client has nothing to send and gives up with
+//     auth.ErrBasicCredentialNotFound, so there is no 401 to match on. zot with
+//     htpasswd is exactly this, which is how it was found.
 //
 // 403 is deliberately not folded in. A credential that is valid but
 // unauthorised is a different problem from a missing one, and telling the user
@@ -113,7 +122,8 @@ func (o registryOptions) client(transport http.RoundTripper) (*auth.Client, erro
 // message contains the credential or the header it travelled in.
 func (o registryOptions) explainAuth(ctx context.Context, host string, err error) error {
 	var resp *errcode.ErrorResponse
-	if !errors.As(err, &resp) || resp.StatusCode != http.StatusUnauthorized {
+	refused := errors.As(err, &resp) && resp.StatusCode == http.StatusUnauthorized
+	if !refused && !errors.Is(err, auth.ErrBasicCredentialNotFound) {
 		return err
 	}
 	if o.hasCredential(ctx, host) {
