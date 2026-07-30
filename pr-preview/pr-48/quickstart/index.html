@@ -86,19 +86,20 @@ The tag is on the left and the digest is on the right. The digest is a
       same directory on another machine, on another operating system, and you
       get that same <code data-astro-cid-4xjgpev6>a32fa1df…</code> back. That is what makes the digest
       worth pinning.
-</p> <ga-code prompt="$" data-astro-cid-4xjgpev6="true">epos store ls</ga-code> <pre class="out" data-astro-cid-4xjgpev6>reviewer:1.0.0</pre> </section> <section id="publish" data-astro-cid-4xjgpev6> <h2 data-astro-cid-4xjgpev6>4. Publish it</h2> <p data-astro-cid-4xjgpev6> <strong data-astro-cid-4xjgpev6>Epos has no <code data-astro-cid-4xjgpev6>push</code> command.</strong> Publishing is
-      done with any OCI client you already have — here, <code data-astro-cid-4xjgpev6>oras</code>. The
-      write path was withdrawn deliberately: <code data-astro-cid-4xjgpev6>epos-registry</code>, which
-      fronts your registry to count downloads, would have had to redirect the
-      upload session to the registry behind it, and <code data-astro-cid-4xjgpev6>oras-go</code>
-refuses an upload redirect that crosses hosts. That refusal is the fix
-      for a real credential-leak advisory, so it is not something to work
-      around. See SPEC §4.5 for the full reasoning.
+</p> <ga-code prompt="$" data-astro-cid-4xjgpev6="true">epos store ls</ga-code> <pre class="out" data-astro-cid-4xjgpev6>reviewer:1.0.0</pre> </section> <section id="publish" data-astro-cid-4xjgpev6> <h2 data-astro-cid-4xjgpev6>4. Publish it</h2> <p data-astro-cid-4xjgpev6> <strong data-astro-cid-4xjgpev6>Publishing is <a href="/epos/pr-preview/pr-48/cli" data-astro-cid-4xjgpev6><code data-astro-cid-4xjgpev6>epos push</code></a></strong>
+— a direct copy from the local store to your registry, with
+<a href="/epos/pr-preview/pr-48/cli" data-astro-cid-4xjgpev6><code data-astro-cid-4xjgpev6>epos registry login</code></a> for the
+      credential. What was withdrawn is publishing <em data-astro-cid-4xjgpev6>through</em> <code data-astro-cid-4xjgpev6>epos-registry</code>, the component that fronts your registry to
+      count downloads: it would have had to redirect the upload session to the
+      registry behind it, and <code data-astro-cid-4xjgpev6>oras-go</code> refuses an upload redirect
+      that crosses hosts. That refusal is the fix for a real credential-leak
+      advisory, so it is not something to work around — and it does not apply
+      to a client pointed straight at your registry, which is what
+<code data-astro-cid-4xjgpev6>epos push</code> is. See SPEC §4.5 for the full reasoning.
 </p> <p data-astro-cid-4xjgpev6>
-This costs you nothing, because the artifact Epos produced is not an
-      Epos format. It is a plain OCI artifact, so plain OCI tools handle it —
-      and the credentials stay where they already are, in the client that
-      already has them.
+Any other OCI client works too, because the artifact Epos produced is not
+      an Epos format. It is a plain OCI artifact, so plain OCI tools handle it —
+      which is what the rest of this section shows with <code data-astro-cid-4xjgpev6>oras</code>.
 </p> <p data-astro-cid-4xjgpev6>Point at your registry and log in:</p> <ga-code prompt="$" data-astro-cid-4xjgpev6="true">export REGISTRY=ghcr.io/your-github-username</ga-code> <ga-code prompt="$" data-astro-cid-4xjgpev6="true">echo $GITHUB_TOKEN | oras login ghcr.io -u your-github-username --password-stdin</ga-code> <pre class="out" data-astro-cid-4xjgpev6>Login Succeeded</pre> <p data-astro-cid-4xjgpev6>
 Then copy the artifact out of the local store and into the registry.
       Epos's store is an OCI image layout — a directory in the format the OCI
