@@ -13,7 +13,7 @@ const href = (path: string) =>
 
 <Base
   title="CLI reference — Epos"
-  description="Every epos command and flag — attest, build, generate-key-pair, install, list, ls, pack, pull, search, sign, store, uninstall, verify — with its usage, its options and their defaults. Generated from the CLI's own command definitions."
+  description="Every epos command and flag — attest, build, generate-key-pair, install, list, ls, pack, pull, push, registry, search, sign, store, uninstall, verify — with its usage, its options and their defaults. Generated from the CLI's own command definitions."
 >
   <p class="back"><a href={href("")}>← Epos</a></p>
 
@@ -45,6 +45,10 @@ const href = (path: string) =>
       <li><a href="#epos-ls"><code>epos ls</code></a></li>
       <li><a href="#epos-pack"><code>epos pack</code></a></li>
       <li><a href="#epos-pull"><code>epos pull</code></a></li>
+      <li><a href="#epos-push"><code>epos push</code></a></li>
+      <li><a href="#epos-registry"><code>epos registry</code></a></li>
+      <li><a href="#epos-registry-login"><code>epos registry login</code></a></li>
+      <li><a href="#epos-registry-logout"><code>epos registry logout</code></a></li>
       <li><a href="#epos-search"><code>epos search</code></a></li>
       <li><a href="#epos-sign"><code>epos sign</code></a></li>
       <li><a href="#epos-store"><code>epos store</code></a></li>
@@ -94,7 +98,7 @@ const href = (path: string) =>
       <dt><code>-v, --version</code></dt>
       <dd>version for epos</dd>
     </dl>
-    <p class="subcommands">Subcommands: <a href="#epos-attest"><code>epos attest</code></a>, <a href="#epos-build"><code>epos build</code></a>, <a href="#epos-generate-key-pair"><code>epos generate-key-pair</code></a>, <a href="#epos-install"><code>epos install</code></a>, <a href="#epos-list"><code>epos list</code></a>, <a href="#epos-ls"><code>epos ls</code></a>, <a href="#epos-pack"><code>epos pack</code></a>, <a href="#epos-pull"><code>epos pull</code></a>, <a href="#epos-search"><code>epos search</code></a>, <a href="#epos-sign"><code>epos sign</code></a>, <a href="#epos-store"><code>epos store</code></a>, <a href="#epos-uninstall"><code>epos uninstall</code></a>, <a href="#epos-verify"><code>epos verify</code></a></p>
+    <p class="subcommands">Subcommands: <a href="#epos-attest"><code>epos attest</code></a>, <a href="#epos-build"><code>epos build</code></a>, <a href="#epos-generate-key-pair"><code>epos generate-key-pair</code></a>, <a href="#epos-install"><code>epos install</code></a>, <a href="#epos-list"><code>epos list</code></a>, <a href="#epos-ls"><code>epos ls</code></a>, <a href="#epos-pack"><code>epos pack</code></a>, <a href="#epos-pull"><code>epos pull</code></a>, <a href="#epos-push"><code>epos push</code></a>, <a href="#epos-registry"><code>epos registry</code></a>, <a href="#epos-search"><code>epos search</code></a>, <a href="#epos-sign"><code>epos sign</code></a>, <a href="#epos-store"><code>epos store</code></a>, <a href="#epos-uninstall"><code>epos uninstall</code></a>, <a href="#epos-verify"><code>epos verify</code></a></p>
   </section>
 
   <section id="epos-attest">
@@ -225,6 +229,77 @@ const href = (path: string) =>
     <dl class="flags">
       <dt><code>-h, --help</code></dt>
       <dd>help for pull</dd>
+      <dt><code>--plain-http</code></dt>
+      <dd>talk to the registry over HTTP</dd>
+      <dt><code>--registry-config string</code></dt>
+      <dd>registry credentials file to use instead of Docker's ($DOCKER_CONFIG/config.json, or ~/.docker/config.json)</dd>
+    </dl>
+  </section>
+
+  <section id="epos-push">
+    <h2><code>epos push</code></h2>
+    <pre class="syntax">epos push &lt;name&gt;:&lt;version&gt; &lt;destination&gt; [flags]</pre>
+    <p class="summary">Publish a skill from the local store to a registry</p>
+    <p>push copies a skill the local store already holds to an OCI registry, byte for byte. Nothing is repacked and nothing is re-derived, so the digest `epos pack` printed is the digest that arrives.</p>
+    <p>The destination names a namespace and the skill's name is appended:</p>
+    <p>epos push reviewer:1.0.0 oci://ghcr.io/acme/agent-skills</p>
+    <p>publishes ghcr.io/acme/agent-skills/reviewer, tagged 1.0.0. An oci:// prefix is accepted and is not required. The reference push reports is the one it resolved, so a destination that already ends in the skill's own name shows the doubled segment straight away.</p>
+    <p>A credential stored for the registry is sent; a registry that permits anonymous writes needs none. Log in with `epos registry login`.</p>
+    <p>This is a direct client-to-registry copy. epos-registry serves no write path (SPEC.md 4.5) and no bytes pass through it.</p>
+    <dl class="flags">
+      <dt><code>-h, --help</code></dt>
+      <dd>help for push</dd>
+      <dt><code>--plain-http</code></dt>
+      <dd>talk to the registry over HTTP</dd>
+      <dt><code>--registry-config string</code></dt>
+      <dd>registry credentials file to use instead of Docker's ($DOCKER_CONFIG/config.json, or ~/.docker/config.json)</dd>
+    </dl>
+  </section>
+
+  <section id="epos-registry">
+    <h2><code>epos registry</code></h2>
+    <pre class="syntax">epos registry [flags]</pre>
+    <p class="summary">Log in to and out of OCI registries</p>
+    <p>registry manages the credentials epos sends to a registry.</p>
+    <p>They are read from and written to Docker's configuration and the platform's native credential helpers, so a login performed by epos, docker, oras or helm is usable by all of them. Where no native helper is configured the credential is stored in a configuration file — as base64, which is not encryption.</p>
+    <p>Epos issues no credentials of its own; these commands only hold the ones your registry gave you.</p>
+    <dl class="flags">
+      <dt><code>-h, --help</code></dt>
+      <dd>help for registry</dd>
+    </dl>
+    <p class="subcommands">Subcommands: <a href="#epos-registry-login"><code>epos registry login</code></a>, <a href="#epos-registry-logout"><code>epos registry logout</code></a></p>
+  </section>
+
+  <section id="epos-registry-login">
+    <h2><code>epos registry login</code></h2>
+    <pre class="syntax">epos registry login &lt;host&gt; [flags]</pre>
+    <p class="summary">Log in to a registry</p>
+    <p>login verifies a credential against the registry and then stores it, so a bad password fails here rather than at the next push.</p>
+    <p>The secret is read from standard input with --password-stdin, or typed at a prompt that does not echo. There is deliberately no --password flag: an argument vector is world-readable through /proc/&lt;pid&gt;/cmdline and lands in your shell history.</p>
+    <p>Where the platform has no credential helper configured, the credential is written to the configuration file as base64. That is Docker's format and it is not encryption; the file is created readable only by you.</p>
+    <dl class="flags">
+      <dt><code>-h, --help</code></dt>
+      <dd>help for login</dd>
+      <dt><code>--password-stdin</code></dt>
+      <dd>read the password or token from standard input</dd>
+      <dt><code>--plain-http</code></dt>
+      <dd>talk to the registry over HTTP</dd>
+      <dt><code>--registry-config string</code></dt>
+      <dd>registry credentials file to use instead of Docker's ($DOCKER_CONFIG/config.json, or ~/.docker/config.json)</dd>
+      <dt><code>-u, --username string</code></dt>
+      <dd>user to log in as (required)</dd>
+    </dl>
+  </section>
+
+  <section id="epos-registry-logout">
+    <h2><code>epos registry logout</code></h2>
+    <pre class="syntax">epos registry logout &lt;host&gt; [flags]</pre>
+    <p class="summary">Log out of a registry</p>
+    <p>logout removes the stored credential for a registry. Logging out of one you are not logged in to succeeds and does nothing.</p>
+    <p>The credential is removed from wherever it was stored, which may be a native credential helper shared with docker, oras and helm.</p>
+    <dl class="flags">
+      <dt><code>-h, --help</code></dt>
+      <dd>help for logout</dd>
       <dt><code>--plain-http</code></dt>
       <dd>talk to the registry over HTTP</dd>
       <dt><code>--registry-config string</code></dt>

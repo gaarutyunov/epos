@@ -99,17 +99,32 @@ func TestTheOtherPagesAreLinked(t *testing.T) {
 	assert.Contains(t, out, `href={href("skillfile")}`)
 }
 
-// TestWithdrawnCommandsAreAbsent pins the scope correction. push was withdrawn
-// with the write path (SPEC.md 4.5, 5.4), and a reference that documented it
-// would be describing a command the binary does not have.
-func TestWithdrawnCommandsAreAbsent(t *testing.T) {
+// TestThePublishingCommandsAreDocumented pins the scope correction the other
+// way round from how this test used to read.
+//
+// What SPEC.md 4.5 withdrew is the epos-registry *write path*, not the CLI
+// command: GHSA-jxpm-75mh-9fp7 makes oras-go refuse a blob-upload Location on a
+// host other than the one the client targeted, which is what relaying through
+// epos-registry produced. A client pointed straight at the upstream gets that
+// upstream's own Location. So `epos push` exists, and a reference that omitted
+// it would be hiding a command the binary has.
+//
+// The hand-written publishing section is still generated; rewriting its prose
+// is a task of its own, because prose is the one thing the drift gate is
+// structurally blind to.
+func TestThePublishingCommandsAreDocumented(t *testing.T) {
 	out := string(renderCLI())
 
-	assert.NotContains(t, out, `<section id="epos-push">`)
-	assert.NotContains(t, out, `<h2><code>epos push</code></h2>`)
-	// Absence is not enough on its own: a reader who came looking for it needs
-	// to be told what to do instead.
+	assert.Contains(t, out, `<section id="epos-push">`)
+	assert.Contains(t, out, `<h2><code>epos push</code></h2>`)
+	assert.Contains(t, out, `<h2><code>epos registry login</code></h2>`)
+	assert.Contains(t, out, `<h2><code>epos registry logout</code></h2>`)
 	assert.Contains(t, out, `<section id="publishing">`)
+
+	// The commands the CLI still does not have.
+	assert.NotContains(t, out, `<h2><code>epos login</code></h2>`)
+	assert.NotContains(t, out, `<h2><code>epos init</code></h2>`)
+	assert.NotContains(t, out, `<h2><code>epos lint</code></h2>`)
 }
 
 // TestEposHomeIsDocumented pins the checklist item a walk of the command tree
