@@ -38,10 +38,13 @@ Every instruction — <code data-astro-cid-j7pv25f6>FROM</code>, <code data-astr
 <code data-astro-cid-j7pv25f6>PATCH</code>, <code data-astro-cid-j7pv25f6>AWK</code>, <code data-astro-cid-j7pv25f6>SET</code>,
 <code data-astro-cid-j7pv25f6>UNSET</code>, <code data-astro-cid-j7pv25f6>ARG</code> — with its syntax and a worked
       example is in the <a href="/epos/skillfile" data-astro-cid-j7pv25f6>Skillfile reference</a>.
-</p> </section> <section data-astro-cid-j7pv25f6> <h2 data-astro-cid-j7pv25f6>Publish it back</h2> <p data-astro-cid-j7pv25f6>
-Epos has no <code data-astro-cid-j7pv25f6>push</code>. It does not need one: what it produced is
-      an ordinary OCI artifact, so publishing is a plain OCI push with the
-      client that already holds your credentials.
+</p> </section> <section data-astro-cid-j7pv25f6> <h2 data-astro-cid-j7pv25f6>Publish it back</h2> <p data-astro-cid-j7pv25f6> <code data-astro-cid-j7pv25f6>epos push</code> copies it straight out of the local store into
+      your registry — nothing is repacked, so the digest that lands upstream is
+      the one <code data-astro-cid-j7pv25f6>epos pack</code> printed. Use
+<code data-astro-cid-j7pv25f6>epos registry login</code> first if the registry wants a credential.
+</p> <ga-code prompt="$" data-astro-cid-j7pv25f6="true">epos push reviewer:ours oci://ghcr.io/your-org/agent-skills</ga-code> <p data-astro-cid-j7pv25f6>
+What it produced is an ordinary OCI artifact, so any other OCI client
+      publishes it just as well.
 </p> <ga-code prompt="$" data-astro-cid-j7pv25f6="true">oras cp --from-oci-layout-path "$(epos store path)" reviewer:ours ghcr.io/your-org/agent-skills/reviewer:1.0.0</ga-code> </section> <section data-astro-cid-j7pv25f6> <h2 data-astro-cid-j7pv25f6>The whole round trip</h2> <p data-astro-cid-j7pv25f6>
 The <a href="/epos/quickstart" data-astro-cid-j7pv25f6>quick start</a> runs it end to end —
       author a skill, publish it, pull it back onto a machine that has never
