@@ -422,15 +422,33 @@ const href = (path: string) =>
   <section id="publishing">
     <h2>Publishing</h2>
     <p>
-      There is no <code>epos push</code>. A packed or built skill is an
-      ordinary OCI artifact sitting in an OCI layout, so it is published with
-      whichever OCI client already holds your registry credentials — epos does
-      not need to grow a second copy of that, and your credentials do not need
-      to move.
+      <a href="#epos-push"><code>epos push</code></a> copies a packed or built
+      skill from the local store to a registry. It is a direct
+      client-to-registry copy of bytes that already exist: nothing is repacked
+      and no digest is re-derived, so what lands upstream is what
+      <a href="#epos-pack"><code>epos pack</code></a> printed.
     </p>
     <p>
-      The <a href={href("quickstart")}>quick start</a> does it with
-      <code>oras cp</code>, straight out of the directory
+      For a registry that wants a credential, run
+      <a href="#epos-registry-login"><code>epos registry login</code></a>
+      first; <a href="#epos-registry-logout"><code>epos registry logout</code></a>
+      discards it. Both use the Docker credential store, so a credential a
+      <code>docker login</code> already placed there is found without being
+      copied.
+    </p>
+    <p>
+      Publishing <em>through</em> <code>epos-registry</code> is a separate
+      matter and stays withdrawn (SPEC.md 4.5): it would have to redirect the
+      upload session to the registry behind it, and oras-go refuses a
+      cross-host upload location. A client pointed straight at your registry
+      gets that registry's own location and is unaffected, which is what
+      <code>epos push</code> is.
+    </p>
+    <p>
+      What epos produces is an ordinary OCI artifact in an OCI layout, so any
+      other OCI client publishes it too — the
+      <a href={href("quickstart")}>quick start</a> shows
+      <code>oras cp</code> reading straight out of the directory
       <a href="#epos-store-path"><code>epos store path</code></a> prints.
     </p>
   </section>

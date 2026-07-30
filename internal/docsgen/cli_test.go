@@ -109,9 +109,8 @@ func TestTheOtherPagesAreLinked(t *testing.T) {
 // upstream's own Location. So `epos push` exists, and a reference that omitted
 // it would be hiding a command the binary has.
 //
-// The hand-written publishing section is still generated; rewriting its prose
-// is a task of its own, because prose is the one thing the drift gate is
-// structurally blind to.
+// This covers the sections, which the drift gate would also catch. The prose of
+// the publishing block is TestPublishingNamesRealCommands' job.
 func TestThePublishingCommandsAreDocumented(t *testing.T) {
 	out := string(renderCLI())
 
@@ -125,6 +124,78 @@ func TestThePublishingCommandsAreDocumented(t *testing.T) {
 	assert.NotContains(t, out, `<h2><code>epos login</code></h2>`)
 	assert.NotContains(t, out, `<h2><code>epos init</code></h2>`)
 	assert.NotContains(t, out, `<h2><code>epos lint</code></h2>`)
+}
+
+// TestPublishingNamesRealCommands is the one check the drift gate cannot make.
+//
+// The gate regenerates the page from the cobra tree and diffs it, so a command
+// that appears or disappears shows up. A *paragraph* does not: the publishing
+// block asserted for months that there is no `epos push`, which was false from
+// the moment the command shipped, and regenerating the page reproduced the
+// falsehood byte for byte. cliDescription's own comment warns about exactly
+// this — "the sentence that still says push a year after the write path was
+// withdrawn" — three functions above the block.
+//
+// So the block declares what it talks about, in publishingCommands, and this
+// test holds it to it in both directions: every declared command exists in the
+// tree and is linked from the block, and the block links to no command it did
+// not declare.
+func TestPublishingNamesRealCommands(t *testing.T) {
+	section := publishingSection(t, string(renderCLI()))
+
+	inTree := map[string]bool{}
+	for _, cmd := range walk(cli.NewRootCommand(docsVersion)) {
+		inTree[cmd.CommandPath()] = true
+	}
+
+	linked := map[string]bool{}
+	for _, m := range regexp.MustCompile(`href="#([^"]+)"`).FindAllStringSubmatch(section, -1) {
+		linked[strings.ReplaceAll(m[1], "-", " ")] = true
+	}
+
+	for _, path := range publishingCommands {
+		assert.True(t, inTree[path],
+			"the publishing section claims %q, which the CLI does not have", path)
+		assert.True(t, linked[path],
+			"%q is declared in publishingCommands but the section never links to it", path)
+	}
+	for path := range linked {
+		if inTree[path] {
+			assert.Contains(t, publishingCommands, path,
+				"the section links to %q without declaring it in publishingCommands", path)
+		}
+	}
+}
+
+// TestPublishingDoesNotDenyItsOwnCommands is the blunt half of the same guard:
+// a negation about a command that exists, whatever else the prose around it
+// says. This is the shape the wrong sentence had.
+func TestPublishingDoesNotDenyItsOwnCommands(t *testing.T) {
+	section := strings.ToLower(publishingSection(t, string(renderCLI())))
+
+	for _, denial := range []string{
+		"no <code>epos push</code>",
+		"no <code>epos registry login</code>",
+		"epos has no <code>push</code>",
+		"has no push command",
+	} {
+		assert.NotContains(t, section, denial,
+			"the publishing section denies a command the CLI has")
+	}
+}
+
+// publishingSection is the block between the publishing section's own tags, so
+// the assertions above are about its prose and not the rest of the page.
+func publishingSection(t *testing.T, out string) string {
+	t.Helper()
+
+	start := strings.Index(out, `<section id="publishing">`)
+	require.GreaterOrEqual(t, start, 0, "the page has no publishing section")
+
+	end := strings.Index(out[start:], `</section>`)
+	require.GreaterOrEqual(t, end, 0, "the publishing section is never closed")
+
+	return out[start : start+end]
 }
 
 // TestEposHomeIsDocumented pins the checklist item a walk of the command tree
