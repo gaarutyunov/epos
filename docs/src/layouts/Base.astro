@@ -15,9 +15,16 @@ interface Props {
 const { title, description } = Astro.props;
 
 // BASE_URL carries a trailing slash only when `base` was written with one, so
-// joining by hand turns "/epos" + "favicon.svg" into "/eposfavicon.svg".
+// joining by hand turns "/pr-preview/pr-1" + "favicon-32.png" into
+// "/pr-preview/pr-1favicon-32.png".
 const asset = (path: string) =>
   `${import.meta.env.BASE_URL.replace(/\/$/, "")}/${path}`;
+
+// Social scrapers reject relative image URLs, so og:image and twitter:image
+// have to be absolute. Resolving against Astro.site keeps a PR preview
+// pointing at its own copy of the image rather than the main deployment's.
+const canonical = new URL(Astro.url.pathname, Astro.site);
+const ogImage = new URL(asset("og-image.png"), Astro.site);
 ---
 
 <!doctype html>
@@ -27,7 +34,40 @@ const asset = (path: string) =>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{title}</title>
     <meta name="description" content={description} />
-    <link rel="icon" href={asset("favicon.svg")} />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="32x32"
+      href={asset("favicon-32.png")}
+    />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="192x192"
+      href={asset("icon-192.png")}
+    />
+    <link rel="apple-touch-icon" href={asset("apple-touch-icon.png")} />
+    <!--
+      The manifest's own icon paths are relative to the manifest URL, not to the
+      page, so they follow a PR preview into its subdirectory without needing
+      BASE_URL baked into a file that Astro copies through verbatim.
+    -->
+    <link rel="manifest" href={asset("site.webmanifest")} />
+    <link rel="canonical" href={canonical} />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Epos" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={ogImage} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={ogImage} />
   </head>
   <body>
     <main>

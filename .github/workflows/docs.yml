@@ -31,6 +31,11 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: docs/dist
           publish_branch: gh-pages
+          # The custom domain lives in a CNAME file on the *deploy* branch, not
+          # in the source tree. Declaring it here means the file is rewritten by
+          # every deploy, so the subdomain survives a gh-pages force-push or a
+          # branch rebuild instead of silently reverting to *.github.io.
+          cname: epos.garutyunov.com
           # NOT in the SPEC.md 14.2 snippet, and required. Without it this
           # action replaces gh-pages wholesale, deleting every
           # pr-preview/pr-<N>/ directory the preview workflow put there — so

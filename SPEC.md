@@ -786,6 +786,8 @@ Reference pages are generated from the same source as the CLI’s own help outpu
 
 ### 14.2 GitHub Pages — branch mode
 
+The site is served from **`https://epos.garutyunov.com/`**, the project’s own subdomain, so Astro is configured with `site: "https://epos.garutyunov.com"` and `base: "/"` — not a `/epos` project-page prefix. The custom domain lives in a `CNAME` file on the deploy branch, written by the deploy step itself (`cname:`) rather than committed to the source tree, so it is restored on every publish instead of being lost to a `gh-pages` rebuild.
+
 Publishing uses **branch mode** against the `gh-pages` branch via `peaceiris/actions-gh-pages`.
 
 ```yaml
@@ -810,6 +812,7 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: docs/dist
           publish_branch: gh-pages
+          cname: epos.garutyunov.com
 ```
 
 ### 14.3 PR previews
@@ -843,6 +846,14 @@ jobs:
           umbrella-dir: pr-preview
           action: auto
 ```
+
+Previews are served from `…/pr-preview/pr-<N>/` beneath the same subdomain, so the preview build sets `BASE_PATH` to that directory. Without it a preview would request the main deployment’s assets and silently render content that is not in the pull request.
+
+### 14.4 Link previews
+
+Every page carries Open Graph and Twitter card metadata, so a link pasted into Slack, LinkedIn or a chat client unfurls with a title, description and image rather than a bare URL. The card image is `og-image.png` at the deploy root — 1200×630, the `summary_large_image` size — shipped from `docs/public/` and generated deterministically by screenshotting the landing hero in headless Chromium, never by an image model.
+
+`og:image`, `og:url` and `canonical` are absolute URLs resolved against `Astro.site`; scrapers do not follow relative image paths, and resolving through the build’s `base` keeps a PR preview advertising its own copy of the image instead of the main deployment’s.
 
 -----
 
