@@ -12,7 +12,7 @@ Two paths — use a skill someone published, or publish your own — then
 <code data-astro-cid-4xjgpev6>~/.epos</code>. Setting it makes this a throwaway.
 </p> </section> <section id="use" data-astro-cid-4xjgpev6> <h2 class="section-label" data-astro-cid-4xjgpev6>Use a published skill</h2> <ga-code prompt="$" data-astro-cid-4xjgpev6="true">epos pull ghcr.io/acme/agent-skills/reviewer:1.0.0</ga-code> <p class="filename" data-astro-cid-4xjgpev6><code data-astro-cid-4xjgpev6>values.yaml</code></p> <pre class="file" data-astro-cid-4xjgpev6>language: Go
 global:
-  org: Acme</pre> <ga-code prompt="$" data-astro-cid-4xjgpev6="true">epos install reviewer:1.0.0 -f values.yaml</ga-code> <ga-code prompt="$" data-astro-cid-4xjgpev6="true">epos ls</ga-code> <pre class="out" data-astro-cid-4xjgpev6>reviewer:1.0.0 sha256:a32fa1dfea1118829a06ab4975e38ca502cc3c3f1ccfdab909f846276f486558</pre> <p data-astro-cid-4xjgpev6>
+  org: Acme</pre> <ga-code prompt="$" data-astro-cid-4xjgpev6="true">epos install reviewer:1.0.0 -f values.yaml</ga-code> <ga-code prompt="$" data-astro-cid-4xjgpev6="true">epos ls</ga-code> <pre class="out" data-astro-cid-4xjgpev6>reviewer:1.0.0 sha256:b4d2ded82afc0297d223baf12717ac33257e2921b0be08fa1e4c822990ed020e</pre> <p data-astro-cid-4xjgpev6>
 The skill is now in <code data-astro-cid-4xjgpev6>.claude/skills/reviewer/</code> with your
           values filled in, and the digest is pinned in
 <code data-astro-cid-4xjgpev6>skills.lock.json</code>. Commit the lock file.
@@ -27,7 +27,7 @@ description: Reviews a pull request against our house standard.
 
 # Reviewer
 
-Review in {{ .Values.language }}. Escalate anything you would block on.</pre> <ga-code prompt="$" data-astro-cid-4xjgpev6="true">epos pack ./reviewer</ga-code> <pre class="out" data-astro-cid-4xjgpev6>reviewer:1.0.0 sha256:a32fa1dfea1118829a06ab4975e38ca502cc3c3f1ccfdab909f846276f486558</pre> <ga-code prompt="$" data-astro-cid-4xjgpev6="true">epos registry login ghcr.io -u you</ga-code> <ga-code prompt="$" data-astro-cid-4xjgpev6="true">epos push reviewer:1.0.0 oci://ghcr.io/acme/agent-skills</ga-code> <p data-astro-cid-4xjgpev6>
+Review in {{ .Values.language }}. Escalate anything you would block on.</pre> <ga-code prompt="$" data-astro-cid-4xjgpev6="true">epos pack ./reviewer</ga-code> <pre class="out" data-astro-cid-4xjgpev6>reviewer:1.0.0 sha256:b4d2ded82afc0297d223baf12717ac33257e2921b0be08fa1e4c822990ed020e</pre> <ga-code prompt="$" data-astro-cid-4xjgpev6="true">epos registry login ghcr.io -u you</ga-code> <ga-code prompt="$" data-astro-cid-4xjgpev6="true">epos push reviewer:1.0.0 oci://ghcr.io/acme/agent-skills</ga-code> <p data-astro-cid-4xjgpev6>
 Nothing is repacked on the way out, so the digest <code data-astro-cid-4xjgpev6>pack</code>
 printed is the digest that arrives. Any other OCI client publishes it
           just as well —
