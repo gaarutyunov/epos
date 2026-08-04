@@ -1,6 +1,8 @@
 package main
 
 import (
+	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -133,7 +135,11 @@ func TestExportDeclaresItsOwnFlagsAndNotTheServers(t *testing.T) {
 
 	assert.NotNil(t, export.Flags().Lookup("out"))
 	assert.NotNil(t, export.Flags().Lookup("upstream"))
-	assert.NotNil(t, export.Flags().Lookup("catalog.base-path"))
+	// 8.1a: on export the whole command is the catalog, so the base path is
+	// plain --base-path beside --out. Getting this wrong is invisible until a
+	// deploy runs the binary and cobra answers "unknown flag".
+	assert.NotNil(t, export.Flags().Lookup("base-path"))
+	assert.Nil(t, export.Flags().Lookup("catalog.base-path"))
 	assert.NotNil(t, export.Flags().Lookup("catalog.stats-source"))
 
 	assert.Nil(t, export.Flags().Lookup("addr"), "export opens no port")
@@ -162,4 +168,43 @@ func TestTheEnableKeyDoesNotCollideWithTheCatalogSubtree(t *testing.T) {
 	assert.Equal(t, "/epos/catalog", cfg.catalog.basePath, "and so did its siblings")
 	assert.Equal(t, "clickhouse://reader@store:9000/epos", cfg.statsDSN,
 		"including the one that has no flag to fall back on")
+}
+
+// The flags the deployment passes are the flags the command has.
+//
+// This is the check that was missing: `catalog export` was given
+// --catalog.base-path where task 8.1a specifies --base-path, every unit test
+// passed, and the mistake surfaced only when a deploy job ran the binary and
+// cobra answered "unknown flag: --base-path". Reading the flags back out of the
+// action means the two cannot drift again.
+func TestTheDeploysExportFlagsAllExist(t *testing.T) {
+	action, err := os.ReadFile("../../.github/actions/build-catalog/action.yml")
+	require.NoError(t, err)
+
+	_, invocation, found := strings.Cut(string(action), "catalog export")
+	require.True(t, found, "the action no longer runs `catalog export`")
+	// The invocation ends at the next step.
+	invocation, _, _ = strings.Cut(invocation, "- name:")
+
+	var export *cobra.Command
+	for _, sub := range newRootCommand().Commands() {
+		for _, leaf := range sub.Commands() {
+			if leaf.Name() == "export" {
+				export = leaf
+			}
+		}
+	}
+	require.NotNil(t, export)
+
+	var checked int
+	for _, field := range strings.Fields(invocation) {
+		name, ok := strings.CutPrefix(field, "--")
+		if !ok {
+			continue
+		}
+		assert.NotNil(t, export.Flags().Lookup(name),
+			"the deploy passes --%s, which `catalog export` does not declare", name)
+		checked++
+	}
+	assert.GreaterOrEqual(t, checked, 6, "the invocation was not parsed")
 }

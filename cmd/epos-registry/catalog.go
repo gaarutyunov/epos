@@ -42,8 +42,15 @@ const statsTimeout = 5 * time.Second
 // is why the `catalog_` line in that TransformFunc is load-bearing rather than
 // tidy: without it the variable resolves to a flat key matching nothing, and
 // the failure looks exactly like "the store is not configured".
-func bindCatalogFlags(flags *pflag.FlagSet, withEnable bool) {
-	if withEnable {
+//
+// serving distinguishes the root command, which opens a listener and needs the
+// switch and the freshness bound, from `catalog export`, which does neither.
+// The base path is spelled differently on each and that is deliberate: on the
+// server it is one catalog setting among several, so it is `--catalog.base-path`
+// like its siblings; on export the whole command is the catalog, so it is plain
+// `--base-path` beside `--out`.
+func bindCatalogFlags(flags *pflag.FlagSet, serving bool) {
+	if serving {
 		// `catalog.enabled`, not a bare `catalog`, and this is a correction to
 		// the design's key table rather than a preference. koanf holds a dotted
 		// key as a tree: a scalar at `catalog` and a map at `catalog.base-path`
@@ -56,9 +63,12 @@ func bindCatalogFlags(flags *pflag.FlagSet, withEnable bool) {
 			"serve the read-only catalog on this listener, under --catalog.base-path")
 		flags.Duration("catalog.stats-ttl", 5*time.Second,
 			"how long a statistics read is reused; 0 queries on every request")
+		flags.String("catalog.base-path", "/",
+			"prefix every catalog URL with this path")
+	} else {
+		flags.String("base-path", "/",
+			"prefix every catalog URL with this path")
 	}
-	flags.String("catalog.base-path", "/",
-		"prefix every catalog URL with this path")
 	flags.String("catalog.namespace", "",
 		"enumerate this namespace through GET /v2/_catalog (empty means the whole registry)")
 	flags.String("catalog.refs", "",

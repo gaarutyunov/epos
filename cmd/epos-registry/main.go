@@ -164,8 +164,11 @@ func loadConfig(flags *pflag.FlagSet) (config, error) {
 		catalogOut:       k.String("out"),
 		statsDSN:         k.String("catalog.stats-dsn"),
 		catalog: catalogConfig{
-			enabled:     k.Bool("catalog.enabled"),
-			basePath:    k.String("catalog.base-path"),
+			enabled: k.Bool("catalog.enabled"),
+			// One of the two exists in any invocation: the root registers
+			// catalog.base-path and export registers base-path, and neither
+			// registers the other's.
+			basePath:    firstNonEmpty(k.String("catalog.base-path"), k.String("base-path")),
 			namespace:   k.String("catalog.namespace"),
 			refsFile:    k.String("catalog.refs"),
 			statsSource: k.String("catalog.stats-source"),
@@ -193,6 +196,16 @@ func loadConfig(flags *pflag.FlagSet) (config, error) {
 	cfg.registryHost, cfg.plainHTTP = host, plainHTTP
 
 	return cfg, nil
+}
+
+// firstNonEmpty returns the first value that was actually supplied.
+func firstNonEmpty(values ...string) string {
+	for _, v := range values {
+		if v != "" {
+			return v
+		}
+	}
+	return ""
 }
 
 // upstreamHost reads the registry host an OCI client is built against out of
