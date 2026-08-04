@@ -155,7 +155,21 @@ Consequence, stated plainly: clients need network egress to the upstream’s CDN
 
 ### 4.4 Statelessness
 
-`epos-registry` holds no durable state. No manifest cache, no digest→role lookup table, no shared store between replicas. Scaling is N replicas behind a load balancer; any request may land on any replica.
+`epos-registry` holds no durable state. No manifest cache, no digest→role lookup table, no shared store between replicas. Scaling is N replicas behind a load balancer; **any request may land on any replica.**
+
+**This prohibition is scoped to the relay path.** No request under `/v2/` may be answered from, or made slower by, anything the catalog (§4.6) holds. The catalog's index and its per-digest document cache *are* a manifest cache, and they are permitted because they are not on that path: the index is process-local, in memory, rebuilt at startup, derived entirely from upstream, shared with nothing and never written to disk. The sentence above — any request may land on any replica and get the same answer — is untouched by it.
+
+The cost, stated rather than discovered: with N replicas each building an index at its own startup, two replicas can briefly disagree about which skills the *catalog* lists. That is a property of a read-only view, not a correctness bug, and the alternative is the durable state this section refuses. The counts do not disagree, because they are read per request from a store all replicas share.
+
+### 4.6 The catalog — a second surface, and not a second API
+
+`epos-registry --catalog.enabled` serves a read-only HTML catalog of the registry it fronts, on the listener that already answers `/v2/`, under a base path. **It is off unless enabled**, so a default `epos-registry` serves `/v2/` and nothing else.
+
+`/v2/` is matched first, unconditionally, and no catalog route may shadow one — a base path under `/v2/` is refused at startup rather than discovered in production. The catalog serves `GET` only, speaks no Epos-specific media type and negotiates nothing.
+
+A failed or partial index never stops the registry: the listener comes up first, `/v2/` serves immediately, and the catalog answers a page saying it could not be built. Enabling the catalog cannot reduce the registry's availability, and a store that is unreachable costs the catalog its numbers and costs `/v2/` nothing.
+
+The same renderer runs offline as `epos-registry catalog export`, which writes the site to a directory for a static host.
 
 ### 4.5 `epos-registry` write path — withdrawn
 
@@ -219,11 +233,39 @@ One instrumentation path: the OpenTelemetry Go SDK. The exporter is chosen by co
 |`prometheus`|Production scrape            |
 |`otlp`      |Production push              |
 
+`stdout` and `none` are implemented. **`prometheus` and `otlp` are not**, and neither is completed by the download span below: a scrape needs a second listener and reaches one replica of a deployment §4.4 specifies as N behind a load balancer, and a second durable path for the same event would be two answers to "how many downloads".
+
 Instrument: `epos.downloads`, a monotonic counter.
 
-Attributes: `repository`, `verified`, `client` (from `User-Agent`; `oras-go` sets `User-Agent: oras-go` on its auth `DefaultClient`).
+Attributes: `repository`, `verified`, and optionally `version`.
+
+**`client` was removed.** It carried the raw `User-Agent`. Under a metrics exporter that is unbounded cardinality — one time series per distinct User-Agent per repository, forever, created by anyone who can issue a blob `GET`. Once §5.3.1 made a download a durable row it stopped being a cardinality problem and became a data one: a registry with a public read path storing arbitrary caller-supplied text, retained for the store's TTL. It is removed in both directions — there is no field to set on the span, and the meter provider applies an allow-list view (`repository`, `verified`, `version`) with exemplars off, since a view's filtered-out attributes may otherwise ride along on an exemplar.
 
 **Cardinality control.** The attribute set is configurable. Version-valued attributes accumulate without bound under a Prometheus exporter and are off by default.
+
+### 5.3.1 The download span — the durable record
+
+The counter lives in an exporter's pipeline and dies with the process, so it cannot answer "how many times has this been pulled". A second emission does, and it is an **event** rather than a gauge:
+
+`epos-registry --traces.exporter otlp` emits one **`epos.download`** span per counted download, from the **same call site** that increments the counter and with the **same attribute set** — one function, one list, so the two cannot describe different events. `none` is the default: the registry emits no spans, needs no collector, and stores nothing.
+
+|Attribute|Value|
+|---|---|
+|`repository`|the OCI repository name, as on the counter|
+|`verified`|whether the request carried `Epos-Download` (§5.2)|
+|`version`|only when the version attribute is enabled|
+
+Resource: `service.name = epos-registry`. The span is minimal by construction — no events, no links, no HTTP semantics — and the relay is deliberately **not** wrapped in `otelhttp`, which would record `http.user_agent` on a server span of its own and reintroduce exactly what the paragraph above removes.
+
+**Sampling is always on.** Every span is a download and the count is a `count()` of spans, so a sampled trace is a sampled count — a wrong number presented as a right one, with nothing on the page disclosing it. If volume ever forces a reduction, the answer is pre-aggregation in the collector, never a sampled count.
+
+**Exporting never fails a request.** A collector that is unreachable costs telemetry and not availability: the exporter connects lazily, the batch processor drops what it cannot deliver, and the relay is unaffected.
+
+The store itself is not epos's code. An OpenTelemetry Collector's `clickhouseexporter` writes the spans, and a materialized view rolls them into the one table the catalog reads. epos ships that configuration and the DDL (`deploy/`) and writes no ingestion code at all — which is what lets the relay hold an OTLP endpoint and no database credential of any kind.
+
+**The schema is applied in two stages, with the collector between them.** `deploy/clickhouse/01-schema.sql` creates the database, the catalog's table and the three principals, and runs first because the collector needs a user to connect as. `02-rollup.sql` creates the materialized view, and cannot run until the collector has provisioned `otel_traces` — a view is created over a source table that must already exist, and that table is the collector's. It must nonetheless exist before the first download span, because a materialized view is an insert trigger that does not backfill. `deploy/compose.yaml` sequences all three, and `02-rollup.sql` carries the one-shot `INSERT … SELECT` for a deployment where the ordering was missed.
+
+**The catalog reads through one statistics source, chosen by `--catalog.stats-source`.** `none` is the default and a supported configuration, not a degraded mode; `file` reads a JSON counts document an operator holds; `clickhouse` runs one `SELECT` — the one `01-schema.sql` states, aggregated with `sum()` because `SummingMergeTree` collapses rows only eventually — against `epos_downloads_total` and nothing else. Its credential arrives from `EPOS_REGISTRY_CATALOG_STATS_DSN` and from no flag, because a server runs for days with its arguments readable by every process on the host, and the grant behind it permits `SELECT` on that one table under a bounded read-only profile.
 
 ### 5.4 Publishes — withdrawn
 
@@ -862,7 +904,7 @@ Every page carries Open Graph and Twitter card metadata, so a link pasted into S
 |# |Decision             |Resolution                                                                                                              |
 |--|---------------------|------------------------------------------------------------------------------------------------------------------------|
 |1 |Wire format          |Conform to `vnd.agentskills.skill.v1`; extend with `vnd.epos.*` for Epos-native concepts                                |
-|2 |Registry protocol    |`/v2/` only; no second API surface. Epos semantics would ride on `Accept` negotiation if ever needed — none are, in v2.0|
+|2 |Registry protocol    |`/v2/` only; no second *API* surface. Epos semantics would ride on `Accept` negotiation if ever needed — none are, in v2.0. **Amended:** a read-only HTML catalog (§4.6) may be served on the same listener under a reserved base path, off by default. It is not a second API — it serves `GET`, speaks no Epos media type and negotiates nothing — and `/v2/` is answered before it and never from anything it holds. zot is the precedent: one binary terminates the Distribution API and serves a browsing UI, and nobody installing its client receives a frontend|
 |3 |Rendering location   |Helm model — templates rendered at install, never by the registry or a server                                           |
 |4 |Write path           |No write server. `epos push` copies from the local store to the upstream registry directly; only publishing *through* `epos-registry` is withdrawn (§4.5)|
 |5 |Blob transfer        |Redirect pass-through. Blobs never cross `epos-registry`                                                                |

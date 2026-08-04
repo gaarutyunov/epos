@@ -6,6 +6,8 @@ import (
 	"io"
 
 	"github.com/spf13/cobra"
+
+	"github.com/gaarutyunov/epos/internal/registry"
 )
 
 func newListCommand() *cobra.Command {
@@ -38,12 +40,12 @@ func newListCommand() *cobra.Command {
 	return cmd
 }
 
-func runList(ctx context.Context, out io.Writer, client registryClient,
-	registry, namespace string, versions bool) error {
-	listing, err := discover(ctx, client, namespace, versions)
+func runList(ctx context.Context, out io.Writer, client registry.Client,
+	host, namespace string, versions bool) error {
+	listing, err := registry.Discover(ctx, client, namespace, versions)
 	if err != nil {
-		if errors.Is(err, errNoCatalog) {
-			return catalogUnavailable(registry)
+		if errors.Is(err, registry.ErrNoCatalog) {
+			return registry.CatalogUnavailable(host)
 		}
 		return err
 	}

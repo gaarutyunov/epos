@@ -101,6 +101,27 @@ func ParseFrontmatter(src []byte) (Config, error) {
 	return cfg, nil
 }
 
+// Body returns what follows SKILL.md's frontmatter — the document a reader
+// sees, with the metadata block removed.
+//
+// The extent is the one frontmatterBlock already finds, so there is exactly one
+// answer in the repository to where the frontmatter ends. A file with no
+// frontmatter, or one whose fence is never closed, is returned whole: a
+// renderer showing the raw document is a better failure than one showing
+// nothing.
+func Body(src []byte) []byte {
+	lines, nl := splitLines(src)
+	if len(lines) == 0 || !isFence(lines[0]) {
+		return src
+	}
+	for i := 1; i < len(lines); i++ {
+		if isFence(lines[i]) {
+			return []byte(joinLines(lines[i+1:], nl))
+		}
+	}
+	return src
+}
+
 // frontmatterBlock returns the bytes between the opening and closing fences.
 func frontmatterBlock(src []byte) ([]byte, error) {
 	lines, nl := splitLines(src)

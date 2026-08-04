@@ -1,0 +1,74 @@
+name: Build the demo catalog
+description: >
+  Publish the demo skills into a throwaway registry and render the catalog into
+  a directory, using the real binaries and a real OCI registry.
+
+inputs:
+  base-path:
+    description: The path the site will be served under, e.g. /pr-preview/pr-12/catalog
+    required: true
+  out:
+    description: Directory to write the rendered site into
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: build the binaries
+      shell: bash
+      run: go build -o /tmp/epos ./cmd/epos && go build -o /tmp/epos-registry ./cmd/epos-registry
+
+    # The same pinned zot the integration and conformance tiers already use.
+    # Nothing is published to a real registry here and no credential is
+    # involved: the demo's artifacts exist for the length of this job.
+    - name: start a throwaway registry
+      shell: bash
+      run: |
+        docker run -d --name demo-zot -p 45100:5000 \
+          ghcr.io/project-zot/zot-linux-amd64:v2.1.18
+        for _ in $(seq 1 60); do
+          curl -sf http://127.0.0.1:45100/v2/ >/dev/null && exit 0
+          sleep 1
+        done
+        echo "zot did not become ready" >&2
+        docker logs demo-zot >&2
+        exit 1
+
+    # Packed and pushed with the CLI itself, so the manifest annotations and the
+    # inline config blob the catalog reads back are the ones epos really writes.
+    # Nothing about these pages is synthesised from the checked-in directory.
+    - name: publish the demo skills
+      shell: bash
+      env:
+        EPOS_HOME: /tmp/epos-home
+      run: |
+        set -euo pipefail
+        while read -r ref; do
+          case "$ref" in ''|\#*) continue ;; esac
+          repository=${ref%:*}
+          version=${ref##*:}
+          name=${repository##*/}
+          /tmp/epos pack "demo/skills/$name" -t "$name:$version"
+          /tmp/epos push "$name:$version" \
+            "oci://127.0.0.1:45100/${repository%/*}" --plain-http
+        done < demo/refs.txt
+        curl -s http://127.0.0.1:45100/v2/_catalog
+
+    # The registry binary, run without a listener. Counts come from the
+    # checked-in document, which carries its own note saying so — the store that
+    # would make them real traffic is not part of this change.
+    - name: render the catalog
+      shell: bash
+      run: |
+        /tmp/epos-registry catalog export \
+          --upstream http://127.0.0.1:45100 \
+          --catalog.refs demo/refs.txt \
+          --base-path '${{ inputs.base-path }}' \
+          --out '${{ inputs.out }}' \
+          --catalog.stats-source file \
+          --catalog.stats-file demo/counts.json
+
+    - name: stop the registry
+      shell: bash
+      if: always()
+      run: docker rm -f demo-zot >/dev/null 2>&1 || true

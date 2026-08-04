@@ -1,0 +1,17 @@
+# The skills the demo catalog shows.
+#
+# One <repository>:<tag> per line, resolved against the registry the export is
+# pointed at. The demo stands up a throwaway zot in CI, publishes these into it
+# with `epos pack` and `epos push`, and renders the catalog from what the
+# registry then holds — so every field on every page comes from a real artifact
+# rather than from this file.
+#
+# More than one skill on purpose: one row ranks nothing, and the list page's
+# filter has nothing to filter.
+#
+# When epos#42 lands, `examples/go-house/` joins this list; when the Epos skill
+# of section 11 lands, so does that. Both are published the same way, and the
+# two entries below stay — they are the demo's own fixtures and they exercise a
+# skill with references and a skill without.
+demo/agent-skills/pdf:1.2.0
+demo/agent-skills/reviewer:0.4.0

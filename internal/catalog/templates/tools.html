@@ -1,0 +1,64 @@
+{{- define "tools" -}}
+<header class="hero">
+  <h1>Tools</h1>
+  <p class="lede">Where epos was verified to work, and what it was verified to do there.
+  A logo would say only <em>epos works here</em>; discovery needs
+  <span class="mono">GET /v2/_catalog</span>, which several registries do not serve, so every
+  row carries its capabilities and how they were measured.</p>
+</header>
+
+<section>
+  <p class="section-label">Registries</p>
+  <div class="scroll-x">
+  <table class="caps">
+    <thead>
+      <tr>
+        <th scope="col">Registry</th>
+        <th scope="col">Pull</th>
+        <th scope="col">Push</th>
+        <th scope="col">_catalog</th>
+        <th scope="col">How it was verified</th>
+      </tr>
+    </thead>
+    <tbody>
+    {{- range .Registries }}
+      <tr>
+        <th scope="row">{{ .Name }}<br><span class="mono dim small">{{ .Host }}</span></th>
+        <td class="mono">{{ .Pull }}</td>
+        <td class="mono">{{ .Push }}</td>
+        <td class="mono">{{ .Catalog }}</td>
+        <td class="small">{{ .Verified }}</td>
+      </tr>
+    {{- end }}
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section>
+  <p class="section-label">Agents</p>
+  <p class="dim small">epos has exactly one default install target. Every other target arrives
+  through the worktree manifest's additional base paths, so this table names directories rather
+  than claiming a per-agent integration.</p>
+  <div class="scroll-x">
+  <table class="caps">
+    <thead>
+      <tr>
+        <th scope="col">Agent</th>
+        <th scope="col">Skill directory</th>
+        <th scope="col">Installed by default</th>
+      </tr>
+    </thead>
+    <tbody>
+    {{- range .Agents }}
+      <tr>
+        <th scope="row">{{ .Name }}</th>
+        <td class="mono small">{{ .Directory }}</td>
+        <td class="small">{{ .Default }}</td>
+      </tr>
+    {{- end }}
+    </tbody>
+  </table>
+  </div>
+</section>
+{{- end -}}

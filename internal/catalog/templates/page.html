@@ -1,0 +1,70 @@
+{{- define "page" -}}
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ .Title }}</title>
+<meta name="description" content="{{ .Description }}">
+<link rel="stylesheet" href="{{ .BasePath }}assets/ga-ui-kit.css">
+<link rel="stylesheet" href="{{ .BasePath }}assets/app.css">
+</head>
+<body>
+<ga-header brand="EPOS" href="{{ .BasePath }}">
+  <a href="{{ .BasePath }}catalog/">Skills</a>
+  <a href="{{ .BasePath }}tools/">Tools</a>
+  <a href="{{ .DocsURL }}">Docs</a>
+</ga-header>
+
+<main class="container" id="main">
+{{- if .IndexError }}
+  <section class="notice" role="status">
+    <p class="section-label">Catalog unavailable</p>
+    <p>The catalog index could not be built from {{ .Registry }}. The registry itself is
+    unaffected: the distribution API is serving normally.</p>
+    <p class="mono dim">{{ .IndexError }}</p>
+  </section>
+{{- end }}
+{{- if .Breadcrumbs }}
+  {{- /* The <ol> inside is the scripting-off rendering. Once ga-breadcrumbs
+         upgrades it attaches a shadow root with no <slot>, so the light-DOM
+         children stop being rendered and exactly one trail is visible either
+         way. */}}
+  <ga-breadcrumbs class="crumbs" items="{{ crumbsJSON .Breadcrumbs }}">
+    <nav aria-label="Breadcrumb">
+      <ol>
+      {{- range .Breadcrumbs }}
+        <li>{{ if .Current }}<span aria-current="page">{{ .Label }}</span>{{ else }}<a href="{{ .Href }}">{{ .Label }}</a>{{ end }}</li>
+      {{- end }}
+      </ol>
+    </nav>
+  </ga-breadcrumbs>
+{{- end }}
+
+{{- if eq .Kind "home" }}{{ template "home" . }}{{ end }}
+{{- if eq .Kind "list" }}{{ template "list" . }}{{ end }}
+{{- if eq .Kind "detail" }}{{ template "detail" . }}{{ end }}
+{{- if eq .Kind "tools" }}{{ template "tools" . }}{{ end }}
+</main>
+
+<footer class="container footer">
+  <p class="section-label">Epos</p>
+  <ul class="dashes">
+    <li>Skills are OCI artifacts. Any conforming client can pull one.</li>
+    <li>This catalog is served by <span class="mono">epos-registry</span>, read-only, from the
+        registry it fronts.</li>
+    {{- if .HasCounts }}
+    <li>Pull counts are verified downloads &mdash; requests that carried
+        <span class="mono">Epos-Download</span>, which only <span class="mono">epos pull</span>
+        sends{{ if .CapturedAt }}, captured {{ .CapturedAt }}{{ end }}. The unverified side is
+        known-inflated and is not ranked on.</li>
+    {{- end }}
+  </ul>
+  <p class="dim">Upstream registry: <span class="mono">{{ .Registry }}</span></p>
+</footer>
+
+<script src="{{ .BasePath }}assets/ga-ui-kit.min.js"></script>
+<script src="{{ .BasePath }}assets/app.js"></script>
+</body>
+</html>
+{{- end -}}

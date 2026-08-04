@@ -1,0 +1,8 @@
+{
+  "captured_at": "2026-08-04T00:00:00Z",
+  "note": "Illustrative figures from a file checked into the repository, not measured traffic. epos-registry can record a real download as a span and roll it into a store the catalog reads per request; that store is not part of this change, so these numbers demonstrate the leaderboard's shape and nothing about how often anything has actually been pulled.",
+  "rows": {
+    "demo/agent-skills/pdf": {"verified": 1284, "unverified": 3910},
+    "demo/agent-skills/reviewer": {"verified": 97, "unverified": 210}
+  }
+}

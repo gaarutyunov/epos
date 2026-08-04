@@ -1,0 +1,65 @@
+{{- define "home" -}}
+{{- /* One page, two shapes (D4h). With a statistics source this is skills.sh's
+       ranked leaderboard: # / Skill / Pulls, the whole row an <a>, rank and
+       count monospace and right-aligned. Without one it is the same page as a
+       deterministically ordered index — no rank column, no pull column, and no
+       wording implying popularity. Not a second home page, and never a
+       leaderboard rendering zeroes. */}}
+<header class="hero">
+  <h1>{{ if .HasCounts }}Most pulled skills{{ else }}Skills in this registry{{ end }}</h1>
+  <p class="lede">
+  {{- if .HasCounts }}
+    Ranked by verified pulls &mdash; downloads that carried the
+    <span class="mono">Epos-Download</span> header, which only
+    <span class="mono">epos pull</span> sends.
+  {{- else }}
+    Every skill <span class="mono">{{ .Registry }}</span> holds, in name order.
+    No statistics source is configured, so this page ranks nothing.
+  {{- end }}
+  </p>
+</header>
+
+{{ if .HasCounts }}
+<section class="stats" aria-label="Catalog totals">
+  {{- /* The stat tile is hand-rolled, and it is a stand-in.
+         ui-kit's own component for this is <ga-metric> (with <ga-quantity>).
+         It is not in v0.3.0 — the release this catalog pins — it landed on
+         main afterwards. When ui-kit v0.4.0 is cut, replace both tiles below
+         with <ga-metric label="…" value="…"> and delete the `.stat` rules from
+         app.css. Nothing else here depends on them. */}}
+  <div class="stat">
+    <p class="stat-label">Skills</p>
+    <p class="stat-value">{{ len .Rows }}</p>
+  </div>
+  <div class="stat">
+    <p class="stat-label">Verified pulls</p>
+    <p class="stat-value">{{ totalPulls .Rows }}</p>
+  </div>
+</section>
+{{- if .CountsNote }}
+{{- /* 12.5: where these numbers came from, on the page carrying them rather
+       than in the repository. A count with no provenance is a claim the reader
+       cannot check. */}}
+<p class="provenance">{{ .CountsNote }}</p>
+{{- end }}
+{{ end }}
+
+{{ if .Rows }}
+<ga-table class="board" columns="{{ if .HasCounts }}{{ boardColumns }}{{ else }}{{ indexColumns }}{{ end }}">
+  {{- range .Rows }}
+  <a href="{{ rowHref $.BasePath . }}">
+    {{- if $.HasCounts }}<span class="mono rank">{{ .Rank }}</span>{{ end }}
+    <div class="cell-skill">
+      <strong>{{ .Skill.Name }}</strong>
+      <span class="mono dim">{{ .Skill.Repository }}</span>
+      {{- if .Skill.Description }}<span class="dim desc">{{ .Skill.Description }}</span>{{ end }}
+    </div>
+    {{- if $.HasCounts }}<span class="mono pulls">{{ pulls . }}</span>
+    {{- else }}<span class="mono dim version">{{ .Skill.Version }}</span>{{ end }}
+  </a>
+  {{- end }}
+</ga-table>
+{{ else if not .IndexError }}
+<p class="empty">This registry holds no skills yet.</p>
+{{ end }}
+{{- end -}}

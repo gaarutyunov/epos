@@ -1,0 +1,84 @@
+{{- define "detail" -}}
+{{- with .Skill }}
+<header class="hero">
+  <h1>{{ .Name }}</h1>
+  <p class="mono dim">{{ .Repository }}</p>
+  {{- if .Description }}<p class="lede">{{ .Description }}</p>{{ end }}
+  <p class="chips">
+    {{- if .Version }}<ga-badge>{{ .Version }}</ga-badge>{{ end }}
+    {{- if .License }}<ga-badge color="blue">{{ .License }}</ga-badge>{{ end }}
+    {{- if .Provenance }}<ga-badge color="purple">built from a Skillfile</ga-badge>{{ end }}
+  </p>
+</header>
+
+{{- /* skills.sh's shape: the install command as a full-width copyable control
+       above the split. ga-code carries the clipboard behaviour; with scripting
+       off it is still the command, selectable and readable. */}}
+<ga-code class="install" prompt="$">epos install {{ $.Registry }}/{{ .Repository }}:{{ .Version }}</ga-code>
+
+<div class="split">
+<article class="col-main">
+  <p class="section-label">Document</p>
+  {{- if .DocumentError }}
+  <p class="notice">{{ .DocumentError }}</p>
+  {{- else }}
+  <div class="prose">{{ .Document }}</div>
+  {{- end }}
+</article>
+
+<aside class="col-aside">
+  {{- if $.HasCounts }}
+  <p class="section-label">Pulls</p>
+  {{- /* The second of the two stat-tile stand-ins. See the note in
+         templates/home.html and the `.stat` rules in app.css: this is
+         ui-kit's ga-metric, hand-rolled because v0.3.0 does not carry it.
+         Both sites go when v0.4.0 is pinned. */}}
+  {{- range $.Rows }}
+  <div class="stat">
+    <p class="stat-label">Verified</p>
+    <p class="stat-value">{{ pulls . }}</p>
+  </div>
+  {{- end }}
+  {{- if $.CountsNote }}<p class="provenance small">{{ $.CountsNote }}</p>{{ end }}
+  {{- end }}
+
+  <p class="section-label">Artifact</p>
+  <dl class="ruled">
+    <div><dt>Registry</dt><dd class="mono">{{ $.Registry }}</dd></div>
+    <div><dt>Repository</dt><dd class="mono">{{ .Repository }}</dd></div>
+    <div><dt>Version</dt><dd class="mono">{{ .Version }}</dd></div>
+    {{- if .License }}<div><dt>Licence</dt><dd>{{ .License }}</dd></div>{{ end }}
+    <div><dt>Digest</dt><dd class="mono wrap">{{ .Digest }}</dd></div>
+  </dl>
+
+  {{- if gt (len .Versions) 1 }}
+  <p class="section-label">Versions</p>
+  <ul class="dashes">
+    {{- range .Versions }}<li class="mono">{{ . }}</li>{{ end }}
+  </ul>
+  <p class="dim small">The document above is the newest version. Earlier versions are listed
+  because the artifact carries them; the catalog shows one page per repository, because the
+  download counter's only key is the repository.</p>
+  {{- end }}
+
+  {{- /* Omitted entirely when the annotation is absent (D11): a skill that was
+         packed rather than built has no stages, and an empty provenance table
+         is worse than none. */}}
+  {{- with .Provenance }}
+  <p class="section-label">Provenance</p>
+  <dl class="ruled">
+    {{- if .BaseName }}<div><dt>Base</dt><dd class="mono wrap">{{ .BaseName }}</dd></div>{{ end }}
+    {{- if .BaseDigest }}<div><dt>Base digest</dt><dd class="mono wrap">{{ .BaseDigest }}</dd></div>{{ end }}
+    {{- if .SkillfileDigest }}<div><dt>Skillfile</dt><dd class="mono wrap">{{ .SkillfileDigest }}</dd></div>{{ end }}
+  </dl>
+  {{- range .Stages }}
+  <p class="stage-name mono">{{ .Name }}</p>
+  <ul class="dashes">
+    {{- range .Files }}<li class="mono small">{{ . }}</li>{{ end }}
+  </ul>
+  {{- end }}
+  {{- end }}
+</aside>
+</div>
+{{- end }}
+{{- end -}}

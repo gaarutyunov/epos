@@ -94,7 +94,6 @@ func TestEposDownloadHeaderMarksVerified(t *testing.T) {
 			downloads.EXPECT().Record(gomock.Any(), metrics.Download{
 				Repository: "demo/hello",
 				Verified:   tt.wantVerify,
-				Client:     "oras-go",
 				Version:    tt.wantVersion,
 			}).Times(1)
 
