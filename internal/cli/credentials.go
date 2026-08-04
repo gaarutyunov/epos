@@ -10,6 +10,8 @@ import (
 	"oras.land/oras-go/v2/registry/remote/auth"
 	"oras.land/oras-go/v2/registry/remote/credentials"
 	"oras.land/oras-go/v2/registry/remote/errcode"
+
+	"github.com/gaarutyunov/epos/internal/registry"
 )
 
 // registryOptions is what every command that contacts a registry needs: how to
@@ -94,6 +96,28 @@ func (o registryOptions) client(transport http.RoundTripper) (*auth.Client, erro
 		Client:     &http.Client{Transport: transport},
 		Cache:      auth.NewCache(),
 		Credential: credentials.Credential(store),
+	}, nil
+}
+
+// resolve turns the CLI's flags into the plain options internal/registry takes.
+//
+// registryOptions stays here rather than moving with the discovery pipeline: it
+// carries the cobra flag binding and the Docker credential store, and it is
+// shared by pull, push, build, sign and install. internal/registry defines its
+// own options struct with no cobra and no koanf in it, and each binary builds
+// one its own way — the CLI from these flags, epos-registry from its koanf
+// tree. explainAuth travels as a hook because choosing between "no credential
+// is stored" and "the stored credential was rejected" needs the store, and the
+// store is the CLI's.
+func (o registryOptions) resolve() (registry.Options, error) {
+	client, err := o.client(nil)
+	if err != nil {
+		return registry.Options{}, err
+	}
+	return registry.Options{
+		PlainHTTP: o.plainHTTP,
+		Client:    client,
+		Explain:   o.explainAuth,
 	}, nil
 }
 

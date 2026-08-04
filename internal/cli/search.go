@@ -6,6 +6,8 @@ import (
 	"io"
 
 	"github.com/spf13/cobra"
+
+	"github.com/gaarutyunov/epos/internal/registry"
 )
 
 func newSearchCommand() *cobra.Command {
@@ -35,22 +37,22 @@ func newSearchCommand() *cobra.Command {
 	return cmd
 }
 
-func runSearch(ctx context.Context, out io.Writer, client registryClient,
-	registry, namespace, query string) error {
+func runSearch(ctx context.Context, out io.Writer, client registry.Client,
+	host, namespace, query string) error {
 	// Always the full pipeline: the skill name and description a query matches
 	// against live in the manifest annotations, so there is nothing to filter
 	// until steps 3 and 4 have run (SPEC.md 7.2).
-	listing, err := discover(ctx, client, namespace, true)
+	listing, err := registry.Discover(ctx, client, namespace, true)
 	if err != nil {
-		if errors.Is(err, errNoCatalog) {
-			return catalogUnavailable(registry)
+		if errors.Is(err, registry.ErrNoCatalog) {
+			return registry.CatalogUnavailable(host)
 		}
 		return err
 	}
 
-	matched := make([]skill, 0, len(listing))
+	matched := make([]registry.Skill, 0, len(listing))
 	for _, s := range listing {
-		if s.matches(query) {
+		if s.Matches(query) {
 			matched = append(matched, s)
 		}
 	}

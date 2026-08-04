@@ -4,10 +4,11 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
-	"path"
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"github.com/gaarutyunov/epos/internal/registry"
 )
 
 // Tree is the skill being built: path → file contents, slash-separated and
@@ -146,17 +147,9 @@ func (t *Tree) Remove(p string) int {
 
 // checkPath rejects what 2.5 rejects, so a Skillfile cannot write outside the
 // skill it is building.
-func checkPath(slash string) error {
-	switch {
-	case slash == "":
-		return fmt.Errorf("empty path")
-	case path.IsAbs(slash):
-		return fmt.Errorf("%s: absolute paths are not allowed", slash)
-	case strings.HasPrefix(slash, "../") || slash == ".." || strings.Contains(slash, "/../"):
-		return fmt.Errorf("%s: .. escapes the skill root", slash)
-	}
-	if cleaned := path.Clean(slash); cleaned != slash {
-		return fmt.Errorf("%s: path is not in canonical form (%s)", slash, cleaned)
-	}
-	return nil
-}
+//
+// The rules live in internal/registry, with the fetch-and-untar that moved
+// there: that routine reads somebody else's artifact and the Skillfile path
+// reads somebody else's base, so the two need the same guard and a second copy
+// is how one of them loses a rule.
+func checkPath(slash string) error { return registry.CheckPath(slash) }
