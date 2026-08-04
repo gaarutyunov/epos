@@ -37,13 +37,13 @@ func renderCLI() []byte {
 
 	p.frontmatter(cliBanner)
 	p.cliHeader(commands)
-	p.cliContents(commands)
 	p.environment()
 	for _, cmd := range commands {
 		p.command(cmd)
 	}
 	p.publishing()
-	p.footer()
+	p.cliContents(commands)
+	p.docClose()
 	p.cliStyles()
 
 	return []byte(p.b.String())
@@ -102,30 +102,12 @@ func anchor(cmd *cobra.Command) string {
 }
 
 func (p *page) cliHeader(commands []*cobra.Command) {
-	p.w(
-		`<Base`,
-		`  title="CLI reference — Epos"`,
-		`  description="`+escape(cliDescription(commands))+`"`,
-		`>`,
-		`  <p class="back"><a href={href("")}>← Epos</a></p>`,
-		"",
-		`  <header class="hero">`,
-		`    <ga-badge color="blue">Reference</ga-badge>`,
-		`    <h1>CLI reference</h1>`,
-		`    <p class="lede">`,
-		`      Every <code>epos</code> command and every flag it takes. This page is`,
-		`      generated from the command definitions themselves, so it is the same`,
-		`      text <code>epos --help</code> prints.`,
-		`    </p>`,
-		`    <p>`,
-		`      New to Epos? The <a href={href("quickstart")}>quick start</a> runs the`,
-		`      whole round trip end to end. For the composition language`,
-		`      <code>epos build</code> evaluates, see the`,
-		`      <a href={href("skillfile")}>Skillfile reference</a>.`,
-		`    </p>`,
-		`  </header>`,
-		"",
-	)
+	p.docOpen("CLI reference — Epos", cliDescription(commands), "CLI reference")
+	p.heading("CLI reference", []string{
+		`    Every <code>epos</code> command and every flag it takes, generated`,
+		`    from the command definitions themselves — the same text`,
+		`    <code>epos --help</code> prints.`,
+	})
 }
 
 // cliDescription is the page's meta description.
@@ -144,16 +126,30 @@ func cliDescription(commands []*cobra.Command) string {
 		" — with its usage, its options and their defaults. Generated from the CLI's own command definitions."
 }
 
-// cliContents is the in-page index.
+// cliContents is the sidebar: an index of the page, plus the way out of it.
+//
+// Derived from the same command walk the page itself is built from, so a
+// command added to internal/cli appears in the sidebar too. This is the column
+// the page most needed and least had: 2000 words of reference with nothing to
+// navigate it by.
 func (p *page) cliContents(commands []*cobra.Command) {
-	p.w(`  <nav class="toc" aria-label="On this page">`, `    <ul>`)
-	p.w(`      <li><a href="#environment">Environment</a></li>`)
+	p.asideStart()
+
+	links := []asideLink{{attr: `"#environment"`, label: "Environment"}}
 	for _, cmd := range commands {
-		p.w(`      <li><a href="#` + anchor(cmd) + `"><code>` +
-			escape(cmd.CommandPath()) + `</code></a></li>`)
+		links = append(links, asideLink{
+			attr:  `"#` + anchor(cmd) + `"`,
+			label: cmd.CommandPath(),
+			code:  true,
+		})
 	}
-	p.w(`      <li><a href="#publishing">Publishing</a></li>`)
-	p.w(`    </ul>`, `  </nav>`, "")
+	links = append(links, asideLink{attr: `"#publishing"`, label: "Publishing"})
+	p.asideSection("On this page", links)
+
+	p.asideSection("Elsewhere", []asideLink{
+		{attr: `{href("quickstart")}`, label: "Quick start"},
+		{attr: `{href("skillfile")}`, label: "Skillfile reference"},
+	})
 }
 
 // environment documents what epos reads out of the environment.
@@ -388,102 +384,50 @@ func defaultIsZero(f *pflag.Flag) bool {
 //
 // Written out rather than escaped: a <style> element is raw text to Astro, so
 // the braces here are CSS braces and must stay braces.
+// cliStyles is what this page needs on top of the shared chrome.
+//
+// The container, the sticky header, the breadcrumb, the grid, h1, the section
+// label, paragraphs, code, pre and the block-component spacing all live in the
+// layout's global block now, so what is left here is the page's own furniture.
 func (p *page) cliStyles() {
 	p.w(
 		"<style>",
-		"  .back {",
-		"    font-size: 0.9rem;",
-		"    margin: 0 0 2rem;",
-		"  }",
-		"",
-		"  .hero {",
-		"    margin-bottom: 2.5rem;",
-		"  }",
-		"",
-		"  h1 {",
-		"    font-size: clamp(1.9rem, 5vw, 2.6rem);",
-		"    line-height: 1.15;",
-		"    letter-spacing: -0.02em;",
-		"    margin: 1rem 0 0.75rem;",
-		"  }",
-		"",
-		"  .lede {",
-		"    font-size: 1.1rem;",
-		"    color: var(--ga-fg-muted, #a1a1a1);",
-		"    max-width: 42rem;",
-		"  }",
-		"",
-		"  .toc {",
-		"    margin-bottom: 3rem;",
-		"  }",
-		"",
-		"  .toc ul {",
-		"    list-style: none;",
-		"    display: flex;",
-		"    flex-wrap: wrap;",
-		"    gap: 0.5rem 1rem;",
-		"    padding: 0;",
-		"    margin: 0;",
-		"    font-size: 0.9rem;",
-		"  }",
-		"",
-		"  section {",
-		"    margin-bottom: 3.5rem;",
-		"    scroll-margin-top: 1.5rem;",
-		"  }",
-		"",
-		"  h2 {",
-		"    font-size: 1.35rem;",
-		"    letter-spacing: -0.01em;",
-		"    margin-bottom: 0.75rem;",
-		"  }",
-		"",
 		"  .summary {",
-		"    color: var(--ga-fg-muted, #a1a1a1);",
-		"  }",
-		"",
-		"  code {",
-		"    font-family: ui-monospace, SFMono-Regular, \"SF Mono\", Menlo, monospace;",
-		"    font-size: 0.9em;",
-		"  }",
-		"",
-		"  pre {",
-		"    margin: 0 0 1rem;",
-		"    overflow-x: auto;",
-		"    font-family: ui-monospace, SFMono-Regular, \"SF Mono\", Menlo, monospace;",
-		"    font-size: 0.85rem;",
-		"    line-height: 1.65;",
-		"    white-space: pre;",
+		"    color: var(--ga-muted, #878787);",
 		"  }",
 		"",
 		"  pre.syntax {",
-		"    color: var(--ga-accent, #3b82f6);",
-		"    margin-bottom: 0.75rem;",
+		"    color: var(--ga-accent, #54a2ff);",
+		"    margin-bottom: var(--ga-space-3, 12px);",
 		"  }",
 		"",
 		"  .flags {",
-		"    margin: 0 0 1rem;",
+		"    margin: 0 0 var(--ga-space-4, 16px);",
 		"  }",
 		"",
 		"  .flags dt {",
-		"    margin-top: 0.5rem;",
+		"    margin-top: var(--ga-space-2, 8px);",
+		"    font-family: var(--ga-font-mono);",
+		"    font-size: var(--ga-fs-sm, 14px);",
 		"  }",
 		"",
 		"  .flags dd {",
 		"    margin: 0.15rem 0 0 1.25rem;",
-		"    color: var(--ga-fg-muted, #a1a1a1);",
+		"    color: var(--ga-muted, #878787);",
 		"  }",
 		"",
 		"  .subcommands {",
-		"    font-size: 0.9rem;",
+		"    font-size: var(--ga-fs-sm, 14px);",
 		"  }",
 		"",
 		"  ol {",
 		"    padding-left: 1.25rem;",
+		"    color: var(--ga-muted, #878787);",
 		"  }",
 		"",
-		"  footer {",
-		"    margin-top: 4rem;",
+		"  .arrow {",
+		"    font-family: var(--ga-font-mono);",
+		"    font-size: var(--ga-fs-xs, 12px);",
 		"  }",
 		"</style>",
 	)

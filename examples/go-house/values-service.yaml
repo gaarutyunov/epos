@@ -1,0 +1,13 @@
+# Everything on: a service with an HTTP API, a generated injection graph,
+# telemetry and an integration suite.
+module: github.com/gaarutyunov/report-service
+
+openapi: true
+di: true
+telemetry: true
+
+# `global` is the one block every stage sees. testcontainers lives here because
+# both the skill's own SKILL.md and the file copied from the `containers` stage
+# are guarded on it, and a stage only sees its own scope plus this block.
+global:
+  testcontainers: true

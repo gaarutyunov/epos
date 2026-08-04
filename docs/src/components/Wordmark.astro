@@ -1,0 +1,49 @@
+---
+// The EPOS wordmark, in the box-drawing lettering garutyunov.com and skills.sh
+// both use. A <pre> and not an image: it is text, it copies as text, and it
+// costs nothing to load.
+//
+// A component rather than inline art because the same lettering is wanted for
+// the catalog (#44), and a second hand-drawn copy would drift from this one.
+const BANNER = `███████╗██████╗  ██████╗ ███████╗
+██╔════╝██╔══██╗██╔═══██╗██╔════╝
+█████╗  ██████╔╝██║   ██║███████╗
+██╔══╝  ██╔═══╝ ██║   ██║╚════██║
+███████╗██║     ╚██████╔╝███████║
+╚══════╝╚═╝      ╚═════╝ ╚══════╝`;
+---
+
+<pre class="wordmark" aria-label="Epos">{BANNER}</pre>
+
+<style>
+  /* garutyunov.com closes the gaps between the box-drawing characters with
+     -1px tracking and 125% leading, which is correct for the Fira Mono it
+     loads as a web font. This site loads no web font, so the same numbers
+     shear the glyphs apart against the fallback: at the platform's own
+     monospace the characters already tile, and it is zero tracking and a
+     leading of exactly 1 that keeps them touching. Checked in a browser, not
+     assumed. */
+  .wordmark {
+    margin: 0;
+    font-family: var(--ga-font-display);
+    font-size: 8px;
+    letter-spacing: 0;
+    line-height: 1;
+    color: var(--ga-fg, #ededed);
+    user-select: none;
+    white-space: pre;
+    overflow: hidden;
+  }
+
+  @media (min-width: 640px) {
+    .wordmark {
+      font-size: 12px;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .wordmark {
+      font-size: 16px;
+    }
+  }
+</style>

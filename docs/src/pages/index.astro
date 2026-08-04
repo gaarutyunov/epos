@@ -1,176 +1,240 @@
 ---
 import Base from "../layouts/Base.astro";
-
-const skillfile = `FROM ghcr.io/gaarutyunov/skills/reviewer:1.2.0
-
-# Keep the review checklist, drop the house style we do not use.
-RM sections/house-style.md
-
-# Point it at our stack.
-SET language "Go"
-APPEND sections/checklist.md <<EOF
-- Table-driven tests for every exported function.
-EOF`;
+import Wordmark from "../components/Wordmark.astro";
 
 // BASE_URL carries a trailing slash only when `base` was written with one, so
 // joining by hand is what keeps a link off /pr-preview/pr-1skillfile.
 const href = (path: string) =>
   `${import.meta.env.BASE_URL.replace(/\/$/, "")}/${path}`;
+
+// Every card is a capability the shipped CLI has. Adding one that is only
+// planned is how a landing page starts lying, so each of these names the
+// command or the file that does it.
+const features = [
+  {
+    title: "An artifact, not an attachment",
+    body: "A skill directory becomes a standard OCI artifact — content-addressed, tagged, and pullable by oras or any other conforming client. No new server, no new account, no daemon.",
+    meta: "epos pack",
+  },
+  {
+    title: "Compose instead of forking",
+    body: "Start from a skill someone else publishes, remove the parts that do not apply, rewrite the parts that nearly do, and keep the rest. A fork you have to re-merge becomes a recipe you re-run.",
+    meta: "epos build",
+  },
+  {
+    title: "Several bases, one skill",
+    body: "Named stages, each from its own source, and cross-stage copies between them. Five published skills can become one that reads as though it was written that way.",
+    meta: "FROM … AS · COPY --from",
+  },
+  {
+    title: "Parameters, resolved at install",
+    body: "The artifact ships its templates untouched; your values fill them in on the machine that installs it. Turn a dependency off for one project and back on for the next without rebuilding.",
+    meta: "epos install -f values.yaml",
+  },
+  {
+    title: "Pinned, and reproducible",
+    body: "Every worktree records the digest it installed, and the same recipe over the same bases always produces the same bytes. A build is a pure function; nothing executes.",
+    meta: "skills.lock.json",
+  },
+  {
+    title: "Signed and verifiable",
+    body: "Sign a published skill and attest what it was built from, as OCI referrers, then verify before you install. The provenance travels with the artifact rather than beside it.",
+    meta: "epos sign · attest · verify",
+  },
+];
 ---
 
 <Base
   title="Epos — OCI-native packaging for agent skills"
-  description="Epos packages agent skills as OCI artifacts, so you version, publish and pull them with the registry you already run."
+  description="Epos packages agent skills as OCI artifacts and composes them: derive one skill from several, parameterise it, and install it with your own values."
 >
-  <header class="hero">
-    <ga-badge color="blue">OCI-native</ga-badge>
-    <h1>Package agent skills like container images.</h1>
-    <p class="lede">
-      Epos turns a directory of agent instructions into an <strong>OCI
-      artifact</strong> — so you version it, publish it to the registry you
-      already run, and pull it back anywhere, with the tools you already have.
-    </p>
-  </header>
-
-  <section>
-    <h2>The problem</h2>
-    <p>
-      Agent skills are shared as zip files in chat threads and copy-pasted
-      folders. There is no version you can pin, no digest you can verify, and no
-      way to say “this skill, but without that section, and with our language
-      set”. Meanwhile every team already runs a registry that solves exactly
-      those problems for container images.
-    </p>
-    <p>
-      Epos uses that registry. A skill is an OCI artifact: content-addressed,
-      tagged, signable, and pullable by any OCI client. No new server, no new
-      account, no daemon.
+  <section class="hero">
+    <div class="hero-mark">
+      <h1 class="sr-only">Epos</h1>
+      <Wordmark />
+    </div>
+    <p class="hero-line">
+      Package agent skills the way you already package everything else, and
+      build new ones out of the ones you trust.
     </p>
   </section>
 
-  <section>
-    <h2>Install</h2>
-    <ga-code prompt="$">go install github.com/gaarutyunov/epos/cmd/epos@latest</ga-code>
+  <section class="band">
+    <div class="band-left">
+      <h2 class="section-label">Install</h2>
+      <ga-code prompt="$"
+        >go install github.com/gaarutyunov/epos/cmd/epos@latest</ga-code
+      >
+      <p class="band-links">
+        <ga-button variant="primary" href={href("quickstart")}>
+          Quick start
+        </ga-button>
+        <ga-button href={href("cli")}>Reference</ga-button>
+      </p>
+    </div>
+    <div class="band-right">
+      <h2 class="section-label">What it is for</h2>
+      <ul class="dashed">
+        <li>
+          Pin the skill your agent runs, the way you pin a container image.
+        </li>
+        <li>
+          Derive a house skill from several published ones, and rebuild it when
+          they move.
+        </li>
+        <li>
+          Ship one artifact and let each project decide which parts of it apply.
+        </li>
+      </ul>
+    </div>
   </section>
 
   <section>
-    <h2>Compose a skill from one you already trust</h2>
-    <p>
-      A <code>Skillfile</code> reads like a Dockerfile. Start from a published
-      skill, remove what does not apply, and set your own values:
-    </p>
-
-    <ga-card padding="lg">
-      <pre class="skillfile">{skillfile}</pre>
-    </ga-card>
-
-    <p>Build it and install it into the current project:</p>
-    <ga-code prompt="$">epos build -t reviewer:ours . &amp;&amp; epos install reviewer:ours</ga-code>
-
-    <ga-note tone="success" title="What you get">
-      <code>.claude/skills/reviewer/</code> now holds the composed skill — the
-      upstream checklist, minus the section you dropped, with
-      <code>language</code> rendered as <code>Go</code>. Run
-      <code>epos ls</code> to see it, and commit
-      <code>skills.lock.json</code> so the next machine resolves the same
-      digest.
-    </ga-note>
-
-    <p>
-      Every instruction — <code>FROM</code>, <code>COPY</code>,
-      <code>RM</code>, <code>APPEND</code>, <code>REPLACE</code>,
-      <code>PATCH</code>, <code>AWK</code>, <code>SET</code>,
-      <code>UNSET</code>, <code>ARG</code> — with its syntax and a worked
-      example is in the <a href={href("skillfile")}>Skillfile reference</a>.
-    </p>
+    <h2 class="section-label">Features</h2>
+    <div class="cards">
+      {
+        features.map((feature) => (
+          <article class="card">
+            <h3>{feature.title}</h3>
+            <p>{feature.body}</p>
+            <span class="card-meta">{feature.meta}</span>
+          </article>
+        ))
+      }
+    </div>
   </section>
-
-  <section>
-    <h2>Publish it back</h2>
-    <p>
-      <code>epos push</code> copies it straight out of the local store into
-      your registry — nothing is repacked, so the digest that lands upstream is
-      the one <code>epos pack</code> printed. Use
-      <code>epos registry login</code> first if the registry wants a credential.
-    </p>
-    <ga-code prompt="$">epos push reviewer:ours oci://ghcr.io/your-org/agent-skills</ga-code>
-    <p>
-      What it produced is an ordinary OCI artifact, so any other OCI client
-      publishes it just as well.
-    </p>
-    <ga-code prompt="$">oras cp --from-oci-layout-path "$(epos store path)" reviewer:ours ghcr.io/your-org/agent-skills/reviewer:1.0.0</ga-code>
-  </section>
-
-  <section>
-    <h2>The whole round trip</h2>
-    <p>
-      The <a href={href("quickstart")}>quick start</a> runs it end to end —
-      author a skill, publish it, pull it back onto a machine that has never
-      seen it, and install it with your own values filled in. It assumes no
-      prior knowledge of OCI or registries.
-    </p>
-    <p>
-      Every command, every flag and every default is in the
-      <a href={href("cli")}>CLI reference</a>, generated from the CLI's own
-      command definitions.
-    </p>
-  </section>
-
-  <footer>
-    <p>
-      <ga-button variant="primary" href={href("quickstart")}>
-        Quick start
-      </ga-button>
-      <ga-button href="https://github.com/gaarutyunov/epos">
-        Source on GitHub
-      </ga-button>
-    </p>
-  </footer>
 </Base>
 
 <style>
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
   .hero {
-    margin-bottom: 3.5rem;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--ga-space-10, 40px);
+    margin: var(--ga-space-6, 24px) 0 var(--ga-space-12, 48px);
   }
 
-  h1 {
-    font-size: clamp(2rem, 6vw, 3rem);
-    line-height: 1.15;
-    letter-spacing: -0.02em;
-    margin: 1rem 0 0.75rem;
+  @media (min-width: 1024px) {
+    .hero {
+      grid-template-columns: auto minmax(0, 1fr);
+      gap: 3.5rem;
+    }
   }
 
-  .lede {
-    font-size: 1.15rem;
-    color: var(--ga-fg-muted, #a1a1a1);
-    max-width: 42rem;
+  .hero-mark {
+    min-width: 0;
   }
 
-  section {
-    margin-bottom: 3rem;
-  }
-
-  h2 {
-    font-size: 1.35rem;
-    letter-spacing: -0.01em;
-    margin-bottom: 0.5rem;
-  }
-
-  code {
-    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
-    font-size: 0.9em;
-  }
-
-  .skillfile {
+  .hero-line {
+    display: flex;
+    align-items: center;
     margin: 0;
-    overflow-x: auto;
-    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
-    font-size: 0.85rem;
-    line-height: 1.7;
-    white-space: pre;
+    font-size: var(--ga-fs-xl, 24px);
+    line-height: 1.2;
+    letter-spacing: var(--ga-tracking-tight, -0.02em);
+    text-wrap: balance;
+    color: var(--ga-muted, #878787);
   }
 
-  footer {
-    margin-top: 4rem;
+  @media (min-width: 1024px) {
+    .hero-line {
+      font-size: 30px;
+    }
+  }
+
+  .band {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--ga-space-10, 40px);
+    margin-bottom: var(--ga-space-12, 48px);
+  }
+
+  @media (min-width: 1024px) {
+    .band {
+      grid-template-columns: minmax(20rem, auto) minmax(0, 1fr);
+      gap: 3.5rem;
+    }
+  }
+
+  .band-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--ga-space-3, 12px);
+    margin: var(--ga-space-4, 16px) 0 0;
+  }
+
+  .cards {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--ga-space-4, 16px);
+  }
+
+  @media (min-width: 640px) {
+    .cards {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .cards {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+
+  /* Border-only over a low-alpha fill, and the hover moves colour and nothing
+     else — no lift, no shadow, no scale. */
+  .card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--ga-space-3, 12px);
+    padding: var(--ga-space-5, 20px);
+    border: 1px solid var(--ga-border, #1a1a1a);
+    border-radius: var(--ga-radius-lg, 8px);
+    background: color-mix(in srgb, var(--ga-bg-elev, #1a1a1a) 30%, transparent);
+    transition:
+      background var(--ga-transition, 0.18s),
+      border-color var(--ga-transition, 0.18s);
+  }
+
+  .card:hover {
+    background: color-mix(in srgb, var(--ga-bg-elev, #1a1a1a) 60%, transparent);
+    border-color: var(--ga-dim, #454545);
+  }
+
+  .card h3 {
+    margin: 0;
+    font-size: var(--ga-fs-base, 17px);
+    font-weight: 600;
+    color: var(--ga-fg, #ededed);
+    transition: color var(--ga-transition, 0.18s);
+  }
+
+  .card:hover h3 {
+    color: var(--ga-accent, #54a2ff);
+  }
+
+  .card p {
+    margin: 0;
+    font-size: var(--ga-fs-sm, 14px);
+    line-height: 1.65;
+  }
+
+  .card-meta {
+    margin-top: auto;
+    padding-top: var(--ga-space-2, 8px);
+    font-family: var(--ga-font-mono);
+    font-size: var(--ga-fs-xs, 12px);
+    color: var(--ga-dim, #454545);
   }
 </style>
