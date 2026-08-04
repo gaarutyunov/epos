@@ -263,6 +263,10 @@ Resource: `service.name = epos-registry`. The span is minimal by construction �
 
 The store itself is not epos's code. An OpenTelemetry Collector's `clickhouseexporter` writes the spans, and a materialized view rolls them into the one table the catalog reads. epos ships that configuration and the DDL (`deploy/`) and writes no ingestion code at all — which is what lets the relay hold an OTLP endpoint and no database credential of any kind.
 
+**The schema is applied in two stages, with the collector between them.** `deploy/clickhouse/01-schema.sql` creates the database, the catalog's table and the three principals, and runs first because the collector needs a user to connect as. `02-rollup.sql` creates the materialized view, and cannot run until the collector has provisioned `otel_traces` — a view is created over a source table that must already exist, and that table is the collector's. It must nonetheless exist before the first download span, because a materialized view is an insert trigger that does not backfill. `deploy/compose.yaml` sequences all three, and `02-rollup.sql` carries the one-shot `INSERT … SELECT` for a deployment where the ordering was missed.
+
+**The catalog reads through one statistics source, chosen by `--catalog.stats-source`.** `none` is the default and a supported configuration, not a degraded mode; `file` reads a JSON counts document an operator holds; `clickhouse` runs one `SELECT` — the one `01-schema.sql` states, aggregated with `sum()` because `SummingMergeTree` collapses rows only eventually — against `epos_downloads_total` and nothing else. Its credential arrives from `EPOS_REGISTRY_CATALOG_STATS_DSN` and from no flag, because a server runs for days with its arguments readable by every process on the host, and the grant behind it permits `SELECT` on that one table under a bounded read-only profile.
+
 ### 5.4 Publishes — withdrawn
 
 There is no publish counter. `epos.publishes` was to be recorded from the relayed manifest `PUT`, and §4.5 withdraws that path: a publish goes straight to upstream — including `epos push`’s — where `epos-registry` never sees it.

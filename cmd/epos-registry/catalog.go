@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"time"
 
@@ -74,7 +75,7 @@ func bindCatalogFlags(flags *pflag.FlagSet, serving bool) {
 	flags.String("catalog.refs", "",
 		"a file of <repository>:<tag> references to show instead of enumerating")
 	flags.String("catalog.stats-source", catalog.SourceNone,
-		"where pull counts come from: none or file")
+		"where pull counts come from: none, file or clickhouse")
 	flags.String("catalog.stats-file", "",
 		"a JSON counts document, for --catalog.stats-source file")
 }
@@ -121,12 +122,15 @@ func (c catalogConfig) index(ctx context.Context, client registry.Client, host s
 
 // stats builds the statistics source, scoped to the index.
 //
-// It does not take the DSN. config.statsDSN is resolved — that is what the
-// `catalog_` line in loadConfig's TransformFunc exists for, and a test asserts
-// the environment variable reaches the key — but no source in this build reads
-// one, so it is never passed anywhere, never logged and never put in an error.
-func (c catalogConfig) stats(repos []string) (catalog.Stats, error) {
-	source, err := catalog.StatsFor(c.statsSource, c.statsFile, repos)
+// The DSN is an argument rather than a field on catalogConfig, and that is the
+// whole of its travel: it arrives from EPOS_REGISTRY_CATALOG_STATS_DSN — what
+// the `catalog_` line in loadConfig's TransformFunc exists for — and reaches
+// exactly one constructor. It is never logged, never returned in an error and
+// never written into an export; the clickhouse source declines to quote it back
+// even when it cannot parse it, because net/url's own parse error would print
+// the credential.
+func (c catalogConfig) stats(dsn string, repos []string) (catalog.Stats, error) {
+	source, err := catalog.StatsFor(c.statsSource, c.statsFile, dsn, repos)
 	if err != nil {
 		return nil, err
 	}
@@ -134,29 +138,46 @@ func (c catalogConfig) stats(repos []string) (catalog.Stats, error) {
 }
 
 // newCatalogHandler builds the catalog and wraps the relay with it.
+//
+// The second return is the statistics source's release, and it is never nil: a
+// source that holds a connection pool — clickhouse does — has to be closed when
+// the server stops, and a nil io.Closer handed back for the two sources that
+// hold nothing is a nil check at the one call site that should not need one.
 func newCatalogHandler(ctx context.Context, cfg config, client registry.Client,
-	relay http.Handler) (http.Handler, error) {
+	relay http.Handler) (http.Handler, func() error, error) {
+	noRelease := func() error { return nil }
+
 	if err := catalog.CheckBasePath(cfg.catalog.basePath); err != nil {
-		return nil, err
+		return nil, noRelease, err
 	}
 
 	index, err := cfg.catalog.index(ctx, client, cfg.registryHost)
 	if err != nil {
-		return nil, err
+		return nil, noRelease, err
 	}
 	renderer, err := catalog.NewRenderer(index, cfg.catalog.basePath)
 	if err != nil {
-		return nil, err
+		return nil, noRelease, err
 	}
-	stats, err := cfg.catalog.stats(index.Repositories())
+	stats, err := cfg.catalog.stats(cfg.statsDSN, index.Repositories())
 	if err != nil {
-		return nil, err
+		return nil, noRelease, err
 	}
+	release := closeStats(stats)
 	server, err := catalog.NewServer(renderer, client, stats)
 	if err != nil {
-		return nil, err
+		return nil, release, err
 	}
-	return server.Handler(relay), nil
+	return server.Handler(relay), release, nil
+}
+
+// closeStats turns a source into its release, whether or not it has one.
+func closeStats(stats catalog.Stats) func() error {
+	closer, ok := stats.(io.Closer)
+	if !ok {
+		return func() error { return nil }
+	}
+	return closer.Close
 }
 
 // newCatalogExportCommand is the binary's first subcommand.
@@ -219,10 +240,15 @@ func newCatalogExportCommand() *cobra.Command {
 		if err != nil {
 			return err
 		}
-		stats, err := cfg.catalog.stats(index.Repositories())
+		stats, err := cfg.catalog.stats(cfg.statsDSN, index.Repositories())
 		if err != nil {
 			return err
 		}
+		// An export is a short-lived process, so this is tidiness rather than a
+		// leak — but it is the same release the server uses, reached the same
+		// way, which is what stops the two paths drifting into one that closes
+		// and one that does not.
+		defer func() { _ = closeStats(stats)() }()
 		if err := catalog.Export(cmd.Context(), renderer, client, stats, out); err != nil {
 			return err
 		}

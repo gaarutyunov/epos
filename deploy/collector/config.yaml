@@ -43,8 +43,8 @@ exporters:
     password: ${env:EPOS_COLLECTOR_PASSWORD}
     # The tables are the exporter's own. Set this false and provision them
     # yourself in production, which is what the exporter's README recommends —
-    # epos's own objects are in ../clickhouse/epos.sql either way, and they must
-    # exist before the first insert.
+    # epos's own objects are in ../clickhouse/ either way, and the rollup there
+    # must exist before this exporter's first download-span insert.
     create_schema: true
     ttl: 720h
     timeout: 10s

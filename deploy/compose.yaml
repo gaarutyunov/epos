@@ -1,11 +1,22 @@
 # The statistics stack, for local development and for a deployment to copy.
 #
-# Three containers and one ordering rule that matters more than the rest: the
-# DDL is applied BEFORE the collector starts. A ClickHouse materialized view is
-# an insert trigger and does not backfill, so a collector that inserts first
-# produces spans the rollup never sees — with nothing in any log to say so. The
-# `schema` service below exists only to make that ordering explicit rather than
-# a sentence in a README.
+# Four services and one ordering rule that matters more than the rest. The rule
+# is not "apply the DDL first": it is that epos's schema is applied in two
+# stages with the collector between them, because the two stages want opposite
+# things.
+#
+#   1. schema     the database, the catalog's table and the three principals.
+#                 Before the collector, which needs a user to connect as.
+#   2. collector  starts, and provisions otel_traces — its own table, which epos
+#                 declares nowhere.
+#   3. rollup     the materialized view over otel_traces. It cannot be created
+#                 before the table it reads exists, and it must exist before the
+#                 first download span, because a materialized view is an insert
+#                 trigger that does not backfill.
+#
+# Nothing points a registry at the collector until `docker compose up` has
+# settled. That is the whole safety margin, and deploy/clickhouse/02-rollup.sql
+# carries the backfill for a deployment where it was missed.
 #
 # Every image is pinned. Nothing here holds a credential: both passwords come
 # from the environment, and the registry has neither.
@@ -28,18 +39,18 @@ services:
       timeout: 2s
       retries: 30
 
-  # Applies epos's own objects and exits. The collector waits for it.
+  # Stage 1. Applies epos's own objects that read nothing, and exits.
   schema:
     image: clickhouse/clickhouse-server:25.3.3.42-alpine
     depends_on:
       clickhouse:
         condition: service_healthy
     volumes:
-      - ./clickhouse/epos.sql:/epos.sql:ro
+      - ./clickhouse/01-schema.sql:/01-schema.sql:ro
     entrypoint: ["sh", "-c"]
     command: >
       clickhouse-client --host clickhouse --user default
-      --password "$$CLICKHOUSE_PASSWORD" --multiquery < /epos.sql
+      --password "$$CLICKHOUSE_PASSWORD" --multiquery < /01-schema.sql
     environment:
       CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:?set CLICKHOUSE_PASSWORD}
 
@@ -56,11 +67,38 @@ services:
       - "4317:4317"
       - "4318:4318"
 
+  # Stage 2. Waits for the collector's own table, then creates the rollup over
+  # it. The wait is a poll rather than a depends_on because the collector being
+  # *started* is not the collector having provisioned its schema, and the
+  # difference between those two is a materialized view that fails to create.
+  rollup:
+    image: clickhouse/clickhouse-server:25.3.3.42-alpine
+    depends_on:
+      collector:
+        condition: service_started
+    volumes:
+      - ./clickhouse/02-rollup.sql:/02-rollup.sql:ro
+    entrypoint: ["sh", "-c"]
+    command: >
+      until clickhouse-client --host clickhouse --user default
+      --password "$$CLICKHOUSE_PASSWORD"
+      --query "EXISTS TABLE epos.otel_traces" | grep -qx 1;
+      do echo "waiting for otel_traces"; sleep 2; done;
+      clickhouse-client --host clickhouse --user default
+      --password "$$CLICKHOUSE_PASSWORD" --multiquery < /02-rollup.sql
+    environment:
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:?set CLICKHOUSE_PASSWORD}
+
 # epos-registry is deliberately not a service here. It is pointed at the
-# collector with:
+# collector, once the stack has settled, with:
 #
 #   epos-registry --upstream <registry> \
 #     --traces.exporter otlp --traces.endpoint 127.0.0.1:4318 --traces.insecure
 #
-# and, if it also serves the catalog, with EPOS_REGISTRY_CATALOG_STATS_DSN
-# carrying the *read-only* epos_catalog credential. It never gets a write one.
+# and, if it also serves the catalog, with
+#
+#   --catalog.enabled --catalog.stats-source clickhouse
+#
+# plus EPOS_REGISTRY_CATALOG_STATS_DSN carrying the *read-only* epos_catalog
+# credential. There is no flag that takes that DSN, and the registry never gets
+# a write one.

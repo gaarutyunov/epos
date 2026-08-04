@@ -1,26 +1,33 @@
--- The catalog's store: two objects epos owns, and three principals.
+-- The catalog's store, part one: everything that does not read otel_traces.
 --
--- Applied by a human or a bootstrap step BEFORE the collector's first insert.
--- That ordering is not a preference: a ClickHouse materialized view is an
--- insert trigger and sees only rows written after it exists. Create it late and
--- every span before it is invisible, with no error anywhere — the symptom is a
--- leaderboard of zeroes and a pipeline that looks healthy. The backfill for
--- that case is at the bottom of this file.
+-- Applied BEFORE the collector starts. It creates the database the collector
+-- writes into, the table the catalog reads, and the three principals — so the
+-- collector has a user to connect as, and the catalog has one that cannot
+-- write.
 --
--- epos writes no ClickHouse code at all. This file and the collector's YAML
--- beside it are configuration, in the sense this repository already uses the
--- word for .goreleaser.yaml and .golangci.yml: reviewed, pinned and diffable.
--- Nothing in Go creates, alters or inserts into any of it.
+-- The rollup is deliberately not here; it is 02-rollup.sql, and the split is
+-- not tidiness. A ClickHouse materialized view is created over a source table
+-- that must already exist, and otel_traces is the collector's: it does not
+-- exist until the collector has started. Applying this file and the rollup as
+-- one unit before the collector fails outright with UNKNOWN_TABLE.
+-- tests/integration/clickhouse_test.go asserts that failure rather than leaving
+-- it as a claim, because the ordering is the part of this deployment most
+-- likely to be "simplified" back into one file by someone who did not hit it.
+--
+-- epos writes no ClickHouse code at all. This file, its sibling and the
+-- collector's YAML beside them are configuration, in the sense this repository
+-- already uses the word for .goreleaser.yaml and .golangci.yml: reviewed,
+-- pinned and diffable. Nothing in Go creates, alters or inserts into any of it.
 
 CREATE DATABASE IF NOT EXISTS epos;
 
 -- ---------------------------------------------------------------------------
 -- 1. otel_traces is the collector's, and is declared nowhere here.
 --
--- The clickhouseexporter creates it on first use, or an operator provisions it
--- and sets create_schema: false (which the exporter's own README recommends in
--- production). epos neither creates nor alters it. The columns the rollup below
--- reads are Timestamp, ServiceName, SpanName and
+-- The clickhouseexporter creates it, or an operator provisions it and sets
+-- create_schema: false (which the exporter's own README recommends in
+-- production). epos neither creates nor alters it. The columns the rollup in
+-- 02-rollup.sql reads are Timestamp, ServiceName, SpanName and
 -- SpanAttributes Map(LowCardinality(String), String).
 --
 -- It is also written with a TTL, which is correct for spans and fatal for a
@@ -54,35 +61,13 @@ ORDER BY (Repository, Verified, Bucket);
 -- No TTL, deliberately. This table is what outlives the spans.
 
 -- ---------------------------------------------------------------------------
--- 3. The rollup that fills it.
---
--- Verified is a Bool here and a string on the wire: OTLP attributes arrive as
--- strings in the exporter's map column, so the conversion happens once, in the
--- one place that knows the encoding, rather than in every query.
---
--- Hourly buckets are small enough for any window a page shows and large enough
--- that the table stays negligible — and they make a future sparkline a
--- GROUP BY Bucket rather than a new pipeline.
--- ---------------------------------------------------------------------------
-CREATE MATERIALIZED VIEW IF NOT EXISTS epos.epos_downloads_mv
-TO epos.epos_downloads_total AS
-SELECT
-    SpanAttributes['repository']         AS Repository,
-    SpanAttributes['verified'] = 'true'  AS Verified,
-    toStartOfHour(Timestamp)             AS Bucket,
-    count()                              AS Downloads
-FROM otel_traces
-WHERE ServiceName = 'epos-registry' AND SpanName = 'epos.download'
-GROUP BY Repository, Verified, Bucket;
-
--- ---------------------------------------------------------------------------
--- 4. Three principals, three privileges.
+-- 3. Three principals, three privileges.
 --
 -- This is a security property rather than tidiness, and it is declared here so
 -- that it is reviewable in one place:
 --
 --   epos-registry (relay)  an OTLP endpoint. No database credential at all.
---   the collector          INSERT on the collector's own tables.
+--   the collector          writes its own tables, and nothing else reads.
 --   the catalog            SELECT on one table, and nothing else.
 --
 -- A compromise of the relay yields an OTLP endpoint, not a database — and the
@@ -96,7 +81,14 @@ GROUP BY Repository, Verified, Bucket;
 
 CREATE USER IF NOT EXISTS epos_collector IDENTIFIED BY '...';
 GRANT INSERT ON epos.* TO epos_collector;
-GRANT CREATE TABLE ON epos.* TO epos_collector;  -- only with create_schema: true
+
+-- CREATE and SELECT travel with create_schema: true, and only with it. The
+-- traces exporter provisions otel_traces, a trace-id lookup table and a
+-- materialized view between them, and that view reads otel_traces on every
+-- insert. Set create_schema: false, provision those tables yourself and the
+-- grant above is enough on its own — which is what the exporter's README
+-- recommends in production, and what narrows the collector to a pure writer.
+GRANT CREATE, SELECT ON epos.* TO epos_collector;
 
 -- readonly alone is not enough, and that is why the profile is bounded: a
 -- read-only user can still issue a query expensive enough to be a denial of
@@ -112,26 +104,13 @@ CREATE USER IF NOT EXISTS epos_catalog IDENTIFIED BY '...'
 GRANT SELECT ON epos.epos_downloads_total TO epos_catalog;
 
 -- ---------------------------------------------------------------------------
--- 5. The catalog's query, in full, because defining the schema means the read
---    side too.
+-- 4. The catalog's query, in full, because defining the schema means the read
+--    side too. internal/catalog/clickhouse.go carries it as a constant and a
+--    test holds the two against each other, so a change here that is not made
+--    there fails the build rather than the leaderboard.
 --
 --     SELECT Repository, Verified, sum(Downloads) AS Downloads
 --     FROM epos.epos_downloads_total
 --     WHERE Repository IN ? AND Bucket >= ?
---     GROUP BY Repository, Verified;
---
--- 6. Backfill, for a deployment where the view was created after spans had
---    already landed. A materialized view does not backfill itself; run this
---    once, and only once, or the counts double.
---
---     INSERT INTO epos.epos_downloads_total
---     SELECT
---         SpanAttributes['repository']         AS Repository,
---         SpanAttributes['verified'] = 'true'  AS Verified,
---         toStartOfHour(Timestamp)             AS Bucket,
---         count()                              AS Downloads
---     FROM otel_traces
---     WHERE ServiceName = 'epos-registry' AND SpanName = 'epos.download'
---       AND Timestamp < '<the moment the view was created>'
---     GROUP BY Repository, Verified, Bucket;
+--     GROUP BY Repository, Verified
 -- ---------------------------------------------------------------------------

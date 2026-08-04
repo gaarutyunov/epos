@@ -89,7 +89,7 @@ func TestNothingInGoWritesToTheStatisticsStore(t *testing.T) {
 		scanned++
 		assert.NotRegexp(t, writes, string(body),
 			"%s speaks SQL and carries a statement that would change the store; "+
-				"the collector is the only writer and deploy/clickhouse/epos.sql "+
+				"the collector is the only writer and deploy/clickhouse/ "+
 				"is the only schema", path)
 		return nil
 	}))

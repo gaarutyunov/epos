@@ -58,13 +58,14 @@ type Pulls struct {
 
 // Sources selectable by --catalog.stats-source.
 //
-// clickhouse is named here and not implemented here: the store, the collector
-// and the span that fills it are a separate deliverable, and a source with
-// nothing writing to it would render a leaderboard of zeroes — which is exactly
-// what SourceNone exists to avoid.
+// clickhouse is the production one: the store the download span lands in, read
+// through the query deploy/clickhouse/01-schema.sql states. file is an input an
+// operator holds; none is the absence of a source and a supported configuration
+// rather than a degraded mode.
 const (
-	SourceNone = "none"
-	SourceFile = "file"
+	SourceNone       = "none"
+	SourceFile       = "file"
+	SourceClickHouse = "clickhouse"
 )
 
 // StatsFor builds the statistics source a configuration names.
@@ -75,7 +76,12 @@ const (
 // answers to the same question, and the second one is where the zeroes get in.
 //
 // repos scopes the source to the catalog's index.
-func StatsFor(source, file string, repos []string) (Stats, error) {
+//
+// dsn reaches only the clickhouse case. It is a working credential for a
+// queryable database, so it is passed rather than stored, never logged, and
+// never put into an error — see NewClickHouseStats, which declines to quote it
+// back even when it cannot parse it.
+func StatsFor(source, file, dsn string, repos []string) (Stats, error) {
 	switch source {
 	case "", SourceNone:
 		return nil, nil
@@ -84,9 +90,11 @@ func StatsFor(source, file string, repos []string) (Stats, error) {
 			return nil, fmt.Errorf("--catalog.stats-source %s needs --catalog.stats-file", SourceFile)
 		}
 		return NewFileStats(file, repos), nil
+	case SourceClickHouse:
+		return NewClickHouseStats(dsn, repos)
 	default:
-		return nil, fmt.Errorf("unknown statistics source %q: use %s or %s",
-			source, SourceNone, SourceFile)
+		return nil, fmt.Errorf("unknown statistics source %q: use %s, %s or %s",
+			source, SourceNone, SourceFile, SourceClickHouse)
 	}
 }
 
@@ -202,4 +210,18 @@ func (c *cachedStats) Pulls(ctx context.Context) (Counts, error) {
 	c.at = time.Now()
 	c.loaded = true
 	return c.counts, c.err
+}
+
+// Close releases whatever the wrapped source holds, and nothing when it holds
+// nothing.
+//
+// The cache is what the rest of the program is handed, so without this the
+// connection pool underneath a clickhouse source would be unreachable — and the
+// alternative, putting Close on Stats, would make every future source carry a
+// method two of the three have no use for.
+func (c *cachedStats) Close() error {
+	if closer, ok := c.inner.(io.Closer); ok {
+		return closer.Close()
+	}
+	return nil
 }

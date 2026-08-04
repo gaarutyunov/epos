@@ -24,11 +24,11 @@ func writeCounts(t *testing.T, body string) string {
 // handled at one call site — the choice made once, so there is no second answer
 // for a zero to get in through.
 func TestNoneIsANilStats(t *testing.T) {
-	stats, err := StatsFor(SourceNone, "", nil)
+	stats, err := StatsFor(SourceNone, "", "", nil)
 	require.NoError(t, err)
 	assert.Nil(t, stats)
 
-	empty, err := StatsFor("", "", nil)
+	empty, err := StatsFor("", "", "", nil)
 	require.NoError(t, err)
 	assert.Nil(t, empty)
 
@@ -141,11 +141,18 @@ func TestASlowSourceIsBounded(t *testing.T) {
 }
 
 func TestAnUnknownSourceIsNamed(t *testing.T) {
-	_, err := StatsFor("clickhouse", "", nil)
+	// `clickhouse` used to be the example of a source that did not exist yet.
+	// It exists now, so the example has to be a name that never will —
+	// otherwise this test passes for the wrong reason the day it is added.
+	_, err := StatsFor("postgres", "", "", nil)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "clickhouse")
+	assert.Contains(t, err.Error(), "postgres")
+	for _, name := range []string{SourceNone, SourceFile, SourceClickHouse} {
+		assert.Contains(t, err.Error(), name,
+			"the error should list every source an operator could have meant")
+	}
 
-	_, err = StatsFor(SourceFile, "", nil)
+	_, err = StatsFor(SourceFile, "", "", nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "--catalog.stats-file")
 }

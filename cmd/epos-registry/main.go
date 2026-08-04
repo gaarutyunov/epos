@@ -289,10 +289,19 @@ func run(ctx context.Context, cfg config) error {
 		// misconfiguration — a base path under /v2/, both enumeration modes at
 		// once, an unreadable refs file — stops the process, and each of those
 		// is answered before any network request.
-		handler, err = newCatalogHandler(ctx, cfg, client, handler)
+		var release func() error
+		handler, release, err = newCatalogHandler(ctx, cfg, client, handler)
 		if err != nil {
 			return err
 		}
+		// After the listener stops, not before: the statistics source is what a
+		// page in flight is still reading from, and a pool closed at the top of
+		// the shutdown would turn the last few requests into errors.
+		defer func() {
+			if err := release(); err != nil {
+				fmt.Fprintln(os.Stderr, "epos-registry: close statistics source:", err)
+			}
+		}()
 		log.Printf("epos-registry: serving the catalog at %s", cfg.catalog.basePath)
 	}
 
