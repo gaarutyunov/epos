@@ -1,0 +1,388 @@
+<!DOCTYPE html><html lang="en"> <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Quick start — Epos</title><meta name="description" content="Install a published skill, author your own, derive one skill from five others, and turn its features on and off with a values file."><link rel="icon" type="image/png" sizes="32x32" href="/pr-preview/pr-52/favicon-32.png"><link rel="icon" type="image/png" sizes="192x192" href="/pr-preview/pr-52/icon-192.png"><link rel="apple-touch-icon" href="/pr-preview/pr-52/apple-touch-icon.png"><!--
+      The manifest's own icon paths are relative to the manifest URL, not to the
+      page, so they follow a PR preview into its subdirectory without needing
+      BASE_URL baked into a file that Astro copies through verbatim.
+    --><link rel="manifest" href="/pr-preview/pr-52/site.webmanifest"><link rel="canonical" href="https://epos.garutyunov.com/pr-preview/pr-52/quickstart/"><meta property="og:type" content="website"><meta property="og:site_name" content="Epos"><meta property="og:title" content="Quick start — Epos"><meta property="og:description" content="Install a published skill, author your own, derive one skill from five others, and turn its features on and off with a values file."><meta property="og:url" content="https://epos.garutyunov.com/pr-preview/pr-52/quickstart/"><meta property="og:image" content="https://epos.garutyunov.com/pr-preview/pr-52/og-image.png"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="Quick start — Epos"><meta name="twitter:description" content="Install a published skill, author your own, derive one skill from five others, and turn its features on and off with a values file."><meta name="twitter:image" content="https://epos.garutyunov.com/pr-preview/pr-52/og-image.png"><link rel="stylesheet" href="/pr-preview/pr-52/_astro/cli.DTWHRLy8.css">
+<style>.filename[data-astro-cid-4xjgpev6]{margin:var(--ga-space-4, 16px) 0 var(--ga-space-2, 8px);font-family:var(--ga-font-mono);font-size:var(--ga-fs-xs, 12px);text-transform:uppercase;color:var(--ga-dim, #454545)}.file[data-astro-cid-4xjgpev6],.out[data-astro-cid-4xjgpev6]{padding:var(--ga-space-3, 12px) var(--ga-space-4, 16px);border:1px solid var(--ga-border, #1a1a1a);border-radius:var(--ga-radius, 6px);background:color-mix(in srgb,var(--ga-bg-elev, #1a1a1a) 40%,transparent);color:var(--ga-fg, #ededed)}.out[data-astro-cid-4xjgpev6]{color:var(--ga-muted, #878787)}details[data-astro-cid-4xjgpev6]{margin-bottom:var(--ga-space-4, 16px)}summary[data-astro-cid-4xjgpev6]{cursor:pointer;font-family:var(--ga-font-mono);font-size:var(--ga-fs-sm, 14px);color:var(--ga-muted, #878787);margin-bottom:var(--ga-space-3, 12px)}summary[data-astro-cid-4xjgpev6]:hover{color:var(--ga-fg, #ededed)}.arrow[data-astro-cid-4xjgpev6]{font-family:var(--ga-font-mono);font-size:var(--ga-fs-xs, 12px)}
+</style></head> <body> <header class="site"> <div class="site-inner"> <a class="wordmark" href="/pr-preview/pr-52/">Epos</a> <nav aria-label="Sections"> <a href="/pr-preview/pr-52/quickstart">Quick start</a><a href="/pr-preview/pr-52/cli">CLI</a><a href="/pr-preview/pr-52/skillfile">Skillfile</a> <a href="https://github.com/gaarutyunov/epos" aria-label="GitHub" title="GitHub"> <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"> <path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.56 0-.28-.01-1.02-.02-2-3.2.7-3.87-1.54-3.87-1.54-.52-1.32-1.27-1.67-1.27-1.67-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.18 1.76 1.18 1.02 1.75 2.69 1.25 3.35.95.1-.74.4-1.25.73-1.54-2.55-.29-5.24-1.28-5.24-5.69 0-1.26.45-2.29 1.18-3.1-.12-.29-.51-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.05 11.05 0 0 1 5.79 0c2.21-1.49 3.18-1.18 3.18-1.18.62 1.59.23 2.76.11 3.05.74.81 1.18 1.84 1.18 3.1 0 4.42-2.69 5.39-5.25 5.68.41.35.78 1.05.78 2.12 0 1.53-.01 2.77-.01 3.15 0 .31.21.68.8.56C20.21 21.39 23.5 17.08 23.5 12 23.5 5.65 18.35.5 12 .5Z"></path> </svg> </a> </nav> </div> </header> <main> <nav class="crumbs" aria-label="Breadcrumb"> <a href="/pr-preview/pr-52/">Epos</a> <span aria-hidden="true">/</span> <span aria-current="page">Quick start</span> </nav>  <div class="doc" data-astro-cid-4xjgpev6> <div class="doc-main" data-astro-cid-4xjgpev6> <h1 data-astro-cid-4xjgpev6>Quick start</h1> <p class="lede" data-astro-cid-4xjgpev6>
+Two paths — use a skill someone published, or publish your own — then
+        the thing epos is actually for: one skill derived from five, with its
+        dependencies on a switch.
+</p> <section id="install" data-astro-cid-4xjgpev6> <h2 class="section-label" data-astro-cid-4xjgpev6>Install</h2> <ga-code prompt="$" data-astro-cid-4xjgpev6="true">go install github.com/gaarutyunov/epos/cmd/epos@latest</ga-code> <ga-code prompt="$" data-astro-cid-4xjgpev6="true">export EPOS_HOME="$PWD/.epos"</ga-code> <p data-astro-cid-4xjgpev6> <code data-astro-cid-4xjgpev6>EPOS_HOME</code> is optional; without it the store is
+<code data-astro-cid-4xjgpev6>~/.epos</code>. Setting it makes this a throwaway.
+</p> </section> <section id="use" data-astro-cid-4xjgpev6> <h2 class="section-label" data-astro-cid-4xjgpev6>Use a published skill</h2> <ga-code prompt="$" data-astro-cid-4xjgpev6="true">epos pull ghcr.io/acme/agent-skills/reviewer:1.0.0</ga-code> <p class="filename" data-astro-cid-4xjgpev6><code data-astro-cid-4xjgpev6>values.yaml</code></p> <pre class="file" data-astro-cid-4xjgpev6>language: Go
+global:
+  org: Acme</pre> <ga-code prompt="$" data-astro-cid-4xjgpev6="true">epos install reviewer:1.0.0 -f values.yaml</ga-code> <ga-code prompt="$" data-astro-cid-4xjgpev6="true">epos ls</ga-code> <pre class="out" data-astro-cid-4xjgpev6>reviewer:1.0.0 sha256:a32fa1dfea1118829a06ab4975e38ca502cc3c3f1ccfdab909f846276f486558</pre> <p data-astro-cid-4xjgpev6>
+The skill is now in <code data-astro-cid-4xjgpev6>.claude/skills/reviewer/</code> with your
+          values filled in, and the digest is pinned in
+<code data-astro-cid-4xjgpev6>skills.lock.json</code>. Commit the lock file.
+</p> <ga-note tone="info" title="install resolves, it does not fetch" data-astro-cid-4xjgpev6="true"> <code data-astro-cid-4xjgpev6>install</code> reads the local store. Run <code data-astro-cid-4xjgpev6>pull</code> or
+<code data-astro-cid-4xjgpev6>build</code> first, and a value the skill needs but nobody
+          supplied fails the install rather than rendering a hole.
+</ga-note> </section> <section id="author" data-astro-cid-4xjgpev6> <h2 class="section-label" data-astro-cid-4xjgpev6>Author your own</h2> <p class="filename" data-astro-cid-4xjgpev6><code data-astro-cid-4xjgpev6>reviewer/SKILL.md</code></p> <pre class="file" data-astro-cid-4xjgpev6>---
+name: reviewer
+version: &quot;1.0.0&quot;
+description: Reviews a pull request against our house standard.
+---
+
+# Reviewer
+
+Review in {{ .Values.language }}. Escalate anything you would block on.</pre> <ga-code prompt="$" data-astro-cid-4xjgpev6="true">epos pack ./reviewer</ga-code> <pre class="out" data-astro-cid-4xjgpev6>reviewer:1.0.0 sha256:a32fa1dfea1118829a06ab4975e38ca502cc3c3f1ccfdab909f846276f486558</pre> <ga-code prompt="$" data-astro-cid-4xjgpev6="true">epos registry login ghcr.io -u you</ga-code> <ga-code prompt="$" data-astro-cid-4xjgpev6="true">epos push reviewer:1.0.0 oci://ghcr.io/acme/agent-skills</ga-code> <p data-astro-cid-4xjgpev6>
+Nothing is repacked on the way out, so the digest <code data-astro-cid-4xjgpev6>pack</code>
+printed is the digest that arrives. Any other OCI client publishes it
+          just as well —
+<code data-astro-cid-4xjgpev6>oras cp --from-oci-layout-path "$(epos store path)"
+            reviewer:1.0.0 …</code>.
+</p> </section> <section id="derive" data-astro-cid-4xjgpev6> <h2 class="section-label" data-astro-cid-4xjgpev6>Derive one skill from five</h2> <p data-astro-cid-4xjgpev6>
+The workspace routes Go work at five skills that disagree with each
+          other. One <code data-astro-cid-4xjgpev6>Skillfile</code> settles it: five stages, each from
+          its own source, and one artifact that reads as though it was written
+          that way.
+</p> <pre class="file" data-astro-cid-4xjgpev6>ARG WORKSPACE=git+https://github.com/gaarutyunov/workspace#dafdffce5fefa06da704f976dd94ee74d8db2142
+ARG SKILLS=.agents/skills
+FROM ${WORKSPACE}:${SKILLS}/go AS idiomatic
+FROM ${WORKSPACE}:${SKILLS}/golang-pro AS pro
+FROM ${WORKSPACE}:${SKILLS}/cobra-viper AS cli
+FROM ${WORKSPACE}:${SKILLS}/testcontainers-go AS containers
+FROM ${WORKSPACE}:${SKILLS}/go-project-scaffold</pre> <p data-astro-cid-4xjgpev6>
+Each stage is edited where it is wrong and copied where it is right.
+<code data-astro-cid-4xjgpev6>RM</code> drops a file whole; <code data-astro-cid-4xjgpev6>AWK</code> drops a section on
+          its heading; <code data-astro-cid-4xjgpev6>REPLACE</code> takes a block out of a section that
+          is otherwise kept, or wraps one in a condition.
+</p> <ga-note tone="success" title="Why deriving beats forking" data-astro-cid-4xjgpev6="true">
+The house rule against Viper had to live <em data-astro-cid-4xjgpev6>outside</em> spf13's CLI
+          skill, in a separate rules file, because an edit inside a vendored
+          skill is lost the next time it is installed. The
+<code data-astro-cid-4xjgpev6>cli</code> stage puts it back in: the Viper section is dropped and
+          the house's koanf answer takes its place, and it survives the next upstream
+          release because it is a recipe rather than a patch.
+</ga-note> <ga-code prompt="$" data-astro-cid-4xjgpev6="true">epos build -t go-house:0.1.0 examples/go-house</ga-code> <details data-astro-cid-4xjgpev6> <summary data-astro-cid-4xjgpev6>The whole recipe</summary> <pre class="file" data-astro-cid-4xjgpev6># go-house — one Go skill derived from five published ones.
+#
+# The workspace routes Go work at five different skills. A reader following all
+# five gets two answers about project layout, two about configuration, and one
+# pattern the house standard forbids outright. This Skillfile settles the
+# arguments once and ships the result as a single skill.
+#
+# Every source is pinned to a commit. A `#main` reference would let the derived
+# skill change meaning without the recipe changing, which is the thing epos
+# exists to stop.
+ARG WORKSPACE=git+https://github.com/gaarutyunov/workspace#dafdffce5fefa06da704f976dd94ee74d8db2142
+ARG SKILLS=.agents/skills
+
+# ---------------------------------------------------------------------------
+# idiomatic — spf13&#39;s `go`, kept for its philosophy.
+# ---------------------------------------------------------------------------
+FROM ${WORKSPACE}:${SKILLS}/go AS idiomatic
+
+# Seven sections go. One is a conflict; the rest are a standard-library
+# cookbook and a debugging essay — good writing, but not house guidance, and
+# 290 lines a reader of a *house* skill will not read twice.
+#
+# `## Package Organization: Flat by Default` calls a default `internal/` an
+# anti-pattern. The base skill&#39;s `## Layout` puts everything private under
+# `internal/`. Both cannot survive: a skill that answers one question two ways
+# is worse than either answer alone.
+#
+# AWK and not PATCH: these are files nobody here controls, and a strict diff
+# against a 774-line document owned by someone else fails on their next commit.
+# Matching on section boundaries survives everything except a renamed heading.
+AWK SKILL.md &lt;&lt;&#39;EOF&#39;
+/^## / {
+    drop = ($0 == &quot;## When to Activate&quot; ||
+            $0 == &quot;## Package Organization: Flat by Default&quot; ||
+            $0 == &quot;## Standard Library: Use the New Packages&quot; ||
+            $0 == &quot;## Concurrency: Modern Patterns&quot; ||
+            $0 == &quot;## HTTP: Use the Improved stdlib Router (Go 1.22)&quot; ||
+            $0 == &quot;## Syntax: Use Current Go&quot; ||
+            $0 == &quot;## Debugging: The Go Toolchain Is Not the Problem&quot;)
+}
+# The frontmatter belongs to a skill; this file is about to become a reference
+# inside one. Printing starts at the title.
+/^# / { started = 1 }
+started &amp;&amp; !drop { print }
+EOF
+
+# ---------------------------------------------------------------------------
+# pro — `golang-pro`, kept for its worked examples, minus four conflicts.
+# ---------------------------------------------------------------------------
+FROM ${WORKSPACE}:${SKILLS}/golang-pro AS pro
+
+# 1. project-structure.md — dropped whole, the one drop proportionate at file
+#    scale. It prescribes handler/service/repository layers, a third
+#    configuration library, the archived golang/mock behind a tools.go of blank
+#    imports, and `// +build` tags. Nothing in it survives a house review.
+#
+#    RM is strict where AWK and REPLACE are forgiving, and that is right here:
+#    a path that is not there is a path this recipe is wrong about.
+RM references/project-structure.md
+
+# 2. The `var _ Interface = (*Impl)(nil)` section. The house standard says
+#    &quot;**Never** write&quot; it and its review checklist says to remove it on sight.
+#    A clean two-sided conflict, so the section teaching it goes.
+AWK references/interfaces.md &lt;&lt;&#39;EOF&#39;
+/^## / { drop = ($0 == &quot;## Interface Satisfaction Verification&quot;) }
+!drop { print }
+EOF
+
+# 3. The static worker pool — the whole of `## Goroutine Lifecycle Management`
+#    is that one type. spf13&#39;s skill names it an anti-pattern and answers with
+#    errgroup + SetLimit, which the idiomatic stage carries. Rate limiting and
+#    pipelines below it stay.
+AWK references/concurrency.md &lt;&lt;&#39;EOF&#39;
+/^## / { drop = ($0 == &quot;## Goroutine Lifecycle Management&quot;) }
+!drop { print }
+EOF
+
+# 4. Generics: kept. The material is good and the house has no quarrel with it.
+#    Two shapes out of twelve sections are wrong, and only those two go.
+#
+#    `## Generic Interfaces` teaches a `Container[T any]` interface used for
+#    polymorphism — the exact shape the idiomatic stage shows under &quot;When NOT
+#    to Use Generics&quot; with the comment &quot;this is Java&quot;. Clean boundary, so AWK.
+AWK references/generics.md &lt;&lt;&#39;EOF&#39;
+/^## / { drop = ($0 == &quot;## Generic Interfaces&quot;) }
+!drop { print }
+EOF
+
+#    The Rust-style `Result[T]` sits *inside* `## Generic Pairs and Tuples`,
+#    whose `Pair`/`Swap` half is fine. A section-boundary edit would take the
+#    good half with it, so this one is a pattern — RE2 with (?s) so the match
+#    can span lines.
+REPLACE references/generics.md &#39;(?s)\n\n// Generic Result type.*?\n    return r\.value\n\}&#39; &#39;&#39;
+
+#    A correction, not a drop: `constraints.Ordered` moved into the standard
+#    library as `cmp.Ordered`, which is what the idiomatic stage tells you to
+#    use. `constraints.Integer | constraints.Float` has no `cmp` equivalent, so
+#    the real x/exp path has to survive alongside it — and the bare
+#    `constraints` in the sample import is not an importable path at all.
+REPLACE references/generics.md &#39;constraints\.Ordered&#39; &#39;cmp.Ordered&#39;
+REPLACE references/generics.md &#39;(?m)^import &quot;constraints&quot;$&#39; &#39;import &quot;golang.org/x/exp/constraints&quot; // cmp.Ordered below is in the standard library&#39;
+
+# ---------------------------------------------------------------------------
+# cli — spf13&#39;s `cobra-viper`. Added in order to have its Viper half removed.
+# ---------------------------------------------------------------------------
+#
+# This is the stage that earns the whole exercise. The workspace had already
+# rejected Viper, and had to write that rejection *outside* the skill, in a
+# rules file, because an edit inside a vendored skill is lost the next time the
+# skill is installed. Here the override goes back where it belongs.
+FROM ${WORKSPACE}:${SKILLS}/cobra-viper AS cli
+
+# The configuration half, whole, on its section boundary.
+AWK SKILL.md &lt;&lt;&#39;EOF&#39;
+/^## / {
+    drop = ($0 == &quot;## When to Activate&quot; ||
+            $0 == &quot;## Viper Configuration Patterns&quot;)
+}
+/^# / { started = 1 }
+started &amp;&amp; !drop { print }
+EOF
+
+# What the boundary misses: the samples that pass a *viper.Viper around. Each
+# one becomes the koanf call the house rule already writes out.
+REPLACE SKILL.md &#39;(?s)Viper acts as the single source of truth.*?application logic\.&#39; &#39;One koanf instance is the single source of truth: it merges defaults, the config file, the environment and the flags **in the order you load them**, and that explicit order is what makes the winning source readable. See `## Configuration: koanf` below.&#39;
+REPLACE SKILL.md &#39;v := viper\.New\(\)&#39; &#39;k := koanf.New(&quot;.&quot;)&#39;
+REPLACE SKILL.md &#39;initConfig\(v, cmd\)&#39; &#39;initConfig(k, cmd)&#39;
+REPLACE SKILL.md &#39;NewServeCmd\(v\)&#39; &#39;NewServeCmd(k)&#39;
+REPLACE SKILL.md &#39;NewBuildCmd\(v\)&#39; &#39;NewBuildCmd(k)&#39;
+REPLACE SKILL.md &#39;\(v \*viper\.Viper\)&#39; &#39;(k *koanf.Koanf)&#39;
+REPLACE SKILL.md &#39;v\.Unmarshal\(&amp;cfg\)&#39; &#39;k.Unmarshal(&quot;&quot;, &amp;cfg)&#39;
+REPLACE SKILL.md &#39;github\.com/spf13/viper&#39; &#39;github.com/knadh/koanf/v2&#39;
+
+# Four bullets that are Viper&#39;s failure modes and nobody else&#39;s.
+REPLACE SKILL.md &#39;(?s)\n- \*\*Env-only values missing after.*?gotcha above\)\.&#39; &#39;&#39;
+REPLACE SKILL.md &#39;(?s)\n- \*\*Forgetting `BindPFlags`\*\*.*?explicitly\.&#39; &#39;&#39;
+REPLACE SKILL.md &#39;(?s)\n- \*\*Missing `SetEnvKeyReplacer`\*\*.*?replacer\.&#39; &#39;&#39;
+REPLACE SKILL.md &quot;(?s)\n- If you&#39;re stuck with the global Viper singleton.*?test cases\.&quot; &#39;&#39;
+REPLACE SKILL.md &#39;no `viper\.Reset\(\)`&#39; &#39;no global configuration state&#39;
+
+# Everything left is prose. Cobra keeps its name; the other one does not.
+REPLACE SKILL.md &#39;Viper&#39; &#39;koanf&#39;
+
+# And the house&#39;s answer takes the place of the question, so the derived skill
+# does not leave a hole where the configuration section was.
+APPEND SKILL.md &lt;&lt;&#39;EOF&#39;
+
+## Configuration: koanf
+
+Configuration is [koanf](https://github.com/knadh/koanf)
+(`github.com/knadh/koanf/v2`), never Viper. This is a standing preference, not
+a per-project call.
+
+```go
+k := koanf.New(&quot;.&quot;)
+k.Load(file.Provider(path), yaml.Parser())            // defaults, then file,
+k.Load(env.Provider(&quot;MYCLI_&quot;, &quot;.&quot;, transform), nil)   // then environment,
+k.Load(posflag.Provider(cmd.Flags(), &quot;.&quot;, k), nil)    // then flags
+k.Unmarshal(&quot;&quot;, &amp;cfg)
+```
+
+Load in explicit precedence order: koanf merges in call order and has no
+equivalent of Viper&#39;s implicit precedence table. That explicitness is the
+reason for the preference — which source won is the order you can read in the
+function.
+
+The rule that the engine package imports neither the CLI nor the configuration
+library still holds. `cmd/` unmarshals into a plain config struct and passes
+that in; nothing downstream knows koanf exists.
+EOF
+
+# ---------------------------------------------------------------------------
+# containers — `testcontainers-go`, one file out of a skill with dozens.
+# ---------------------------------------------------------------------------
+FROM ${WORKSPACE}:${SKILLS}/testcontainers-go AS containers
+
+# ---------------------------------------------------------------------------
+# The house standard is the base. The other four arrive as copies.
+# ---------------------------------------------------------------------------
+FROM ${WORKSPACE}:${SKILLS}/go-project-scaffold
+
+COPY --from=idiomatic SKILL.md references/idiomatic-go.md
+COPY --from=cli SKILL.md references/cli.md
+COPY --from=pro references/generics.md references/generics.md
+COPY --from=pro references/interfaces.md references/interfaces.md
+COPY --from=pro references/concurrency.md references/concurrency.md
+COPY --from=pro references/testing.md references/testing.md
+
+# Only the Go example, and only one of them. The skill it comes from is a
+# 1569-line SKILL.md plus a directory of examples; a house skill needs the one
+# that shows a real Postgres coming up under a test.
+#
+# go.mod travels with it so the example is its own module and never lands in
+# the consuming project&#39;s build.
+COPY --from=containers examples/01_postgres_basic_test.go references/testcontainers/postgres_container_test.go
+COPY --from=containers examples/go.mod references/testcontainers/go.mod
+
+# A copied file renders under the *stage* it came from, not the skill&#39;s own
+# scope: this file&#39;s `{{ }}` resolves against `containers`, because that is
+# what `COPY --from=containers` means. `global` is the block every scope sees,
+# so an axis that spans stages belongs there — and this one does, because the
+# entry document below is guarded on the same switch.
+#
+# epos adds and drops *content* at install time, never files: with the feature
+# off this renders to an empty file rather than to no file at all.
+REPLACE references/testcontainers/postgres_container_test.go &#39;(?m)^package examples_test$&#39; &#39;{{ if .Values.global.testcontainers }}package examples_test&#39;
+APPEND references/testcontainers/postgres_container_test.go &lt;&lt;&#39;EOF&#39;
+{{ end }}
+EOF
+
+# ---------------------------------------------------------------------------
+# The mandates become parameters.
+# ---------------------------------------------------------------------------
+#
+# The house standard&#39;s `## Non-negotiable` table is written as if it had
+# parameters and then hard-codes them. A single-purpose library has no HTTP
+# API, no injection graph and nothing to instrument; a service has all three.
+# One artifact, two profiles.
+AWK SKILL.md &lt;&lt;&#39;EOF&#39;
+/^## / {
+    if ($0 == &quot;## Non-negotiable&quot;) { negotiable(); drop = 1; next }
+    drop = 0
+}
+!drop { print }
+
+function negotiable() {
+    print &quot;## Non-negotiable&quot;
+    print &quot;&quot;
+    print &quot;These are not per-project choices. `{{ .Values.module }}` uses all of them:&quot;
+    print &quot;&quot;
+    print &quot;| | Why it is not optional |&quot;
+    print &quot;|---|---|&quot;
+    print &quot;| **Code generation over hand-rolling** | Anything derivable from a spec is generated from it. Hand-written equivalents drift from the spec silently. |&quot;
+    print &quot;| **`cobra`** for the command line | One command-construction pattern across every binary. |&quot;
+    print &quot;| **`koanf`** for configuration | **Never Viper**, in any project. See [`references/cli.md`](references/cli.md). |&quot;
+    print &quot;{{- if .Values.openapi }}&quot;
+    print &quot;| **`oapi-codegen`** for the HTTP surface | Models, client and server come from `api/openapi.yaml`. A hand-written handler drifts from the spec the first time the spec changes. |&quot;
+    print &quot;{{- end }}&quot;
+    print &quot;{{- if .Values.di }}&quot;
+    print &quot;| **`wire`** for dependency injection | `github.com/goforj/wire`. The graph is compile-time and generated; no service locator, no `init()` wiring. |&quot;
+    print &quot;{{- end }}&quot;
+    print &quot;{{- if .Values.telemetry }}&quot;
+    print &quot;| **OpenTelemetry semantic conventions** | Instrumentation uses the *official* conventions where they exist, and a Weaver registry for what genuinely does not. Inventing an attribute that already has a standard name makes the telemetry unjoinable. |&quot;
+    print &quot;{{- end }}&quot;
+    print &quot;{{- if .Values.global.testcontainers }}&quot;
+    print &quot;| **`testcontainers-go`** for integration tests | Real dependencies in containers, no mocks. See [`references/testcontainers/`](references/testcontainers/). |&quot;
+    print &quot;{{- end }}&quot;
+    print &quot;&quot;
+}
+EOF
+
+# The material that only exists to serve one of those switches goes with it.
+# Each capture group carries its own leading newlines, so switching a feature
+# off takes the blank line with it and leaves no hole in the document.
+REPLACE SKILL.md &#39;(?s)(\n\n## Telemetry\n.*?)(\n\n## Configuration)&#39; &#39;{{ if .Values.telemetry }}${1}{{ end }}${2}&#39;
+REPLACE SKILL.md &#39;(?s)(\n//go:generate go tool oapi-codegen[^\n]*\n//go:generate go tool oapi-codegen[^\n]*)&#39; &#39;{{ if .Values.openapi }}${1}{{ end }}&#39;
+REPLACE SKILL.md &#39;(?s)(\n//go:generate go tool wire[^\n]*)&#39; &#39;{{ if .Values.di }}${1}{{ end }}&#39;
+REPLACE SKILL.md &#39;(?s)(\n\s+github\.com/goforj/wire/cmd/wire)&#39; &#39;{{ if .Values.di }}${1}{{ end }}&#39;
+REPLACE SKILL.md &#39;(?s)(\n\s+github\.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen)&#39; &#39;{{ if .Values.openapi }}${1}{{ end }}&#39;
+REPLACE SKILL.md &#39;(?s)(\n- \*\*Integration tests use no mocks.*?integration test\.)&#39; &#39;{{ if .Values.global.testcontainers }}${1}{{ end }}&#39;
+REPLACE SKILL.md &#39;(?s)( and\n`testcontainers-go` for the container patterns)&#39; &#39;{{ if .Values.global.testcontainers }}${1}{{ end }}&#39;
+REPLACE SKILL.md &#39;(?s)(\n\nWeaver runs through Docker.*?make semconv`\.)&#39; &#39;{{ if .Values.telemetry }}${1}{{ end }}&#39;
+REPLACE SKILL.md &#39;(?s)(\nsemconv           # Weaver[^\n]*)&#39; &#39;{{ if .Values.telemetry }}${1}{{ end }}&#39;
+REPLACE SKILL.md &#39;(?s)(\n- Validate responses against the OpenAPI spec.*?testable too\.)&#39; &#39;{{ if .Values.openapi }}${1}{{ end }}&#39;
+
+# The references the derivation added, listed where a reader will look for them.
+APPEND SKILL.md &lt;&lt;&#39;EOF&#39;
+- [`references/idiomatic-go.md`](references/idiomatic-go.md) — spf13&#39;s idiomatic
+  Go, minus the standard-library cookbook and the layout section this standard
+  answers itself.
+- [`references/cli.md`](references/cli.md) — spf13&#39;s Cobra architecture, with
+  the configuration half replaced by the house&#39;s koanf answer.
+- [`references/generics.md`](references/generics.md),
+  [`references/interfaces.md`](references/interfaces.md),
+  [`references/concurrency.md`](references/concurrency.md) and
+  [`references/testing.md`](references/testing.md) — worked examples, minus the
+  three shapes this standard forbids.
+{{- if .Values.global.testcontainers }}
+- [`references/testcontainers/`](references/testcontainers/) — a real Postgres
+  under a real test, as its own module.
+{{- end }}
+EOF
+
+# No source skill carries a top-level version, so the derived skill declares its
+# own identity rather than inheriting a name that no longer describes it.
+SET name go-house
+SET version &quot;0.1.0&quot;
+SET description &quot;The house Go standard, derived from five published skills: spf13&#39;s go and cobra-viper, golang-pro, testcontainers-go, and this workspace&#39;s go-project-scaffold. Parameterised, so a project turns off what it does not have.&quot;</pre> </details> </section> <section id="parameters" data-astro-cid-4xjgpev6> <h2 class="section-label" data-astro-cid-4xjgpev6>Turn features off, and back on</h2> <p data-astro-cid-4xjgpev6>
+The base skill mandates an OpenAPI generator, a dependency-injection
+          graph, a telemetry registry and containers for the integration suite.
+          A single-purpose library has none of those.
+</p> <p class="filename" data-astro-cid-4xjgpev6><code data-astro-cid-4xjgpev6>examples/go-house/values-library.yaml</code></p> <pre class="file" data-astro-cid-4xjgpev6># A single-purpose library: no HTTP API, no injection graph, nothing to
+# instrument, no containers to run. Real YAML booleans — the value loader parses
+# them as booleans, which is what `{{ if }}` needs.
+module: github.com/gaarutyunov/parse
+
+openapi: false
+di: false
+telemetry: false
+
+global:
+  testcontainers: false</pre> <ga-code prompt="$" data-astro-cid-4xjgpev6="true">epos install go-house:0.1.0 -f examples/go-house/values-library.yaml</ga-code> <p data-astro-cid-4xjgpev6>
+Four sections and two generator lines are gone from the installed
+          skill. Change your mind and apply the other profile:
+</p> <p class="filename" data-astro-cid-4xjgpev6><code data-astro-cid-4xjgpev6>examples/go-house/values-service.yaml</code></p> <pre class="file" data-astro-cid-4xjgpev6># Everything on: a service with an HTTP API, a generated injection graph,
+# telemetry and an integration suite.
+module: github.com/gaarutyunov/report-service
+
+openapi: true
+di: true
+telemetry: true
+
+# `global` is the one block every stage sees. testcontainers lives here because
+# both the skill&#39;s own SKILL.md and the file copied from the `containers` stage
+# are guarded on it, and a stage only sees its own scope plus this block.
+global:
+  testcontainers: true</pre> <ga-code prompt="$" data-astro-cid-4xjgpev6="true">epos install go-house:0.1.0 -f examples/go-house/values-service.yaml</ga-code> <p data-astro-cid-4xjgpev6>
+They are back, and nothing was rebuilt — the artifact in the store did
+          not change, only the values did.
+</p> <ga-note tone="warning" title="Booleans belong in the file" data-astro-cid-4xjgpev6="true"> <!-- epos#47: delete this note and the --set form in it when --set
+               infers types the way helm's pkg/strvals does. --> <code data-astro-cid-4xjgpev6>--set x=false</code> stores the string <code data-astro-cid-4xjgpev6>"false"</code>,
+          which is truthy, so it turns nothing off — see
+<a href="https://github.com/gaarutyunov/epos/issues/47" data-astro-cid-4xjgpev6>epos#47</a>.
+          The one-off off-switch is <code data-astro-cid-4xjgpev6>--set x=</code>; a real boolean needs a
+          values file.
+</ga-note> </section> </div> <aside class="doc-aside" data-astro-cid-4xjgpev6> <div data-astro-cid-4xjgpev6> <h2 class="section-label" data-astro-cid-4xjgpev6>On this page</h2> <ul class="rows" data-astro-cid-4xjgpev6> <li data-astro-cid-4xjgpev6> <a href="#install" data-astro-cid-4xjgpev6> <span data-astro-cid-4xjgpev6>Install</span> <span class="arrow" data-astro-cid-4xjgpev6>→</span> </a> </li><li data-astro-cid-4xjgpev6> <a href="#use" data-astro-cid-4xjgpev6> <span data-astro-cid-4xjgpev6>Use a published skill</span> <span class="arrow" data-astro-cid-4xjgpev6>→</span> </a> </li><li data-astro-cid-4xjgpev6> <a href="#author" data-astro-cid-4xjgpev6> <span data-astro-cid-4xjgpev6>Author your own</span> <span class="arrow" data-astro-cid-4xjgpev6>→</span> </a> </li><li data-astro-cid-4xjgpev6> <a href="#derive" data-astro-cid-4xjgpev6> <span data-astro-cid-4xjgpev6>Derive one skill from five</span> <span class="arrow" data-astro-cid-4xjgpev6>→</span> </a> </li><li data-astro-cid-4xjgpev6> <a href="#parameters" data-astro-cid-4xjgpev6> <span data-astro-cid-4xjgpev6>Turn features off, and back on</span> <span class="arrow" data-astro-cid-4xjgpev6>→</span> </a> </li> </ul> </div> <div data-astro-cid-4xjgpev6> <h2 class="section-label" data-astro-cid-4xjgpev6>Reference</h2> <ul class="rows" data-astro-cid-4xjgpev6> <li data-astro-cid-4xjgpev6> <a href="/pr-preview/pr-52/cli" data-astro-cid-4xjgpev6> <span data-astro-cid-4xjgpev6>CLI</span> <span class="arrow" data-astro-cid-4xjgpev6>→</span> </a> </li> <li data-astro-cid-4xjgpev6> <a href="/pr-preview/pr-52/skillfile" data-astro-cid-4xjgpev6> <span data-astro-cid-4xjgpev6>Skillfile</span> <span class="arrow" data-astro-cid-4xjgpev6>→</span> </a> </li> <li data-astro-cid-4xjgpev6> <a href="https://github.com/gaarutyunov/epos/tree/main/examples/go-house" data-astro-cid-4xjgpev6> <span data-astro-cid-4xjgpev6>examples/go-house</span> <span class="arrow" data-astro-cid-4xjgpev6>↗</span> </a> </li> </ul> </div> </aside> </div>  <footer class="site-footer"> <a href="https://github.com/gaarutyunov/epos">Source</a> <a href="https://github.com/gaarutyunov/epos/blob/main/SPEC.md">Spec</a> <a href="https://github.com/gaarutyunov/epos/blob/main/LICENSE">MIT</a> </footer> </main> <!--
+      Registering every <ga-*> element is a side effect of this import. Astro
+      bundles it and ships it to the browser, which is the only place custom
+      elements can be defined.
+    --> <script type="module" src="/pr-preview/pr-52/_astro/Base.astro_astro_type_script_index_0_lang.7enm7Fe5.js"></script>  </body> </html> 
