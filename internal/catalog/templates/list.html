@@ -1,0 +1,36 @@
+{{- define "list" -}}
+<header class="hero">
+  <h1>Skills</h1>
+  <p class="lede">Every skill <span class="mono">{{ .Registry }}</span> holds, in name order.</p>
+</header>
+
+{{- /* The filter is a progressive enhancement over an index that is already in
+       the page. It narrows rows the browser already has; nothing is fetched and
+       no request is made. With scripting off the field is hidden by app.css's
+       own rule being absent and every row is listed, which is the whole page
+       minus one convenience. */}}
+<div class="filter" data-filter-container>
+  <label class="section-label" for="filter">Filter</label>
+  <input id="filter" type="search" data-filter placeholder="name, repository or description"
+         autocomplete="off" hidden>
+</div>
+
+{{ if .Rows }}
+<ga-table class="board" columns="{{ indexColumns }}" data-filter-target>
+  {{- range .Rows }}
+  <a href="{{ rowHref $.BasePath . }}"
+     data-haystack="{{ .Skill.Name }} {{ .Skill.Repository }} {{ .Skill.Description }}">
+    <div class="cell-skill">
+      <strong>{{ .Skill.Name }}</strong>
+      <span class="mono dim">{{ .Skill.Repository }}</span>
+      {{- if .Skill.Description }}<span class="dim desc">{{ .Skill.Description }}</span>{{ end }}
+    </div>
+    <span class="mono dim version">{{ .Skill.Version }}</span>
+  </a>
+  {{- end }}
+</ga-table>
+<p class="empty" data-filter-empty hidden>Nothing matches that filter.</p>
+{{ else if not .IndexError }}
+<p class="empty">This registry holds no skills yet.</p>
+{{ end }}
+{{- end -}}

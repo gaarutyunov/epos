@@ -1,0 +1,471 @@
+/* Page furniture the kit deliberately does not provide: the container, the
+   grid, the footer, the prose block a rendered document lands in, and the
+   leaderboard's row density. The kit's own design rule is that a footer, a
+   prose container and a page grid are not components, and its docs site
+   hand-rolls the same things off the same tokens.
+
+   Every value comes from a --ga-* token. No literal colours.
+
+   One token trap, and it has bitten this repository before: the muted
+   foreground token is --ga-muted. There is no --ga-fg-muted; a rule written
+   against that name silently falls back to its own default and the page looks
+   almost right. */
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  background: var(--ga-bg, #000);
+  color: var(--ga-fg, #ededed);
+  font-family: var(--ga-font-sans, ui-sans-serif, system-ui, sans-serif);
+  font-size: var(--ga-fs-base, 17px);
+  line-height: var(--ga-lh-base, 1.6);
+}
+
+/* The page body never scrolls sideways, and there is deliberately no
+   `overflow-x: hidden` here to make that true: hiding the overflow would clip
+   content off the right of a phone and pass the measurement anyway. Every wide
+   thing scrolls inside its own container instead — .scroll-x for the capability
+   tables, .prose pre for fenced code, .prose table for a table in somebody
+   else's document — so the measurement of documentElement.scrollWidth against
+   clientWidth is honest at 375, 768 and 1440. */
+
+/* The kit's elements are unknown to the browser until its bundle registers
+   them, and an unknown element is inline. Declaring the layout ones as blocks
+   keeps the page's shape the same with scripting off. */
+ga-header,
+ga-breadcrumbs,
+ga-table,
+ga-code {
+  display: block;
+}
+
+/* 1152px, with the gutters the docs site uses at the same three widths. */
+.container {
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+
+@media (min-width: 640px) {
+  .container { padding: 0 1.5rem; }
+}
+
+@media (min-width: 1024px) {
+  .container { padding: 0 2rem; }
+}
+
+/* The header bar stays full width — it is sticky and it carries the page's
+   background, so narrowing it would let scrolled content show through the
+   gutters — while its *content* lines up with the container. The padding does
+   that: whichever is larger, the gutter or the space either side of a 1152px
+   column.
+
+   Reached through ::part, which is the kit's own escape hatch. It has to be:
+   ga-header locks its slotted links with `::slotted(a) { … !important }`, and
+   for an !important declaration the shadow tree wins over the document, so a
+   page rule targeting those anchors cannot take effect. A part is the door the
+   component left open, and it is not !important. */
+ga-header::part(header) {
+  padding-left: max(1rem, calc((100vw - 72rem) / 2));
+  padding-right: max(1rem, calc((100vw - 72rem) / 2));
+}
+
+@media (min-width: 640px) {
+  ga-header::part(header) {
+    padding-left: max(1.5rem, calc((100vw - 72rem) / 2));
+    padding-right: max(1.5rem, calc((100vw - 72rem) / 2));
+  }
+}
+
+@media (min-width: 1024px) {
+  ga-header::part(header) {
+    padding-left: max(2rem, calc((100vw - 72rem) / 2));
+    padding-right: max(2rem, calc((100vw - 72rem) / 2));
+  }
+}
+
+main.container {
+  padding-top: 2.5rem;
+  padding-bottom: 4rem;
+}
+
+/* ── Type ────────────────────────────────────────────────────────────────── */
+
+h1 {
+  margin: 0 0 0.5rem;
+  font-size: var(--ga-fs-3xl, 32px);
+  font-weight: 600;
+  letter-spacing: var(--ga-tracking-tight, -0.02em);
+  line-height: var(--ga-lh-tight, 1.2);
+}
+
+/* The section label of garutyunov.com: 14px mono, medium, uppercase, muted. */
+.section-label {
+  margin: 2rem 0 0.75rem;
+  font-family: var(--ga-font-mono, ui-monospace, monospace);
+  font-size: var(--ga-fs-sm, 14px);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ga-muted, #878787);
+}
+
+.mono { font-family: var(--ga-font-mono, ui-monospace, monospace); }
+.dim { color: var(--ga-muted, #878787); }
+.small { font-size: var(--ga-fs-sm, 14px); }
+.wrap { overflow-wrap: anywhere; }
+
+.hero { margin-bottom: 1.5rem; }
+
+.lede {
+  max-width: 60ch;
+  margin: 0.75rem 0 0;
+  color: var(--ga-muted, #878787);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 1rem 0 0;
+}
+
+/* Em-dash bullets, as on garutyunov.com. */
+.dashes {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dashes li {
+  position: relative;
+  padding-left: 1.5rem;
+  margin-bottom: 0.375rem;
+  color: var(--ga-muted, #878787);
+}
+
+.dashes li::before {
+  content: "—";
+  position: absolute;
+  left: 0;
+  color: var(--ga-dim, #454545);
+}
+
+/* Ruled key/value rows. */
+.ruled { margin: 0 0 1.5rem; }
+
+.ruled > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--ga-border, #1a1a1a);
+  font-size: var(--ga-fs-sm, 14px);
+}
+
+.ruled dt {
+  flex: none;
+  color: var(--ga-muted, #878787);
+}
+
+.ruled dd {
+  margin: 0;
+  text-align: right;
+  min-width: 0;
+}
+
+.notice {
+  padding: 1rem;
+  border: 1px solid var(--ga-border, #1a1a1a);
+  border-radius: var(--ga-radius-lg, 8px);
+  color: var(--ga-muted, #878787);
+}
+
+.empty {
+  padding: 2rem 0;
+  color: var(--ga-muted, #878787);
+}
+
+/* ── The stat tile ───────────────────────────────────────────────────────── */
+
+/* A STAND-IN for ui-kit's <ga-metric> (with <ga-quantity>).
+   Those components are NOT in ga-ui-kit v0.3.0, the release this catalog pins
+   and the newest one there is; they landed on main afterwards. This is the
+   duplication the kit exists to prevent, and it is here because a leaderboard
+   with no number on it is not a leaderboard.
+
+   WHEN ui-kit v0.4.0 IS CUT: bump assets/vendor/ui-kit, replace every `.stat`
+   block in templates/home.html and templates/detail.html with
+   <ga-metric label="…" value="…">, and delete these four rules. Nothing else
+   in this stylesheet depends on them. */
+.stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin: 1.5rem 0;
+}
+
+.stat {
+  flex: 1 1 12rem;
+  padding: 1rem;
+  border: 1px solid var(--ga-border, #1a1a1a);
+  border-radius: var(--ga-radius-lg, 8px);
+  background: color-mix(in srgb, var(--ga-bg-elev, #1a1a1a) 30%, transparent);
+}
+
+.stat-label {
+  margin: 0 0 0.25rem;
+  font-family: var(--ga-font-mono, ui-monospace, monospace);
+  font-size: var(--ga-fs-xs, 12px);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ga-muted, #878787);
+}
+
+.stat-value {
+  margin: 0;
+  font-family: var(--ga-font-mono, ui-monospace, monospace);
+  font-size: var(--ga-fs-2xl, 24px);
+  font-variant-numeric: tabular-nums;
+  color: var(--ga-fg, #ededed);
+}
+
+/* ── The board ───────────────────────────────────────────────────────────── */
+
+.board { margin: 1.5rem 0; }
+
+.cell-skill {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  min-width: 0;
+}
+
+.cell-skill .desc,
+.cell-skill .mono {
+  font-size: var(--ga-fs-sm, 14px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rank,
+.pulls {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+/* Scripting off: ga-table has not upgraded, so its rows are ordinary anchors
+   with no grid. Give them enough structure to read as a list rather than as a
+   run-on paragraph. */
+ga-table:not(:defined) > a {
+  display: block;
+  padding: 0.75rem 0;
+  border-top: 1px solid var(--ga-border, #1a1a1a);
+  color: var(--ga-fg, #ededed);
+  text-decoration: none;
+}
+
+.filter {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-top: 1.5rem;
+}
+
+.filter .section-label { margin: 0; }
+
+.filter input {
+  max-width: 24rem;
+  padding: 0.5rem 0.75rem;
+  background: color-mix(in srgb, var(--ga-bg-elev, #1a1a1a) 30%, transparent);
+  border: 1px solid var(--ga-border, #1a1a1a);
+  border-radius: var(--ga-radius, 6px);
+  color: var(--ga-fg, #ededed);
+  font: inherit;
+  font-size: var(--ga-fs-sm, 14px);
+}
+
+.filter input:focus-visible {
+  outline: none;
+  box-shadow: var(--ga-ring, 0 0 0 2px #000, 0 0 0 4px #54a2ff);
+}
+
+/* ── The 9/3 split ───────────────────────────────────────────────────────── */
+
+.split {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 2rem;
+  margin-top: 1.5rem;
+}
+
+.col-main { grid-column: span 12; min-width: 0; }
+.col-aside { grid-column: span 12; min-width: 0; }
+
+@media (min-width: 1024px) {
+  .col-main { grid-column: span 9; }
+  .col-aside { grid-column: span 3; }
+}
+
+.col-aside .section-label:first-child { margin-top: 0; }
+
+.stage-name {
+  margin: 1rem 0 0.25rem;
+  font-size: var(--ga-fs-sm, 14px);
+  color: var(--ga-fg, #ededed);
+}
+
+.install { margin: 1.5rem 0; }
+
+.crumbs { margin-bottom: 1.5rem; }
+
+.crumbs ol {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-family: var(--ga-font-mono, ui-monospace, monospace);
+  font-size: var(--ga-fs-sm, 14px);
+}
+
+.crumbs li + li::before {
+  content: "/";
+  margin-right: 0.5rem;
+  color: var(--ga-dim, #454545);
+}
+
+.crumbs a { color: var(--ga-muted, #878787); text-decoration: none; }
+.crumbs a:hover { color: var(--ga-fg, #ededed); }
+
+/* ── The rendered document ───────────────────────────────────────────────── */
+
+.prose { max-width: 72ch; }
+
+.prose h1,
+.prose h2,
+.prose h3,
+.prose h4 {
+  margin: 2rem 0 0.75rem;
+  font-weight: 600;
+  line-height: var(--ga-lh-tight, 1.2);
+  letter-spacing: var(--ga-tracking-tight, -0.02em);
+}
+
+.prose h1 { font-size: var(--ga-fs-2xl, 24px); }
+.prose h2 { font-size: var(--ga-fs-xl, 20px); }
+.prose h3 { font-size: var(--ga-fs-lg, 18px); }
+.prose h4 { font-size: var(--ga-fs-base, 17px); }
+
+.prose p,
+.prose ul,
+.prose ol { margin: 0 0 1rem; }
+
+.prose a { color: var(--ga-accent, #3b82f6); }
+
+.prose code {
+  padding: 0.125rem 0.375rem;
+  background: color-mix(in srgb, var(--ga-bg-elev, #1a1a1a) 60%, transparent);
+  border-radius: var(--ga-radius, 6px);
+  font-family: var(--ga-font-mono, ui-monospace, monospace);
+  font-size: 0.9em;
+}
+
+/* Fenced code is <pre><code> from the kit's tokens — no syntax highlighting,
+   deliberately. A long line scrolls inside the block; it never widens the
+   page. */
+.prose pre {
+  margin: 0 0 1rem;
+  padding: 1rem;
+  overflow-x: auto;
+  background: color-mix(in srgb, var(--ga-bg-elev, #1a1a1a) 60%, transparent);
+  border: 1px solid var(--ga-border, #1a1a1a);
+  border-radius: var(--ga-radius-lg, 8px);
+}
+
+.prose pre code {
+  padding: 0;
+  background: none;
+  font-size: var(--ga-fs-sm, 14px);
+}
+
+.prose blockquote {
+  margin: 0 0 1rem;
+  padding-left: 1rem;
+  border-left: 2px solid var(--ga-border, #1a1a1a);
+  color: var(--ga-muted, #878787);
+}
+
+.prose img { max-width: 100%; height: auto; }
+
+/* A table in somebody else's document can be any width at all. */
+.prose table {
+  display: block;
+  width: max-content;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+  margin: 0 0 1rem;
+  font-size: var(--ga-fs-sm, 14px);
+}
+
+.prose th,
+.prose td {
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--ga-border, #1a1a1a);
+  text-align: left;
+  vertical-align: top;
+}
+
+.prose th { color: var(--ga-muted, #878787); font-weight: 500; }
+
+/* ── Capability tables ───────────────────────────────────────────────────── */
+
+/* The wide content of the tools page. It scrolls inside this container; the
+   page does not. */
+.scroll-x {
+  overflow-x: auto;
+  margin: 0 0 1.5rem;
+}
+
+.caps {
+  width: 100%;
+  min-width: 34rem;
+  border-collapse: collapse;
+  font-size: var(--ga-fs-sm, 14px);
+}
+
+.caps th,
+.caps td {
+  padding: 0.75rem;
+  border-bottom: 1px solid var(--ga-border, #1a1a1a);
+  text-align: left;
+  vertical-align: top;
+}
+
+.caps thead th {
+  font-family: var(--ga-font-mono, ui-monospace, monospace);
+  font-size: var(--ga-fs-xs, 12px);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--ga-muted, #878787);
+}
+
+.caps tbody th { font-weight: 600; }
+
+/* ── Footer ──────────────────────────────────────────────────────────────── */
+
+.footer {
+  padding-top: 2rem;
+  padding-bottom: 3rem;
+  border-top: 1px solid var(--ga-border, #1a1a1a);
+  font-size: var(--ga-fs-sm, 14px);
+}
+
+.footer .section-label { margin-top: 0; }
