@@ -183,13 +183,20 @@ func (s *Server) document(ctx context.Context, repository string) *Skill {
 
 	fetchCtx, cancel := context.WithTimeout(ctx, documentTimeout)
 	defer cancel()
-	loaded := LoadDocument(fetchCtx, s.client, skill)
+	loaded, cacheable := LoadDocument(fetchCtx, s.client, skill)
 
-	s.mu.Lock()
-	// Bounded by construction: the index is fixed at startup, so the cache
-	// holds at most one entry per skill and cannot grow past it.
-	s.documents[skill.Digest] = loaded
-	s.mu.Unlock()
+	if cacheable {
+		s.mu.Lock()
+		// Bounded by construction: the index is fixed at startup, so the cache
+		// holds at most one entry per skill and cannot grow past it.
+		//
+		// Only a deterministic outcome is stored. A failed *fetch* is not one:
+		// caching it against an immutable digest would turn one unreachable
+		// moment into a page that says the document could not be read until the
+		// process restarts.
+		s.documents[skill.Digest] = loaded
+		s.mu.Unlock()
+	}
 	return &loaded
 }
 

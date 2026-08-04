@@ -164,7 +164,7 @@ func loadConfig(flags *pflag.FlagSet) (config, error) {
 		catalogOut:       k.String("out"),
 		statsDSN:         k.String("catalog.stats-dsn"),
 		catalog: catalogConfig{
-			enabled:     k.Bool("catalog"),
+			enabled:     k.Bool("catalog.enabled"),
 			basePath:    k.String("catalog.base-path"),
 			namespace:   k.String("catalog.namespace"),
 			refsFile:    k.String("catalog.refs"),

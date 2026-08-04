@@ -10,6 +10,8 @@ import (
 	"time"
 )
 
+//go:generate go tool mockgen -source=stats.go -destination=mocks_test.go -package=catalog
+
 // Stats reports how often each repository has been pulled.
 //
 // One method, context-taking. That is the property which makes a fourth source

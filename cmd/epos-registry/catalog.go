@@ -44,7 +44,15 @@ const statsTimeout = 5 * time.Second
 // the failure looks exactly like "the store is not configured".
 func bindCatalogFlags(flags *pflag.FlagSet, withEnable bool) {
 	if withEnable {
-		flags.Bool("catalog", false,
+		// `catalog.enabled`, not a bare `catalog`, and this is a correction to
+		// the design's key table rather than a preference. koanf holds a dotted
+		// key as a tree: a scalar at `catalog` and a map at `catalog.base-path`
+		// cannot both exist, and whichever loads last silently wins. Measured,
+		// not reasoned about — with `catalog` set, koanf's Keys() returns
+		// [catalog upstream] and every catalog.* key resolves to nothing, which
+		// is exactly the silent-configuration failure the DSN key's own note
+		// warns about one paragraph down.
+		flags.Bool("catalog.enabled", false,
 			"serve the read-only catalog on this listener, under --catalog.base-path")
 		flags.Duration("catalog.stats-ttl", 5*time.Second,
 			"how long a statistics read is reused; 0 queries on every request")

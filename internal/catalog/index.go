@@ -237,24 +237,34 @@ func readSkill(ctx context.Context, client registry.Client, ref reference) (Skil
 // be read, is oversized or is hostile still lists — its page says the document
 // could not be read (D3d), which is why every failure here lands on the skill
 // rather than on the error return.
-func LoadDocument(ctx context.Context, client registry.Client, s Skill) Skill {
+//
+// The second result says whether the outcome is a *property of the artifact*
+// rather than of this moment, and therefore whether a caller may cache it
+// against the manifest digest. It matters: an oversized layer, a missing
+// SKILL.md and a document that will not render are deterministic — the digest
+// names those bytes and they will fail the same way forever, and caching them
+// is what stops an attacker's 64 MiB layer being fetched on every request. A
+// fetch that failed is not: the registry was unreachable for a moment, and a
+// cache keyed on an immutable digest would make one blip a permanent message on
+// that page until the process restarts.
+func LoadDocument(ctx context.Context, client registry.Client, s Skill) (Skill, bool) {
 	content, err := client.FetchContent(ctx, s.Repository, s.Version)
 	if err != nil {
 		s.DocumentError = fmt.Sprintf("the document could not be read: %v", err)
-		return s
+		return s, false
 	}
 
 	source, ok := content.Files[artifact.SkillFile]
 	if !ok {
 		s.DocumentError = fmt.Sprintf("the artifact carries no %s", artifact.SkillFile)
-		return s
+		return s, true
 	}
 
 	document, err := renderMarkdown(source)
 	if err != nil {
 		s.DocumentError = fmt.Sprintf("the document could not be rendered: %v", err)
-		return s
+		return s, true
 	}
 	s.Document = document
-	return s
+	return s, true
 }

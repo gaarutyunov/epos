@@ -55,7 +55,7 @@ func Export(ctx context.Context, renderer *Renderer, client registry.Client,
 				return fmt.Errorf("the route table names %s, which is not in the catalog",
 					route.Repository)
 			}
-			loaded := LoadDocument(ctx, client, skill)
+			loaded, _ := LoadDocument(ctx, client, skill)
 			document = &loaded
 		}
 
