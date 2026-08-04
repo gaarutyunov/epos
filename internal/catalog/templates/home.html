@@ -36,6 +36,12 @@
     <p class="stat-value">{{ totalPulls .Rows }}</p>
   </div>
 </section>
+{{- if .CountsNote }}
+{{- /* 12.5: where these numbers came from, on the page carrying them rather
+       than in the repository. A count with no provenance is a claim the reader
+       cannot check. */}}
+<p class="provenance">{{ .CountsNote }}</p>
+{{- end }}
 {{ end }}
 
 {{ if .Rows }}

@@ -2,9 +2,20 @@ name: pr-preview
 on:
   pull_request:
     types: [opened, reopened, synchronize, closed]
+    # The catalog is rendered by a Go binary from Go templates, so a change to
+    # it never touches docs/. Without these paths a catalog change would be
+    # reviewable nowhere: the preview would keep showing the docs site alone and
+    # nothing would say the catalog had changed.
     paths:
       - "docs/**"
+      - "demo/**"
+      - "internal/catalog/**"
+      - "internal/registry/**"
+      - "cmd/epos-registry/**"
+      - "go.mod"
+      - "go.sum"
       - ".github/workflows/pr-preview.yml"
+      - ".github/actions/build-catalog/action.yml"
 concurrency: preview-${{ github.ref }}
 permissions:
   contents: write
@@ -19,6 +30,12 @@ jobs:
           node-version: 22
           cache: npm
           cache-dependency-path: docs/package-lock.json
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v6.0.0
+        if: github.event.action != 'closed'
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+
       - if: github.event.action != 'closed'
         # The preview is served from a subdirectory, so every asset URL has to
         # be rebased onto it — otherwise the preview loads the main
@@ -27,6 +44,21 @@ jobs:
           BASE_PATH: /pr-preview/pr-${{ github.event.number }}
         run: npm ci && npm run build
         working-directory: docs
+
+      # After the Astro build, never before: `astro build` clears docs/dist, so
+      # a catalog rendered into it first would be deleted without a word.
+      #
+      # Rendering into the docs' own output rather than publishing separately is
+      # deliberate. The alternative — a second gh-pages force-push with
+      # destination_dir — needs the two publishers serialised, and joining
+      # docs.yml's concurrency group as it stands would let a docs push *cancel*
+      # an in-flight catalog deploy. One deploy has none of those failure modes.
+      - if: github.event.action != 'closed'
+        uses: ./.github/actions/build-catalog
+        with:
+          base-path: /pr-preview/pr-${{ github.event.number }}/catalog
+          out: docs/dist/catalog
+
       - uses: rossjrw/pr-preview-action@ffa7509e91a3ec8dfc2e5536c4d5c1acdf7a6de9 # v1.8.1
         with:
           source-dir: docs/dist

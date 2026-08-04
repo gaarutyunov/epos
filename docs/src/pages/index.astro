@@ -102,6 +102,18 @@ const href = (path: string) =>
   </section>
 
   <section>
+    <h2>Browse a registry</h2>
+    <p>
+      <a href={href("catalog/")}>The catalog</a> is what a registry holds, as a
+      page: every skill it carries, each one's <code>SKILL.md</code> rendered,
+      and how often each has been pulled where a statistics source is
+      configured. It is served by <code>epos-registry --catalog.enabled</code>
+      on the same listener that answers <code>/v2/</code>, and the copy here was
+      rendered to static files by <code>epos-registry catalog export</code>.
+    </p>
+  </section>
+
+  <section>
     <h2>The whole round trip</h2>
     <p>
       The <a href={href("quickstart")}>quick start</a> runs it end to end —

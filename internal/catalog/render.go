@@ -105,6 +105,30 @@ func normaliseBasePath(p string) string {
 	return "/" + p + "/"
 }
 
+// docsURL is where the header's "Docs" link points.
+//
+// The catalog is deployed as a subdirectory of the documentation site — at
+// /catalog/ on the live site and /pr-preview/pr-<N>/catalog/ on a pull request
+// preview — so the docs are the parent of the base path. Computing it rather
+// than hardcoding the production URL is what keeps a preview inside itself: an
+// absolute link would take a reviewer out of the preview they were sent to
+// review and show them main.
+//
+// A catalog mounted at the root is the other case: that is `epos-registry
+// --catalog` serving a registry, where there is no documentation site
+// alongside, so the link goes to the published one.
+func (r *Renderer) docsURL() string {
+	if r.basePath == "/" {
+		return "https://epos.garutyunov.com/"
+	}
+	trimmed := strings.TrimSuffix(r.basePath, "/")
+	parent := trimmed[:strings.LastIndex(trimmed, "/")+1]
+	if parent == "" {
+		return "/"
+	}
+	return parent
+}
+
 // pageData is everything a template may read. Deliberately a flat struct rather
 // than the model itself: a template that could reach the whole Catalog would
 // grow a page's worth of logic in it.
@@ -113,6 +137,7 @@ type pageData struct {
 	Title       string
 	Description string
 	BasePath    string
+	DocsURL     string
 	Registry    string
 	IndexError  string
 
@@ -126,6 +151,9 @@ type pageData struct {
 	// absent, never zeroed (D4h).
 	HasCounts  bool
 	CapturedAt string
+	// CountsNote is the statistics source's own account of where its numbers
+	// came from (12.5). Rendered wherever they are.
+	CountsNote string
 
 	Registries []ToolRow
 	Agents     []AgentRow
@@ -182,12 +210,16 @@ func (r *Renderer) data(route Route, counts *Counts, document *Skill) (pageData,
 	data := pageData{
 		Kind:       route.Kind,
 		BasePath:   r.basePath,
+		DocsURL:    r.docsURL(),
 		Registry:   r.catalog.Registry,
 		IndexError: r.catalog.Err,
 		HasCounts:  counts != nil,
 	}
-	if counts != nil && !counts.CapturedAt.IsZero() {
-		data.CapturedAt = counts.CapturedAt.UTC().Format(time.RFC3339)
+	if counts != nil {
+		data.CountsNote = counts.Note
+		if !counts.CapturedAt.IsZero() {
+			data.CapturedAt = counts.CapturedAt.UTC().Format(time.RFC3339)
+		}
 	}
 
 	switch route.Kind {

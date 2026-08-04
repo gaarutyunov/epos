@@ -149,3 +149,16 @@ func TestAnUnknownSourceIsNamed(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "--catalog.stats-file")
 }
+
+// 12.5: a page that shows numbers says where they came from. A demo whose
+// figures came from a checked-in file looks exactly like one whose figures came
+// from real traffic, and only the page can tell them apart.
+func TestTheCountsNoteSurvivesIntoTheDocument(t *testing.T) {
+	path := writeCounts(t, `{"captured_at":"2026-08-04T12:00:00Z",
+		"note":"Illustrative figures, not measured traffic.",
+		"rows":{"demo/agent-skills/pdf":{"verified":10,"unverified":20}}}`)
+
+	counts, err := NewFileStats(path, nil).Pulls(t.Context())
+	require.NoError(t, err)
+	assert.Equal(t, "Illustrative figures, not measured traffic.", counts.Note)
+}

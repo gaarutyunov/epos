@@ -39,6 +39,7 @@
     <p class="stat-value">{{ pulls . }}</p>
   </div>
   {{- end }}
+  {{- if $.CountsNote }}<p class="provenance small">{{ $.CountsNote }}</p>{{ end }}
   {{- end }}
 
   <p class="section-label">Artifact</p>

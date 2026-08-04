@@ -207,14 +207,52 @@ func TestServeAndExportProduceIdenticalBytes(t *testing.T) {
 }
 
 // D2b: a different base path changes only the prefix.
+//
+// Compared between two *nested* base paths rather than against the root,
+// because one link legitimately is not a prefix of anything: the header's
+// "Docs" points out of the catalog at the site it is deployed under, and at the
+// root there is no such site (that is `epos-registry --catalog` serving a
+// registry) so it points at the published documentation instead. Every internal
+// URL is still nothing but the prefix, which is what the invariant is about.
 func TestADifferentBasePathChangesOnlyThePrefix(t *testing.T) {
 	catalog := fixture()
 	route := Route{Kind: PageList, Path: "catalog/"}
 
-	root := render(t, catalog, "/", route, nil)
-	nested := render(t, catalog, "/epos/catalog/", route, nil)
+	one := render(t, catalog, "/epos/catalog/", route, nil)
+	two := render(t, catalog, "/pr-preview/pr-53/catalog/", route, nil)
 
-	assert.Equal(t, root, strings.ReplaceAll(nested, "/epos/catalog/", "/"))
+	// Both the base path and the site it hangs under, in that order — the
+	// longer string first, or the substitution eats its own prefix.
+	normalised := strings.ReplaceAll(two, "/pr-preview/pr-53/catalog/", "/epos/catalog/")
+	normalised = strings.ReplaceAll(normalised, "/pr-preview/pr-53/", "/epos/")
+
+	assert.Equal(t, one, normalised)
+}
+
+// And at the root every internal URL is still rooted, with no prefix left over.
+func TestAtTheRootEveryInternalURLIsRooted(t *testing.T) {
+	page := render(t, fixture(), "/", Route{Kind: PageList, Path: "catalog/"}, nil)
+
+	assert.Contains(t, page, `href="/assets/app.css"`)
+	assert.Contains(t, page, `href="/skills/demo/agent-skills/pdf/"`)
+	assert.NotContains(t, page, "//assets/", "the base path is not doubled")
+	assert.NotContains(t, page, "/epos/", "no prefix from another deployment survives")
+}
+
+// 12.6: the catalog links the documentation, and a preview links its own copy
+// of it rather than sending the reviewer to production.
+func TestTheDocsLinkStaysInsideThePreview(t *testing.T) {
+	preview := render(t, fixture(), "/pr-preview/pr-53/catalog/", Route{Kind: PageHome}, nil)
+	assert.Contains(t, preview, `href="/pr-preview/pr-53/"`)
+	assert.NotContains(t, preview, "https://epos.garutyunov.com/",
+		"an absolute link would take a reviewer out of the preview they were sent")
+
+	live := render(t, fixture(), "/catalog/", Route{Kind: PageHome}, nil)
+	assert.Contains(t, live, `href="/"`)
+
+	// Served by a registry, where there is no documentation site alongside.
+	served := render(t, fixture(), "/", Route{Kind: PageHome}, nil)
+	assert.Contains(t, served, "https://epos.garutyunov.com/")
 }
 
 // D2c: an operator who mounts the catalog on the distribution API is refused
@@ -289,4 +327,22 @@ func TestAFailedIndexStillRendersAPageThatSaysSo(t *testing.T) {
 	assert.Contains(t, page, "Catalog unavailable")
 	assert.Contains(t, page, "the registry refused _catalog")
 	assert.Contains(t, page, "The registry itself is")
+}
+
+// And it reaches the page, beside the numbers rather than in the repository.
+func TestTheCountsNoteIsRenderedWhereTheNumbersAre(t *testing.T) {
+	withNote := counts()
+	withNote.Note = "Illustrative figures, not measured traffic."
+
+	home := render(t, fixture(), "/", Route{Kind: PageHome}, withNote)
+	assert.Contains(t, home, "Illustrative figures, not measured traffic.")
+
+	detail := render(t, fixture(), "/",
+		Route{Kind: PageDetail, Repository: "demo/agent-skills/pdf"}, withNote)
+	assert.Contains(t, detail, "Illustrative figures, not measured traffic.")
+
+	// A source that measured something leaves it empty; the capture time
+	// already says when, and an empty paragraph is noise.
+	plain := render(t, fixture(), "/", Route{Kind: PageHome}, counts())
+	assert.NotContains(t, plain, `class="provenance"`)
 }

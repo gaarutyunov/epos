@@ -4,9 +4,20 @@ on:
     branches: [main]
     # The Go CI stack and the docs site are independent: a change to one must
     # not spend a run of the other.
+    # The catalog is rendered by a Go binary, so a change to it never touches
+    # docs/. Without these paths a Go-driven catalog change would never deploy
+    # — the site would keep serving whatever the last docs commit produced, and
+    # nothing would say so.
     paths:
       - "docs/**"
+      - "demo/**"
+      - "internal/catalog/**"
+      - "internal/registry/**"
+      - "cmd/epos-registry/**"
+      - "go.mod"
+      - "go.sum"
       - ".github/workflows/docs.yml"
+      - ".github/actions/build-catalog/action.yml"
 permissions:
   contents: write
 concurrency:
@@ -24,8 +35,26 @@ jobs:
           node-version: 22
           cache: npm
           cache-dependency-path: docs/package-lock.json
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v6.0.0
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
       - run: npm ci && npm run build
         working-directory: docs
+
+      # After the Astro build, never before: `astro build` clears docs/dist.
+      #
+      # Into the docs' own output rather than a second publish with
+      # destination_dir, so there is one force-push to gh-pages instead of two.
+      # Two publishers would have to be serialised, and joining this workflow's
+      # concurrency group as it stands (cancel-in-progress: true) would let a
+      # docs push cancel an in-flight catalog deploy — a quieter failure than
+      # the one it was meant to fix.
+      - uses: ./.github/actions/build-catalog
+        with:
+          base-path: /catalog
+          out: docs/dist/catalog
+
       - uses: peaceiris/actions-gh-pages@84c30a85c19949d7eee79c4ff27748b70285e453 # v4.1.0
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}

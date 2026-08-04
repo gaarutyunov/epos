@@ -233,6 +233,14 @@ h1 {
   color: var(--ga-fg, #ededed);
 }
 
+/* Where a page's numbers came from. Muted, but on the page and next to them. */
+.provenance {
+  max-width: 72ch;
+  margin: 0 0 1.5rem;
+  font-size: var(--ga-fs-sm, 14px);
+  color: var(--ga-muted, #878787);
+}
+
 /* ── The board ───────────────────────────────────────────────────────────── */
 
 .board { margin: 1.5rem 0; }

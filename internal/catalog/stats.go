@@ -31,8 +31,17 @@ type Stats interface {
 // in-memory shape, deliberately: there is no converter and no second schema to
 // drift.
 type Counts struct {
-	CapturedAt time.Time        `json:"captured_at"`
-	Rows       map[string]Pulls `json:"rows"`
+	CapturedAt time.Time `json:"captured_at"`
+	// Note says where these numbers came from, and it is rendered on every page
+	// that shows them.
+	//
+	// A count with no provenance is a claim the reader cannot check. That
+	// matters most where it is least visible: a demo whose figures came from a
+	// checked-in file looks exactly like one whose figures came from real
+	// traffic, and only the page can tell them apart. A source that measured
+	// something can leave this empty — the capture time already says when.
+	Note string           `json:"note,omitempty"`
+	Rows map[string]Pulls `json:"rows"`
 }
 
 // Pulls is one repository's two numbers.
