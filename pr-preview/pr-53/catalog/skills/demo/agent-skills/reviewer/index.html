@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>reviewer — Epos catalog</title>
+<meta name="description" content="Review a change for the things a linter cannot see.">
+<link rel="stylesheet" href="/pr-preview/pr-53/catalog/assets/ga-ui-kit.css">
+<link rel="stylesheet" href="/pr-preview/pr-53/catalog/assets/app.css">
+</head>
+<body>
+<ga-header brand="EPOS" href="/pr-preview/pr-53/catalog/">
+  <a href="/pr-preview/pr-53/catalog/catalog/">Skills</a>
+  <a href="/pr-preview/pr-53/catalog/tools/">Tools</a>
+  <a href="/pr-preview/pr-53/">Docs</a>
+</ga-header>
+
+<main class="container" id="main">
+  <ga-breadcrumbs class="crumbs" items="[{&#34;label&#34;:&#34;Catalog&#34;,&#34;href&#34;:&#34;/pr-preview/pr-53/catalog/&#34;},{&#34;label&#34;:&#34;Skills&#34;,&#34;href&#34;:&#34;/pr-preview/pr-53/catalog/catalog/&#34;},{&#34;label&#34;:&#34;reviewer&#34;}]">
+    <nav aria-label="Breadcrumb">
+      <ol>
+        <li><a href="/pr-preview/pr-53/catalog/">Catalog</a></li>
+        <li><a href="/pr-preview/pr-53/catalog/catalog/">Skills</a></li>
+        <li><span aria-current="page">reviewer</span></li>
+      </ol>
+    </nav>
+  </ga-breadcrumbs>
+<header class="hero">
+  <h1>reviewer</h1>
+  <p class="mono dim">demo/agent-skills/reviewer</p><p class="lede">Review a change for the things a linter cannot see.</p>
+  <p class="chips"><ga-badge>0.4.0</ga-badge><ga-badge color="blue">Apache-2.0</ga-badge>
+  </p>
+</header>
+<ga-code class="install" prompt="$">epos install 127.0.0.1:45100/demo/agent-skills/reviewer:0.4.0</ga-code>
+
+<div class="split">
+<article class="col-main">
+  <p class="section-label">Document</p>
+  <div class="prose"><h1>Reviewing a change</h1>
+<p>Read the diff twice: once for what it does, and once for what it stops doing.</p>
+<h2>What to look for</h2>
+<ul>
+<li>Does the commit message say <em>why</em>? The diff already says what.</li>
+<li>Is there a test that fails without the change?</li>
+<li>Does anything here belong in a different change?</li>
+<li>What did this make harder for the next person?</li>
+</ul>
+<h2>What not to do</h2>
+<p>Do not restate the diff. A review that says &quot;this adds a function&quot; has read the
+change and understood nothing about it.</p>
+</div>
+</article>
+
+<aside class="col-aside">
+  <p class="section-label">Pulls</p>
+  <div class="stat">
+    <p class="stat-label">Verified</p>
+    <p class="stat-value">97</p>
+  </div><p class="provenance small">Illustrative figures from a file checked into the repository, not measured traffic. epos-registry can record a real download as a span and roll it into a store the catalog reads per request; that store is not part of this change, so these numbers demonstrate the leaderboard&#39;s shape and nothing about how often anything has actually been pulled.</p>
+
+  <p class="section-label">Artifact</p>
+  <dl class="ruled">
+    <div><dt>Registry</dt><dd class="mono">127.0.0.1:45100</dd></div>
+    <div><dt>Repository</dt><dd class="mono">demo/agent-skills/reviewer</dd></div>
+    <div><dt>Version</dt><dd class="mono">0.4.0</dd></div><div><dt>Licence</dt><dd>Apache-2.0</dd></div>
+    <div><dt>Digest</dt><dd class="mono wrap">sha256:bf2e27847e5f38b9e79b85687299861ed6b32aee0074debdeca6964c8b32d0cf</dd></div>
+  </dl>
+</aside>
+</div>
+</main>
+
+<footer class="container footer">
+  <p class="section-label">Epos</p>
+  <ul class="dashes">
+    <li>Skills are OCI artifacts. Any conforming client can pull one.</li>
+    <li>This catalog is served by <span class="mono">epos-registry</span>, read-only, from the
+        registry it fronts.</li>
+    <li>Pull counts are verified downloads &mdash; requests that carried
+        <span class="mono">Epos-Download</span>, which only <span class="mono">epos pull</span>
+        sends, captured 2026-08-04T00:00:00Z. The unverified side is
+        known-inflated and is not ranked on.</li>
+  </ul>
+  <p class="dim">Upstream registry: <span class="mono">127.0.0.1:45100</span></p>
+</footer>
+
+<script src="/pr-preview/pr-53/catalog/assets/ga-ui-kit.min.js"></script>
+<script src="/pr-preview/pr-53/catalog/assets/app.js"></script>
+</body>
+</html>

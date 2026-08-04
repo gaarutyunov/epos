@@ -1,0 +1,3 @@
+Written by `epos-registry catalog export`. Its presence is what lets a
+later export prune this directory; removing it makes the next export refuse
+to write here.

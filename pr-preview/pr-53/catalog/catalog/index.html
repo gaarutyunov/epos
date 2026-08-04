@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Skills — Epos catalog</title>
+<meta name="description" content="Every skill in the catalog">
+<link rel="stylesheet" href="/pr-preview/pr-53/catalog/assets/ga-ui-kit.css">
+<link rel="stylesheet" href="/pr-preview/pr-53/catalog/assets/app.css">
+</head>
+<body>
+<ga-header brand="EPOS" href="/pr-preview/pr-53/catalog/">
+  <a href="/pr-preview/pr-53/catalog/catalog/">Skills</a>
+  <a href="/pr-preview/pr-53/catalog/tools/">Tools</a>
+  <a href="/pr-preview/pr-53/">Docs</a>
+</ga-header>
+
+<main class="container" id="main">
+  <ga-breadcrumbs class="crumbs" items="[{&#34;label&#34;:&#34;Catalog&#34;,&#34;href&#34;:&#34;/pr-preview/pr-53/catalog/&#34;},{&#34;label&#34;:&#34;Skills&#34;}]">
+    <nav aria-label="Breadcrumb">
+      <ol>
+        <li><a href="/pr-preview/pr-53/catalog/">Catalog</a></li>
+        <li><span aria-current="page">Skills</span></li>
+      </ol>
+    </nav>
+  </ga-breadcrumbs><header class="hero">
+  <h1>Skills</h1>
+  <p class="lede">Every skill <span class="mono">127.0.0.1:45100</span> holds, in name order.</p>
+</header>
+<div class="filter" data-filter-container>
+  <label class="section-label" for="filter">Filter</label>
+  <input id="filter" type="search" data-filter placeholder="name, repository or description"
+         autocomplete="off" hidden>
+</div>
+
+
+<ga-table class="board" columns="[{&#34;label&#34;:&#34;Skill&#34;},{&#34;label&#34;:&#34;Version&#34;,&#34;width&#34;:&#34;120px&#34;,&#34;align&#34;:&#34;right&#34;,&#34;mono&#34;:true}]" data-filter-target>
+  <a href="/pr-preview/pr-53/catalog/skills/demo/agent-skills/pdf/"
+     data-haystack="pdf demo/agent-skills/pdf Extract text, tables and metadata from PDF files without guessing at layout.">
+    <div class="cell-skill">
+      <strong>pdf</strong>
+      <span class="mono dim">demo/agent-skills/pdf</span><span class="dim desc">Extract text, tables and metadata from PDF files without guessing at layout.</span>
+    </div>
+    <span class="mono dim version">1.2.0</span>
+  </a>
+  <a href="/pr-preview/pr-53/catalog/skills/demo/agent-skills/reviewer/"
+     data-haystack="reviewer demo/agent-skills/reviewer Review a change for the things a linter cannot see.">
+    <div class="cell-skill">
+      <strong>reviewer</strong>
+      <span class="mono dim">demo/agent-skills/reviewer</span><span class="dim desc">Review a change for the things a linter cannot see.</span>
+    </div>
+    <span class="mono dim version">0.4.0</span>
+  </a>
+</ga-table>
+<p class="empty" data-filter-empty hidden>Nothing matches that filter.</p>
+
+</main>
+
+<footer class="container footer">
+  <p class="section-label">Epos</p>
+  <ul class="dashes">
+    <li>Skills are OCI artifacts. Any conforming client can pull one.</li>
+    <li>This catalog is served by <span class="mono">epos-registry</span>, read-only, from the
+        registry it fronts.</li>
+    <li>Pull counts are verified downloads &mdash; requests that carried
+        <span class="mono">Epos-Download</span>, which only <span class="mono">epos pull</span>
+        sends, captured 2026-08-04T00:00:00Z. The unverified side is
+        known-inflated and is not ranked on.</li>
+  </ul>
+  <p class="dim">Upstream registry: <span class="mono">127.0.0.1:45100</span></p>
+</footer>
+
+<script src="/pr-preview/pr-53/catalog/assets/ga-ui-kit.min.js"></script>
+<script src="/pr-preview/pr-53/catalog/assets/app.js"></script>
+</body>
+</html>

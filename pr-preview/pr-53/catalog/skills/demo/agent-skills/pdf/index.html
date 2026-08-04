@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>pdf — Epos catalog</title>
+<meta name="description" content="Extract text, tables and metadata from PDF files without guessing at layout.">
+<link rel="stylesheet" href="/pr-preview/pr-53/catalog/assets/ga-ui-kit.css">
+<link rel="stylesheet" href="/pr-preview/pr-53/catalog/assets/app.css">
+</head>
+<body>
+<ga-header brand="EPOS" href="/pr-preview/pr-53/catalog/">
+  <a href="/pr-preview/pr-53/catalog/catalog/">Skills</a>
+  <a href="/pr-preview/pr-53/catalog/tools/">Tools</a>
+  <a href="/pr-preview/pr-53/">Docs</a>
+</ga-header>
+
+<main class="container" id="main">
+  <ga-breadcrumbs class="crumbs" items="[{&#34;label&#34;:&#34;Catalog&#34;,&#34;href&#34;:&#34;/pr-preview/pr-53/catalog/&#34;},{&#34;label&#34;:&#34;Skills&#34;,&#34;href&#34;:&#34;/pr-preview/pr-53/catalog/catalog/&#34;},{&#34;label&#34;:&#34;pdf&#34;}]">
+    <nav aria-label="Breadcrumb">
+      <ol>
+        <li><a href="/pr-preview/pr-53/catalog/">Catalog</a></li>
+        <li><a href="/pr-preview/pr-53/catalog/catalog/">Skills</a></li>
+        <li><span aria-current="page">pdf</span></li>
+      </ol>
+    </nav>
+  </ga-breadcrumbs>
+<header class="hero">
+  <h1>pdf</h1>
+  <p class="mono dim">demo/agent-skills/pdf</p><p class="lede">Extract text, tables and metadata from PDF files without guessing at layout.</p>
+  <p class="chips"><ga-badge>1.2.0</ga-badge><ga-badge color="blue">MIT</ga-badge>
+  </p>
+</header>
+<ga-code class="install" prompt="$">epos install 127.0.0.1:45100/demo/agent-skills/pdf:1.2.0</ga-code>
+
+<div class="split">
+<article class="col-main">
+  <p class="section-label">Document</p>
+  <div class="prose"><h1>Extracting from PDFs</h1>
+<p>Pull <strong>text</strong>, <em>tables</em> and metadata out of a PDF, and say so plainly when the
+document does not carry what was asked for.</p>
+<h2>When to reach for it</h2>
+<ul>
+<li>A document arrives as a PDF and the task needs its prose.</li>
+<li>A table has to survive the trip into Markdown.</li>
+<li>A citation must keep the page it came from.</li>
+</ul>
+<h2>Steps</h2>
+<ol>
+<li>Establish whether the PDF carries a text layer at all.</li>
+<li>If it does not, report that. Do not invent one, and do not silently return
+an empty string.</li>
+<li>Extract, then check the extraction against the page count before using it.</li>
+</ol>
+<table>
+<thead>
+<tr>
+<th>Input</th>
+<th>Tool</th>
+<th>Output</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Text-layer PDF</td>
+<td><code>pdftotext -layout</code></td>
+<td>Markdown</td>
+</tr>
+<tr>
+<td>Scanned PDF</td>
+<td>none — report it</td>
+<td>an explanation</td>
+</tr>
+<tr>
+<td>Encrypted PDF</td>
+<td>none</td>
+<td>an error naming the file</td>
+</tr>
+</tbody>
+</table>
+<pre><code class="language-bash">epos install &lt;registry&gt;/demo/agent-skills/pdf:1.2.0
+pdftotext -layout report.pdf -
+</code></pre>
+<blockquote>
+<p>A table that has lost its columns is worse than no table at all: the reader
+cannot tell that anything went missing.</p>
+</blockquote>
+<p>See the <a href="references/style.md">house style</a> for how citations are formatted, and
+the <a href="https://github.com/opencontainers/distribution-spec">OCI distribution spec</a>
+for how this skill is packaged.</p>
+</div>
+</article>
+
+<aside class="col-aside">
+  <p class="section-label">Pulls</p>
+  <div class="stat">
+    <p class="stat-label">Verified</p>
+    <p class="stat-value">1284</p>
+  </div><p class="provenance small">Illustrative figures from a file checked into the repository, not measured traffic. epos-registry can record a real download as a span and roll it into a store the catalog reads per request; that store is not part of this change, so these numbers demonstrate the leaderboard&#39;s shape and nothing about how often anything has actually been pulled.</p>
+
+  <p class="section-label">Artifact</p>
+  <dl class="ruled">
+    <div><dt>Registry</dt><dd class="mono">127.0.0.1:45100</dd></div>
+    <div><dt>Repository</dt><dd class="mono">demo/agent-skills/pdf</dd></div>
+    <div><dt>Version</dt><dd class="mono">1.2.0</dd></div><div><dt>Licence</dt><dd>MIT</dd></div>
+    <div><dt>Digest</dt><dd class="mono wrap">sha256:67b91be2b3721ff144e1152eb3b2ae9c41f40d086565609c479a96c54d3fb7af</dd></div>
+  </dl>
+</aside>
+</div>
+</main>
+
+<footer class="container footer">
+  <p class="section-label">Epos</p>
+  <ul class="dashes">
+    <li>Skills are OCI artifacts. Any conforming client can pull one.</li>
+    <li>This catalog is served by <span class="mono">epos-registry</span>, read-only, from the
+        registry it fronts.</li>
+    <li>Pull counts are verified downloads &mdash; requests that carried
+        <span class="mono">Epos-Download</span>, which only <span class="mono">epos pull</span>
+        sends, captured 2026-08-04T00:00:00Z. The unverified side is
+        known-inflated and is not ranked on.</li>
+  </ul>
+  <p class="dim">Upstream registry: <span class="mono">127.0.0.1:45100</span></p>
+</footer>
+
+<script src="/pr-preview/pr-53/catalog/assets/ga-ui-kit.min.js"></script>
+<script src="/pr-preview/pr-53/catalog/assets/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tools — Epos catalog</title>
+<meta name="description" content="Registries and agents epos was verified against">
+<link rel="stylesheet" href="/pr-preview/pr-53/catalog/assets/ga-ui-kit.css">
+<link rel="stylesheet" href="/pr-preview/pr-53/catalog/assets/app.css">
+</head>
+<body>
+<ga-header brand="EPOS" href="/pr-preview/pr-53/catalog/">
+  <a href="/pr-preview/pr-53/catalog/catalog/">Skills</a>
+  <a href="/pr-preview/pr-53/catalog/tools/">Tools</a>
+  <a href="/pr-preview/pr-53/">Docs</a>
+</ga-header>
+
+<main class="container" id="main">
+  <ga-breadcrumbs class="crumbs" items="[{&#34;label&#34;:&#34;Catalog&#34;,&#34;href&#34;:&#34;/pr-preview/pr-53/catalog/&#34;},{&#34;label&#34;:&#34;Tools&#34;}]">
+    <nav aria-label="Breadcrumb">
+      <ol>
+        <li><a href="/pr-preview/pr-53/catalog/">Catalog</a></li>
+        <li><span aria-current="page">Tools</span></li>
+      </ol>
+    </nav>
+  </ga-breadcrumbs><header class="hero">
+  <h1>Tools</h1>
+  <p class="lede">Where epos was verified to work, and what it was verified to do there.
+  A logo would say only <em>epos works here</em>; discovery needs
+  <span class="mono">GET /v2/_catalog</span>, which several registries do not serve, so every
+  row carries its capabilities and how they were measured.</p>
+</header>
+
+<section>
+  <p class="section-label">Registries</p>
+  <div class="scroll-x">
+  <table class="caps">
+    <thead>
+      <tr>
+        <th scope="col">Registry</th>
+        <th scope="col">Pull</th>
+        <th scope="col">Push</th>
+        <th scope="col">_catalog</th>
+        <th scope="col">How it was verified</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <th scope="row">zot<br><span class="mono dim small">(self-hosted)</span></th>
+        <td class="mono">yes</td>
+        <td class="mono">yes</td>
+        <td class="mono">yes</td>
+        <td class="small">epos&#39;s own conformance and integration tiers run against a pinned zot image, including GET /v2/_catalog</td>
+      </tr>
+      <tr>
+        <th scope="row">GitHub Container Registry<br><span class="mono dim small">ghcr.io</span></th>
+        <td class="mono">yes</td>
+        <td class="mono">yes</td>
+        <td class="mono">no</td>
+        <td class="small">GET /v2/_catalog answers 401 anonymously and 403 DENIED with an anonymously issued registry:catalog:* token — the endpoint is not served, so a namespace sweep cannot work and a reference list is the mode to use</td>
+      </tr>
+      <tr>
+        <th scope="row">GitLab Container Registry<br><span class="mono dim small">registry.gitlab.com</span></th>
+        <td class="mono">yes</td>
+        <td class="mono">yes</td>
+        <td class="mono">authenticated</td>
+        <td class="small">GET /v2/_catalog challenges with Bearer realm=&#34;https://gitlab.com/jwt/auth&#34;, scope=&#34;registry:catalog:*&#34;; enumeration depends on a credential that carries that scope</td>
+      </tr>
+      <tr>
+        <th scope="row">Docker Hub<br><span class="mono dim small">registry-1.docker.io</span></th>
+        <td class="mono">yes</td>
+        <td class="mono">yes</td>
+        <td class="mono">authenticated</td>
+        <td class="small">GET /v2/_catalog challenges for registry:catalog:* against auth.docker.io; anonymous enumeration is refused</td>
+      </tr>
+      <tr>
+        <th scope="row">Quay<br><span class="mono dim small">quay.io</span></th>
+        <td class="mono">yes</td>
+        <td class="mono">yes</td>
+        <td class="mono">yes</td>
+        <td class="small">GET /v2/_catalog answers 200 anonymously with {&#34;repositories&#34;:[]} — the endpoint is served, and an anonymous caller sees the public set</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section>
+  <p class="section-label">Agents</p>
+  <p class="dim small">epos has exactly one default install target. Every other target arrives
+  through the worktree manifest's additional base paths, so this table names directories rather
+  than claiming a per-agent integration.</p>
+  <div class="scroll-x">
+  <table class="caps">
+    <thead>
+      <tr>
+        <th scope="col">Agent</th>
+        <th scope="col">Skill directory</th>
+        <th scope="col">Installed by default</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <th scope="row">Claude Code</th>
+        <td class="mono small">.claude/skills/&lt;name&gt;/</td>
+        <td class="small">yes</td>
+      </tr>
+      <tr>
+        <th scope="row">Any other agent</th>
+        <td class="mono small">a base path the manifest names</td>
+        <td class="small">no — configure an additional base path</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+</main>
+
+<footer class="container footer">
+  <p class="section-label">Epos</p>
+  <ul class="dashes">
+    <li>Skills are OCI artifacts. Any conforming client can pull one.</li>
+    <li>This catalog is served by <span class="mono">epos-registry</span>, read-only, from the
+        registry it fronts.</li>
+    <li>Pull counts are verified downloads &mdash; requests that carried
+        <span class="mono">Epos-Download</span>, which only <span class="mono">epos pull</span>
+        sends, captured 2026-08-04T00:00:00Z. The unverified side is
+        known-inflated and is not ranked on.</li>
+  </ul>
+  <p class="dim">Upstream registry: <span class="mono">127.0.0.1:45100</span></p>
+</footer>
+
+<script src="/pr-preview/pr-53/catalog/assets/ga-ui-kit.min.js"></script>
+<script src="/pr-preview/pr-53/catalog/assets/app.js"></script>
+</body>
+</html>

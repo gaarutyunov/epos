@@ -1,0 +1,275 @@
+<!DOCTYPE html><html lang="en"> <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Quick start — Epos</title><meta name="description" content="Author a skill, publish it to a registry with oras, pull it back and install it with values. An end-to-end tutorial that assumes no prior OCI knowledge."><link rel="icon" type="image/png" sizes="32x32" href="/pr-preview/pr-53/favicon-32.png"><link rel="icon" type="image/png" sizes="192x192" href="/pr-preview/pr-53/icon-192.png"><link rel="apple-touch-icon" href="/pr-preview/pr-53/apple-touch-icon.png"><!--
+      The manifest's own icon paths are relative to the manifest URL, not to the
+      page, so they follow a PR preview into its subdirectory without needing
+      BASE_URL baked into a file that Astro copies through verbatim.
+    --><link rel="manifest" href="/pr-preview/pr-53/site.webmanifest"><link rel="canonical" href="https://epos.garutyunov.com/pr-preview/pr-53/quickstart/"><meta property="og:type" content="website"><meta property="og:site_name" content="Epos"><meta property="og:title" content="Quick start — Epos"><meta property="og:description" content="Author a skill, publish it to a registry with oras, pull it back and install it with values. An end-to-end tutorial that assumes no prior OCI knowledge."><meta property="og:url" content="https://epos.garutyunov.com/pr-preview/pr-53/quickstart/"><meta property="og:image" content="https://epos.garutyunov.com/pr-preview/pr-53/og-image.png"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="Quick start — Epos"><meta name="twitter:description" content="Author a skill, publish it to a registry with oras, pull it back and install it with values. An end-to-end tutorial that assumes no prior OCI knowledge."><meta name="twitter:image" content="https://epos.garutyunov.com/pr-preview/pr-53/og-image.png"><style>:root,:host{color-scheme:dark;--ga-bg: #000000;--ga-bg-elev: #1a1a1a;--ga-bg-elev-hover: #1f1f1f;--ga-fg: #ededed;--ga-muted: #878787;--ga-dim: #454545;--ga-border: #1a1a1a;--ga-border-subtle: #111111;--ga-border-strong: #2a2a2a;--ga-accent: #54a2ff;--ga-accent-contrast: #000000;--ga-blue: #54a2ff;--ga-green: #00c758;--ga-amber: #fcbb00;--ga-purple: #ac4bff;--ga-red: #ff6568;--ga-success: var(--ga-green);--ga-warning: var(--ga-amber);--ga-danger: var(--ga-red);--ga-info: var(--ga-blue);--ga-font-sans: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;--ga-font-mono: "Geist Mono", "Fira Mono", ui-monospace, SFMono-Regular, Menlo, monospace;--ga-font-display: "Fira Mono", "Geist Mono", ui-monospace, monospace;--ga-fs-xs: 12px;--ga-fs-sm: 14px;--ga-fs-base: 17px;--ga-fs-lg: 20px;--ga-fs-xl: 24px;--ga-fs-2xl: clamp(28px, 5vw, 40px);--ga-fs-3xl: clamp(34px, 6vw, 52px);--ga-lh-base: 1.65;--ga-lh-tight: 1.2;--ga-tracking-tight: -.02em;--ga-space-1: 4px;--ga-space-2: 8px;--ga-space-3: 12px;--ga-space-4: 16px;--ga-space-5: 20px;--ga-space-6: 24px;--ga-space-8: 32px;--ga-space-10: 40px;--ga-space-12: 48px;--ga-radius: 6px;--ga-radius-lg: 8px;--ga-radius-full: 9999px;--ga-shadow-sm: 0 1px 2px rgba(0, 0, 0, .4);--ga-shadow: 0 8px 24px rgba(0, 0, 0, .4);--ga-shadow-lg: -16px 0 40px rgba(0, 0, 0, .4);--ga-transition: .18s cubic-bezier(.4, 0, .2, 1);--ga-transition-slow: .32s cubic-bezier(.4, 0, .2, 1);--ga-ring: 0 0 0 2px var(--ga-bg), 0 0 0 4px var(--ga-accent);--ga-max-width: 880px}:root[data-theme=light],:host([data-theme="light"]){color-scheme:light;--ga-bg: #ffffff;--ga-bg-elev: #f7f7f7;--ga-bg-elev-hover: #efefef;--ga-fg: #1a1a1a;--ga-muted: #666666;--ga-dim: #999999;--ga-border: #e5e5e5;--ga-border-subtle: #f0f0f0;--ga-border-strong: #d4d4d4;--ga-accent: #0068d6;--ga-accent-contrast: #ffffff;--ga-blue: #0068d6;--ga-green: #008a3c;--ga-amber: #b87900;--ga-purple: #7b2fd6;--ga-red: #d93438;--ga-shadow-sm: 0 1px 2px rgba(0, 0, 0, .08);--ga-shadow: 0 8px 24px rgba(0, 0, 0, .12);--ga-shadow-lg: -16px 0 40px rgba(0, 0, 0, .12)}.ga-theme,body.ga-theme{background:var(--ga-bg);color:var(--ga-fg);font-family:var(--ga-font-sans);font-size:var(--ga-fs-base);line-height:var(--ga-lh-base);-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}body{margin:0;background:var(--ga-bg, #000);color:var(--ga-fg, #ededed);font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica Neue,Arial,sans-serif;line-height:1.6}main{max-width:52rem;margin:0 auto;padding:4rem 1.5rem 6rem}a{color:var(--ga-accent, #3b82f6)}
+.back[data-astro-cid-4xjgpev6]{font-size:.9rem;margin:0 0 2rem}.hero[data-astro-cid-4xjgpev6]{margin-bottom:2.5rem}h1[data-astro-cid-4xjgpev6]{font-size:clamp(1.9rem,5vw,2.6rem);line-height:1.15;letter-spacing:-.02em;margin:1rem 0 .75rem}.lede[data-astro-cid-4xjgpev6]{font-size:1.1rem;color:var(--ga-fg-muted, #a1a1a1);max-width:42rem}.toc[data-astro-cid-4xjgpev6]{margin-bottom:3rem}.toc[data-astro-cid-4xjgpev6] ul[data-astro-cid-4xjgpev6]{list-style:none;display:flex;flex-wrap:wrap;gap:.5rem 1rem;padding:0;margin:0;font-size:.9rem}section[data-astro-cid-4xjgpev6]{margin-bottom:3.5rem;scroll-margin-top:1.5rem}h2[data-astro-cid-4xjgpev6]{font-size:1.35rem;letter-spacing:-.01em;margin-bottom:.75rem}h3[data-astro-cid-4xjgpev6]{font-size:1.05rem;letter-spacing:-.01em;margin:2rem 0 .5rem}code[data-astro-cid-4xjgpev6]{font-family:ui-monospace,SFMono-Regular,SF Mono,Menlo,monospace;font-size:.9em}ga-code[data-astro-cid-4xjgpev6]{display:block;margin-bottom:.75rem}pre[data-astro-cid-4xjgpev6]{margin:0 0 1rem;overflow-x:auto;font-family:ui-monospace,SFMono-Regular,SF Mono,Menlo,monospace;font-size:.85rem;line-height:1.65;white-space:pre}pre[data-astro-cid-4xjgpev6].out{color:var(--ga-fg-muted, #a1a1a1);margin-bottom:1.5rem}.dim[data-astro-cid-4xjgpev6]{font-style:italic}.example[data-astro-cid-4xjgpev6] .filename[data-astro-cid-4xjgpev6]{margin:1.25rem 0 .25rem;font-size:.8rem;color:var(--ga-fg-muted, #a1a1a1)}.example[data-astro-cid-4xjgpev6] .filename[data-astro-cid-4xjgpev6]:first-child{margin-top:0}ul[data-astro-cid-4xjgpev6]{padding-left:1.25rem}li[data-astro-cid-4xjgpev6]{margin-bottom:.75rem}footer[data-astro-cid-4xjgpev6]{margin-top:4rem}
+</style></head> <body> <main>  <p class="back" data-astro-cid-4xjgpev6><a href="/pr-preview/pr-53/" data-astro-cid-4xjgpev6>← Epos</a></p> <header class="hero" data-astro-cid-4xjgpev6> <ga-badge color="blue" data-astro-cid-4xjgpev6="true">Tutorial</ga-badge> <h1 data-astro-cid-4xjgpev6>Quick start</h1> <p class="lede" data-astro-cid-4xjgpev6>
+In about ten minutes you will write a skill, publish it to a registry,
+      pull it back onto a machine that has never seen it, and install it with
+      your own values filled in. Every command below was run start to finish
+      before it was written down.
+</p> <p data-astro-cid-4xjgpev6>No prior knowledge of OCI or registries is assumed.</p> </header> <nav class="toc" aria-label="On this page" data-astro-cid-4xjgpev6> <ul data-astro-cid-4xjgpev6> <li data-astro-cid-4xjgpev6><a href="#what-you-need" data-astro-cid-4xjgpev6>What you need</a></li> <li data-astro-cid-4xjgpev6><a href="#throwaway-store" data-astro-cid-4xjgpev6>1. A throwaway store</a></li> <li data-astro-cid-4xjgpev6><a href="#author" data-astro-cid-4xjgpev6>2. Author the skill</a></li> <li data-astro-cid-4xjgpev6><a href="#pack" data-astro-cid-4xjgpev6>3. Pack it</a></li> <li data-astro-cid-4xjgpev6><a href="#publish" data-astro-cid-4xjgpev6>4. Publish it</a></li> <li data-astro-cid-4xjgpev6><a href="#pull" data-astro-cid-4xjgpev6>5. Pull it back</a></li> <li data-astro-cid-4xjgpev6><a href="#install" data-astro-cid-4xjgpev6>6. Install it with values</a></li> <li data-astro-cid-4xjgpev6><a href="#close-the-loop" data-astro-cid-4xjgpev6>7. ls and uninstall</a></li> <li data-astro-cid-4xjgpev6><a href="#clean-up" data-astro-cid-4xjgpev6>8. Clean up</a></li> <li data-astro-cid-4xjgpev6><a href="#next" data-astro-cid-4xjgpev6>Where to go next</a></li> </ul> </nav> <section id="what-you-need" data-astro-cid-4xjgpev6> <h2 data-astro-cid-4xjgpev6>What you need</h2> <p data-astro-cid-4xjgpev6>
+A <strong data-astro-cid-4xjgpev6>registry</strong> is a server that stores versioned, immutable
+      blobs of data addressed by name and tag — <code data-astro-cid-4xjgpev6>reviewer:1.0.0</code> —
+      and by a SHA-256 <strong data-astro-cid-4xjgpev6>digest</strong> of their bytes. Container images
+      live in one. So does anything else that follows the same wire protocol,
+      which is called <strong data-astro-cid-4xjgpev6>OCI</strong>. A skill packaged by Epos is an
+      ordinary OCI artifact, so any registry you can already push a container
+      image to will hold it, and any OCI client can read it back.
+</p> <p data-astro-cid-4xjgpev6>You need three things:</p> <ul data-astro-cid-4xjgpev6> <li data-astro-cid-4xjgpev6> <strong data-astro-cid-4xjgpev6>Epos.</strong> <ga-code prompt="$" data-astro-cid-4xjgpev6="true">go install github.com/gaarutyunov/epos/cmd/epos@latest</ga-code> </li> <li data-astro-cid-4xjgpev6> <strong data-astro-cid-4xjgpev6><code data-astro-cid-4xjgpev6>oras</code></strong>, the reference OCI command-line
+        client. It does the publishing step, for the reason in
+<a href="#publish" data-astro-cid-4xjgpev6>step 4</a>. Installation instructions are at
+<a href="https://oras.land/docs/installation" data-astro-cid-4xjgpev6>oras.land</a>.
+</li> <li data-astro-cid-4xjgpev6> <strong data-astro-cid-4xjgpev6>A registry you can write to.</strong> If your code is on
+        GitHub you already have one: <code data-astro-cid-4xjgpev6>ghcr.io</code>. If you would rather
+        not touch a public registry at all, run one locally — see the note in
+        step 4.
+</li> </ul> <p data-astro-cid-4xjgpev6>
+Everything below happens in one empty directory. Make one and stay in
+      it:
+</p> <ga-code prompt="$" data-astro-cid-4xjgpev6="true">mkdir epos-quickstart &amp;&amp; cd epos-quickstart</ga-code> </section> <section id="throwaway-store" data-astro-cid-4xjgpev6> <h2 data-astro-cid-4xjgpev6>1. A throwaway store</h2> <p data-astro-cid-4xjgpev6>
+Epos keeps every skill it packs, builds or pulls in a <strong data-astro-cid-4xjgpev6>local
+      store</strong>: a directory of content-addressed blobs, the same idea as
+      the Go module cache or <code data-astro-cid-4xjgpev6>~/.docker</code>. By default it lives under
+<code data-astro-cid-4xjgpev6>~/.epos</code>. <code data-astro-cid-4xjgpev6>EPOS_HOME</code> moves it, which is what
+      makes this tutorial safe to try and easy to undo — put the store inside
+      the directory you just made, and deleting that directory deletes
+      everything the tutorial created.
+</p> <ga-code prompt="$" data-astro-cid-4xjgpev6="true">export EPOS_HOME="$PWD/.epos-store"</ga-code> <ga-code prompt="$" data-astro-cid-4xjgpev6="true">epos store path</ga-code> <pre class="out" data-astro-cid-4xjgpev6>/home/you/epos-quickstart/.epos-store/store</pre> <ga-note tone="info" title="EPOS_HOME is per-shell" data-astro-cid-4xjgpev6="true">
+It is read on every command, so it has to be exported in the shell you
+      run the rest of these steps in. Open a new terminal and you are back on
+<code data-astro-cid-4xjgpev6>~/.epos</code>.
+</ga-note> </section> <section id="author" data-astro-cid-4xjgpev6> <h2 data-astro-cid-4xjgpev6>2. Author the skill</h2> <p data-astro-cid-4xjgpev6>
+A skill is a directory with a <code data-astro-cid-4xjgpev6>SKILL.md</code> at its root. The
+      file opens with a <code data-astro-cid-4xjgpev6>---</code> fenced <strong data-astro-cid-4xjgpev6>frontmatter</strong>
+block of YAML — that is where the skill's <code data-astro-cid-4xjgpev6>name</code> and
+<code data-astro-cid-4xjgpev6>version</code> live, and Epos copies the whole block into the
+      artifact so a registry can describe the skill without unpacking it.
+      Everything below the fence is the instructions themselves.
+</p> <p data-astro-cid-4xjgpev6>
+Anything in <code data-astro-cid-4xjgpev6>&#123;&#123; &#125;&#125;</code> is a
+<strong data-astro-cid-4xjgpev6>template</strong>. It is not filled in now, and it is not filled
+      in by the registry: it travels inside the artifact exactly as written
+      and is rendered in <a href="#install" data-astro-cid-4xjgpev6>step 6</a>, when the skill is
+      installed, with the values whoever installs it supplies. This is Helm's
+      model, and it is the reason one published skill can serve teams that
+      want different things from it.
+</p> <p data-astro-cid-4xjgpev6>Create the two files:</p> <ga-card padding="lg" data-astro-cid-4xjgpev6="true"> <div class="example" data-astro-cid-4xjgpev6> <p class="filename" data-astro-cid-4xjgpev6><code data-astro-cid-4xjgpev6>reviewer/SKILL.md</code></p> <pre data-astro-cid-4xjgpev6>---
+name: reviewer
+version: 1.0.0
+description: Reviews a change and reports what to fix.
+model: '&#123;&#123; .Values.model &#125;&#125;'
+---
+
+# &#123;&#123; .Values.title &#125;&#125;
+
+Review &#123;&#123; .Values.language &#125;&#125; changes for &#123;&#123; .Values.global.org &#125;&#125;.
+
+See `references/checklist.md` before you start.</pre> <p class="filename" data-astro-cid-4xjgpev6><code data-astro-cid-4xjgpev6>reviewer/references/checklist.md</code></p> <pre data-astro-cid-4xjgpev6># Checklist
+
+- Every exported function has a test.
+- Errors are wrapped with context.</pre> </div> </ga-card> <ga-note tone="warning" title="Quote a template in a frontmatter value" data-astro-cid-4xjgpev6="true"> <code data-astro-cid-4xjgpev6>model: '&#123;&#123; .Values.model &#125;&#125;'</code> is quoted
+      on purpose. Frontmatter is YAML, and YAML reads a bare <code data-astro-cid-4xjgpev6>&#123;</code>
+as the opening of a flow mapping, so the unquoted form is a syntax error
+      and packing stops before it starts:
+<pre class="out" data-astro-cid-4xjgpev6>Error: parse SKILL.md frontmatter: [4:9] could not find flow map content
+   1 | name: reviewer
+   2 | version: 1.0.0
+   3 | description: Reviews a change and reports what to fix.
+&gt;  4 | model: &#123;&#123; .Values.model &#125;&#125;
+               ^</pre>
+Below the frontmatter fence the file is Markdown, not YAML, so no
+      quoting is needed there.
+</ga-note> </section> <section id="pack" data-astro-cid-4xjgpev6> <h2 data-astro-cid-4xjgpev6>3. Pack it</h2> <p data-astro-cid-4xjgpev6> <code data-astro-cid-4xjgpev6>epos pack</code> turns the directory into an artifact and writes
+      it into the local store. It reads the name and version out of the
+      frontmatter, so it needs no arguments beyond the directory.
+</p> <ga-code prompt="$" data-astro-cid-4xjgpev6="true">epos pack ./reviewer</ga-code> <pre class="out" data-astro-cid-4xjgpev6>reviewer:1.0.0 sha256:a32fa1dfea1118829a06ab4975e38ca502cc3c3f1ccfdab909f846276f486558</pre> <p data-astro-cid-4xjgpev6>
+The tag is on the left and the digest is on the right. The digest is a
+      hash of the artifact's bytes, and packing is deterministic: pack the
+      same directory on another machine, on another operating system, and you
+      get that same <code data-astro-cid-4xjgpev6>a32fa1df…</code> back. That is what makes the digest
+      worth pinning.
+</p> <ga-code prompt="$" data-astro-cid-4xjgpev6="true">epos store ls</ga-code> <pre class="out" data-astro-cid-4xjgpev6>reviewer:1.0.0</pre> </section> <section id="publish" data-astro-cid-4xjgpev6> <h2 data-astro-cid-4xjgpev6>4. Publish it</h2> <p data-astro-cid-4xjgpev6> <strong data-astro-cid-4xjgpev6>Publishing is <a href="/pr-preview/pr-53/cli" data-astro-cid-4xjgpev6><code data-astro-cid-4xjgpev6>epos push</code></a></strong>
+— a direct copy from the local store to your registry, with
+<a href="/pr-preview/pr-53/cli" data-astro-cid-4xjgpev6><code data-astro-cid-4xjgpev6>epos registry login</code></a> for the
+      credential. What was withdrawn is publishing <em data-astro-cid-4xjgpev6>through</em> <code data-astro-cid-4xjgpev6>epos-registry</code>, the component that fronts your registry to
+      count downloads: it would have had to redirect the upload session to the
+      registry behind it, and <code data-astro-cid-4xjgpev6>oras-go</code> refuses an upload redirect
+      that crosses hosts. That refusal is the fix for a real credential-leak
+      advisory, so it is not something to work around — and it does not apply
+      to a client pointed straight at your registry, which is what
+<code data-astro-cid-4xjgpev6>epos push</code> is. See SPEC §4.5 for the full reasoning.
+</p> <p data-astro-cid-4xjgpev6>
+Any other OCI client works too, because the artifact Epos produced is not
+      an Epos format. It is a plain OCI artifact, so plain OCI tools handle it —
+      which is what the rest of this section shows with <code data-astro-cid-4xjgpev6>oras</code>.
+</p> <p data-astro-cid-4xjgpev6>Point at your registry and log in:</p> <ga-code prompt="$" data-astro-cid-4xjgpev6="true">export REGISTRY=ghcr.io/your-github-username</ga-code> <ga-code prompt="$" data-astro-cid-4xjgpev6="true">echo $GITHUB_TOKEN | oras login ghcr.io -u your-github-username --password-stdin</ga-code> <pre class="out" data-astro-cid-4xjgpev6>Login Succeeded</pre> <p data-astro-cid-4xjgpev6>
+Then copy the artifact out of the local store and into the registry.
+      Epos's store is an OCI image layout — a directory in the format the OCI
+      specification defines for holding artifacts on disk — which is exactly
+      what <code data-astro-cid-4xjgpev6>oras cp</code> can read from:
+</p> <ga-code prompt="$" data-astro-cid-4xjgpev6="true">oras cp --from-oci-layout-path "$(epos store path)" reviewer:1.0.0 "$REGISTRY/agent-skills/reviewer:1.0.0"</ga-code> <pre class="out" data-astro-cid-4xjgpev6>Copying 11b90ecf569e application/vnd.agentskills.skill.config.v1+json
+Copying 4ddd04a7449c application/vnd.agentskills.skill.content.v1.tar+gzip
+Copied  4ddd04a7449c application/vnd.agentskills.skill.content.v1.tar+gzip
+Copied  11b90ecf569e application/vnd.agentskills.skill.config.v1+json
+Copying a32fa1dfea11 reviewer
+Copied  a32fa1dfea11 reviewer
+Copied [oci-layout] reviewer:1.0.0 =&gt; [registry] ghcr.io/your-github-username/agent-skills/reviewer:1.0.0
+Digest: sha256:a32fa1dfea1118829a06ab4975e38ca502cc3c3f1ccfdab909f846276f486558</pre> <p data-astro-cid-4xjgpev6>
+Same digest as <code data-astro-cid-4xjgpev6>epos pack</code> printed. Publishing copies bytes;
+      it does not rewrite them.
+</p> <p data-astro-cid-4xjgpev6>
+The repository name is <code data-astro-cid-4xjgpev6>&lt;namespace&gt;/agent-skills/&lt;skill&gt;</code>
+by convention: one skill per repository, so the repository name alone
+      says which skill it holds.
+</p> <ga-note tone="info" title="Why --from-oci-layout-path and not --from-oci-layout" data-astro-cid-4xjgpev6="true">
+The shorter <code data-astro-cid-4xjgpev6>oras cp --from-oci-layout &lt;dir&gt;:&lt;tag&gt;</code>
+form splits its argument at the last colon, and an Epos store tag
+<em data-astro-cid-4xjgpev6>contains</em> a colon — <code data-astro-cid-4xjgpev6>reviewer:1.0.0</code> — so it would
+      look for a directory called <code data-astro-cid-4xjgpev6>…/store:reviewer</code>.
+<code data-astro-cid-4xjgpev6>--from-oci-layout-path</code> keeps the two apart. Addressing the
+      artifact by digest works with the short form too:
+<code data-astro-cid-4xjgpev6>oras cp --from-oci-layout "$(epos store path)@sha256:a32fa1df…"
+      "$REGISTRY/agent-skills/reviewer:1.0.0"</code>.
+</ga-note> <ga-note tone="neutral" title="No registry account? Run one on your laptop" data-astro-cid-4xjgpev6="true"> <p data-astro-cid-4xjgpev6> <a href="https://zotregistry.dev/" data-astro-cid-4xjgpev6>zot</a> is a small OCI registry that
+        needs no configuration:
+</p> <pre data-astro-cid-4xjgpev6>$ docker run -d -p 5000:5000 ghcr.io/project-zot/zot-linux-amd64:v2.1.18
+$ export REGISTRY=localhost:5000/you</pre> <p data-astro-cid-4xjgpev6>
+It speaks HTTP rather than HTTPS, so add <code data-astro-cid-4xjgpev6>--to-plain-http</code>
+to the <code data-astro-cid-4xjgpev6>oras cp</code> above and <code data-astro-cid-4xjgpev6>--plain-http</code> to the
+<code data-astro-cid-4xjgpev6>epos pull</code> in the next step. Skip the
+<code data-astro-cid-4xjgpev6>oras login</code>: it has no authentication. Everything else in
+        this tutorial is unchanged — it is the same protocol either way.
+</p> </ga-note> </section> <section id="pull" data-astro-cid-4xjgpev6> <h2 data-astro-cid-4xjgpev6>5. Pull it back</h2> <p data-astro-cid-4xjgpev6>
+Point <code data-astro-cid-4xjgpev6>EPOS_HOME</code> somewhere new. That store is empty, so what
+      happens next can only come from the registry — it is the same situation
+      a colleague, or your CI, starts in.
+</p> <ga-code prompt="$" data-astro-cid-4xjgpev6="true">export EPOS_HOME="$PWD/.epos-fresh"</ga-code> <ga-code prompt="$" data-astro-cid-4xjgpev6="true">epos store ls</ga-code> <pre class="out" data-astro-cid-4xjgpev6><span class="dim" data-astro-cid-4xjgpev6>(nothing)</span></pre> <ga-code prompt="$" data-astro-cid-4xjgpev6="true">epos pull "$REGISTRY/agent-skills/reviewer:1.0.0"</ga-code> <pre class="out" data-astro-cid-4xjgpev6>reviewer:1.0.0 sha256:a32fa1dfea1118829a06ab4975e38ca502cc3c3f1ccfdab909f846276f486558</pre> <ga-code prompt="$" data-astro-cid-4xjgpev6="true">epos store ls</ga-code> <pre class="out" data-astro-cid-4xjgpev6>reviewer:1.0.0</pre> <p data-astro-cid-4xjgpev6>
+The digest is the one that was packed and the one that was published.
+      That is the whole point of a content-addressed artifact: you can tell,
+      without trusting anybody, that what arrived is what left.
+</p> <p data-astro-cid-4xjgpev6> <code data-astro-cid-4xjgpev6>pull</code> takes the skill's name from the repository — the last
+      path segment — and tags it in the store as
+<code data-astro-cid-4xjgpev6>&lt;name&gt;:&lt;version&gt;</code>. That short tag is what you
+      install by.
+</p> </section> <section id="install" data-astro-cid-4xjgpev6> <h2 data-astro-cid-4xjgpev6>6. Install it with values</h2> <p data-astro-cid-4xjgpev6>
+Installing is where the <code data-astro-cid-4xjgpev6>&#123;&#123; &#125;&#125;</code>
+placeholders finally get filled in. Nothing rendered them earlier: the
+      artifact in the registry still holds them verbatim, and it can be
+      installed a hundred times with a hundred different answers.
+</p> <p data-astro-cid-4xjgpev6>Write the answers down:</p> <ga-card padding="lg" data-astro-cid-4xjgpev6="true"> <div class="example" data-astro-cid-4xjgpev6> <p class="filename" data-astro-cid-4xjgpev6><code data-astro-cid-4xjgpev6>values.yaml</code></p> <pre data-astro-cid-4xjgpev6>title: The reviewer
+language: Go
+model: opus
+global:
+  org: Acme</pre> </div> </ga-card> <ga-code prompt="$" data-astro-cid-4xjgpev6="true">epos install reviewer:1.0.0 -f values.yaml</ga-code> <pre class="out" data-astro-cid-4xjgpev6>installed into .claude/skills/reviewer
+reviewer:1.0.0 sha256:a32fa1dfea1118829a06ab4975e38ca502cc3c3f1ccfdab909f846276f486558</pre> <ga-code prompt="$" data-astro-cid-4xjgpev6="true">cat .claude/skills/reviewer/SKILL.md</ga-code> <pre class="out" data-astro-cid-4xjgpev6>---
+name: reviewer
+version: 1.0.0
+description: Reviews a change and reports what to fix.
+model: 'opus'
+---
+
+# The reviewer
+
+Review Go changes for Acme.
+
+See `references/checklist.md` before you start.</pre> <p data-astro-cid-4xjgpev6>
+Every placeholder is gone, including the one in the frontmatter, and the
+      quotes that made it legal YAML are still there.
+<code data-astro-cid-4xjgpev6>&#123;&#123; .Values.global.org &#125;&#125;</code> came from the
+<code data-astro-cid-4xjgpev6>global</code> block: values are scoped, and <code data-astro-cid-4xjgpev6>global</code> is
+      the block every part of a skill can see — which matters once a skill is
+      composed from several others.
+</p> <h3 data-astro-cid-4xjgpev6><code data-astro-cid-4xjgpev6>--set</code> for one-off answers</h3> <p data-astro-cid-4xjgpev6> <code data-astro-cid-4xjgpev6>--set k=v</code> overrides the file, key by key, and dots name
+      nested keys. It is repeatable, and it always wins over every
+<code data-astro-cid-4xjgpev6>-f</code> file:
+</p> <ga-code prompt="$" data-astro-cid-4xjgpev6="true">epos install reviewer:1.0.0 -f values.yaml --set model=haiku --set global.org=Contoso</ga-code> <ga-code prompt="$" data-astro-cid-4xjgpev6="true">cat .claude/skills/reviewer/SKILL.md</ga-code> <pre class="out" data-astro-cid-4xjgpev6>---
+name: reviewer
+version: 1.0.0
+description: Reviews a change and reports what to fix.
+model: 'haiku'
+---
+
+# The reviewer
+
+Review Go changes for Contoso.
+
+See `references/checklist.md` before you start.</pre> <p data-astro-cid-4xjgpev6> <code data-astro-cid-4xjgpev6>title</code> and <code data-astro-cid-4xjgpev6>language</code> still came from the file;
+<code data-astro-cid-4xjgpev6>model</code> and <code data-astro-cid-4xjgpev6>global.org</code> came from the flags.
+</p> <h3 data-astro-cid-4xjgpev6>What install wrote down</h3> <p data-astro-cid-4xjgpev6>
+Two files appeared next to <code data-astro-cid-4xjgpev6>values.yaml</code>.
+<code data-astro-cid-4xjgpev6>skills.json</code> records what you asked for.
+<code data-astro-cid-4xjgpev6>skills.lock.json</code> records the digest that answered:
+</p> <pre class="out" data-astro-cid-4xjgpev6>&#123;
+  "lockfileVersion": 1,
+  "skills": [
+    &#123;
+      "name": "reviewer",
+      "version": "1.0.0",
+      "ref": "reviewer:1.0.0",
+      "digest": "sha256:a32fa1dfea1118829a06ab4975e38ca502cc3c3f1ccfdab909f846276f486558",
+      "basePaths": [
+        ".claude/skills"
+      ]
+    &#125;
+  ]
+&#125;</pre> <p data-astro-cid-4xjgpev6>
+Commit both. The store is a cache and the lock is the truth, so the next
+      machine resolves the same bytes you did, and two checkouts on one
+      machine can sit on two different versions at the same time.
+</p> <ga-note tone="warning" title="A value nobody supplied stops the install" data-astro-cid-4xjgpev6="true">
+A skill installed with a hole in it is worse than an install that
+      stops, so a missing value is an error rather than an empty string, and
+      nothing is written:
+<pre class="out" data-astro-cid-4xjgpev6>$ epos install reviewer:1.0.0 --set title=Reviewer
+Error: render SKILL.md: it uses a value that was not supplied</pre> </ga-note> <ga-note tone="info" title="install resolves, it does not fetch" data-astro-cid-4xjgpev6="true"> <code data-astro-cid-4xjgpev6>epos install</code> reads the local store and never touches the
+      network. Run <code data-astro-cid-4xjgpev6>epos pull</code> — or <code data-astro-cid-4xjgpev6>epos build</code> — first.
+</ga-note> </section> <section id="close-the-loop" data-astro-cid-4xjgpev6> <h2 data-astro-cid-4xjgpev6>7. <code data-astro-cid-4xjgpev6>ls</code> and <code data-astro-cid-4xjgpev6>uninstall</code></h2> <p data-astro-cid-4xjgpev6> <code data-astro-cid-4xjgpev6>epos ls</code> prints what this directory is pinned to. It reads
+      the lock file, not the filesystem, because the lock is what the
+      directory actually installed:
+</p> <ga-code prompt="$" data-astro-cid-4xjgpev6="true">epos ls</ga-code> <pre class="out" data-astro-cid-4xjgpev6>reviewer:1.0.0 sha256:a32fa1dfea1118829a06ab4975e38ca502cc3c3f1ccfdab909f846276f486558</pre> <p data-astro-cid-4xjgpev6> <code data-astro-cid-4xjgpev6>epos uninstall</code> takes the rendered skill back out and drops
+      it from both manifests:
+</p> <ga-code prompt="$" data-astro-cid-4xjgpev6="true">epos uninstall reviewer</ga-code> <pre class="out" data-astro-cid-4xjgpev6>removed .claude/skills/reviewer</pre> <ga-code prompt="$" data-astro-cid-4xjgpev6="true">epos ls</ga-code> <pre class="out" data-astro-cid-4xjgpev6><span class="dim" data-astro-cid-4xjgpev6>(nothing)</span></pre> <p data-astro-cid-4xjgpev6>
+The store keeps its copy, so reinstalling costs nothing and needs no
+      network:
+</p> <ga-code prompt="$" data-astro-cid-4xjgpev6="true">epos store ls</ga-code> <pre class="out" data-astro-cid-4xjgpev6>reviewer:1.0.0</pre> <p data-astro-cid-4xjgpev6> <code data-astro-cid-4xjgpev6>epos ls</code> is the directory; <code data-astro-cid-4xjgpev6>epos store ls</code> is the
+      cache. <code data-astro-cid-4xjgpev6>epos store prune</code> collects what no tag reaches, when
+      you want the space back.
+</p> </section> <section id="clean-up" data-astro-cid-4xjgpev6> <h2 data-astro-cid-4xjgpev6>8. Clean up</h2> <p data-astro-cid-4xjgpev6>
+Both stores were inside this directory, which is what
+<code data-astro-cid-4xjgpev6>EPOS_HOME</code> bought you. Deleting them leaves nothing behind:
+</p> <ga-code prompt="$" data-astro-cid-4xjgpev6="true">rm -rf .epos-store .epos-fresh</ga-code> <p data-astro-cid-4xjgpev6>
+Then <code data-astro-cid-4xjgpev6>unset EPOS_HOME</code>, or close the shell, and Epos is back
+      on <code data-astro-cid-4xjgpev6>~/.epos</code>.
+</p> </section> <section id="next" data-astro-cid-4xjgpev6> <h2 data-astro-cid-4xjgpev6>Where to go next</h2> <p data-astro-cid-4xjgpev6>
+You packed a skill you wrote. The other way to make one is to
+<strong data-astro-cid-4xjgpev6>derive</strong> it from a skill somebody else published, with a
+<code data-astro-cid-4xjgpev6>Skillfile</code> that reads like a Dockerfile:
+</p> <ga-card padding="lg" data-astro-cid-4xjgpev6="true"> <div class="example" data-astro-cid-4xjgpev6> <p class="filename" data-astro-cid-4xjgpev6><code data-astro-cid-4xjgpev6>Skillfile</code></p> <pre data-astro-cid-4xjgpev6>FROM ./reviewer
+
+APPEND references/checklist.md &lt;&lt;EOF
+- Public API changes are noted in the changelog.
+EOF</pre> </div> </ga-card> <ga-code prompt="$" data-astro-cid-4xjgpev6="true">epos build . -t reviewer:1.1.0</ga-code> <pre class="out" data-astro-cid-4xjgpev6>reviewer:1.1.0 sha256:347657e7fee142b72881c4977275073d59332e5010074ec023e68fec4e9dc895</pre> <p data-astro-cid-4xjgpev6>
+Install that and the checklist has a fourth line the base never had. The
+      base can just as well be a skill somebody else published —
+<code data-astro-cid-4xjgpev6>FROM ghcr.io/their-org/agent-skills/reviewer:1.0.0</code> — in
+      which case the build pins the digest it resolved and records it on the
+      artifact.
+</p> <p data-astro-cid-4xjgpev6>
+A built skill lands in the store like a packed one, so steps 4 to 7
+      above work on it unchanged. Nothing executes during a build, and the
+      result is a pure function of the base, the Skillfile and the context —
+      the same three inputs always give the same digest.
+</p> <p data-astro-cid-4xjgpev6>
+Every instruction, with syntax and a worked example, is in the
+<a href="/pr-preview/pr-53/skillfile" data-astro-cid-4xjgpev6>Skillfile reference</a>. Every command you
+      ran above, with its flags and their defaults, is in the
+<a href="/pr-preview/pr-53/cli" data-astro-cid-4xjgpev6>CLI reference</a>.
+</p> </section> <footer data-astro-cid-4xjgpev6> <p data-astro-cid-4xjgpev6> <ga-button variant="primary" href="https://github.com/gaarutyunov/epos" data-astro-cid-4xjgpev6="true">
+Source on GitHub
+</ga-button> </p> </footer>  </main> <!--
+      Registering every <ga-*> element is a side effect of this import. Astro
+      bundles it and ships it to the browser, which is the only place custom
+      elements can be defined.
+    --> <script type="module" src="/pr-preview/pr-53/_astro/Base.astro_astro_type_script_index_0_lang.7enm7Fe5.js"></script>  </body> </html> 

@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Epos catalog</title>
+<meta name="description" content="Agent skills published to 127.0.0.1:45100">
+<link rel="stylesheet" href="/pr-preview/pr-53/catalog/assets/ga-ui-kit.css">
+<link rel="stylesheet" href="/pr-preview/pr-53/catalog/assets/app.css">
+</head>
+<body>
+<ga-header brand="EPOS" href="/pr-preview/pr-53/catalog/">
+  <a href="/pr-preview/pr-53/catalog/catalog/">Skills</a>
+  <a href="/pr-preview/pr-53/catalog/tools/">Tools</a>
+  <a href="/pr-preview/pr-53/">Docs</a>
+</ga-header>
+
+<main class="container" id="main">
+<header class="hero">
+  <h1>Most pulled skills</h1>
+  <p class="lede">
+    Ranked by verified pulls &mdash; downloads that carried the
+    <span class="mono">Epos-Download</span> header, which only
+    <span class="mono">epos pull</span> sends.
+  </p>
+</header>
+
+
+<section class="stats" aria-label="Catalog totals">
+  <div class="stat">
+    <p class="stat-label">Skills</p>
+    <p class="stat-value">2</p>
+  </div>
+  <div class="stat">
+    <p class="stat-label">Verified pulls</p>
+    <p class="stat-value">1381</p>
+  </div>
+</section>
+<p class="provenance">Illustrative figures from a file checked into the repository, not measured traffic. epos-registry can record a real download as a span and roll it into a store the catalog reads per request; that store is not part of this change, so these numbers demonstrate the leaderboard&#39;s shape and nothing about how often anything has actually been pulled.</p>
+
+
+
+<ga-table class="board" columns="[{&#34;label&#34;:&#34;#&#34;,&#34;width&#34;:&#34;56px&#34;,&#34;align&#34;:&#34;right&#34;,&#34;mono&#34;:true},{&#34;label&#34;:&#34;Skill&#34;},{&#34;label&#34;:&#34;Pulls&#34;,&#34;width&#34;:&#34;96px&#34;,&#34;align&#34;:&#34;right&#34;,&#34;mono&#34;:true}]">
+  <a href="/pr-preview/pr-53/catalog/skills/demo/agent-skills/pdf/"><span class="mono rank">1</span>
+    <div class="cell-skill">
+      <strong>pdf</strong>
+      <span class="mono dim">demo/agent-skills/pdf</span><span class="dim desc">Extract text, tables and metadata from PDF files without guessing at layout.</span>
+    </div><span class="mono pulls">1284</span>
+  </a>
+  <a href="/pr-preview/pr-53/catalog/skills/demo/agent-skills/reviewer/"><span class="mono rank">2</span>
+    <div class="cell-skill">
+      <strong>reviewer</strong>
+      <span class="mono dim">demo/agent-skills/reviewer</span><span class="dim desc">Review a change for the things a linter cannot see.</span>
+    </div><span class="mono pulls">97</span>
+  </a>
+</ga-table>
+
+</main>
+
+<footer class="container footer">
+  <p class="section-label">Epos</p>
+  <ul class="dashes">
+    <li>Skills are OCI artifacts. Any conforming client can pull one.</li>
+    <li>This catalog is served by <span class="mono">epos-registry</span>, read-only, from the
+        registry it fronts.</li>
+    <li>Pull counts are verified downloads &mdash; requests that carried
+        <span class="mono">Epos-Download</span>, which only <span class="mono">epos pull</span>
+        sends, captured 2026-08-04T00:00:00Z. The unverified side is
+        known-inflated and is not ranked on.</li>
+  </ul>
+  <p class="dim">Upstream registry: <span class="mono">127.0.0.1:45100</span></p>
+</footer>
+
+<script src="/pr-preview/pr-53/catalog/assets/ga-ui-kit.min.js"></script>
+<script src="/pr-preview/pr-53/catalog/assets/app.js"></script>
+</body>
+</html>
