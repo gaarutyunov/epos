@@ -350,9 +350,14 @@ func (b *browser) thePageListsEveryPublishedSkill() error {
 }
 
 func (b *browser) everySkillLinksToAPageOfItsOwn() error {
+	// Snapshotted, because following a link overwrites b.body: asserting the
+	// second skill's href against the first skill's detail page is a test that
+	// fails for a reason having nothing to do with the catalog.
+	home := b.body
+
 	for _, s := range catalogSkills {
 		href := `href="/skills/` + s.repository + `/"`
-		if !strings.Contains(b.body, href) {
+		if !strings.Contains(home, href) {
 			return fmt.Errorf("the home page carries no %s", href)
 		}
 		if err := b.get("/skills/" + s.repository + "/"); err != nil {
