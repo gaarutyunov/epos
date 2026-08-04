@@ -196,7 +196,6 @@ func (h *handler) countDownload(r *http.Request, status int, repository string) 
 	h.downloads.Record(r.Context(), metrics.Download{
 		Repository: repository,
 		Verified:   verified,
-		Client:     r.Header.Get("User-Agent"),
 		Version:    version,
 	})
 }

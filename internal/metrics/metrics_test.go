@@ -81,10 +81,10 @@ func stringify(v any) string {
 func TestDownloadsCounterIsMonotonicAndCarriesItsAttributes(t *testing.T) {
 	points, monotonic := collect(t, Config{}, func(d *Downloads) {
 		d.Record(context.Background(), Download{
-			Repository: "demo/hello", Verified: true, Client: "epos", Version: "1.0.0",
+			Repository: "demo/hello", Verified: true, Version: "1.0.0",
 		})
 		d.Record(context.Background(), Download{
-			Repository: "demo/hello", Verified: true, Client: "epos", Version: "1.0.0",
+			Repository: "demo/hello", Verified: true, Version: "1.0.0",
 		})
 	})
 
@@ -92,7 +92,7 @@ func TestDownloadsCounterIsMonotonicAndCarriesItsAttributes(t *testing.T) {
 	require.Len(t, points, 1)
 	for key, value := range points {
 		assert.EqualValues(t, 2, value)
-		for _, want := range []string{`repository="demo/hello"`, `verified=true`, `client="epos"`} {
+		for _, want := range []string{`repository="demo/hello"`, `verified=true`} {
 			assert.Contains(t, key, want)
 		}
 	}
@@ -103,7 +103,7 @@ func TestDownloadsCounterIsMonotonicAndCarriesItsAttributes(t *testing.T) {
 func TestVersionAttributeIsOffByDefault(t *testing.T) {
 	record := func(d *Downloads) {
 		d.Record(context.Background(), Download{
-			Repository: "demo/hello", Client: "oras-go", Version: "1.0.0",
+			Repository: "demo/hello", Version: "1.0.0",
 		})
 	}
 
@@ -127,9 +127,9 @@ func TestVersionAttributeIsOffByDefault(t *testing.T) {
 // SPEC.md 5.2's split is readable off the counter.
 func TestVerifiedAndUnverifiedAreSeparateSeries(t *testing.T) {
 	points, _ := collect(t, Config{}, func(d *Downloads) {
-		d.Record(context.Background(), Download{Repository: "demo/hello", Verified: true, Client: "epos"})
-		d.Record(context.Background(), Download{Repository: "demo/hello", Verified: false, Client: "oras-go"})
-		d.Record(context.Background(), Download{Repository: "demo/hello", Verified: false, Client: "oras-go"})
+		d.Record(context.Background(), Download{Repository: "demo/hello", Verified: true})
+		d.Record(context.Background(), Download{Repository: "demo/hello", Verified: false})
+		d.Record(context.Background(), Download{Repository: "demo/hello", Verified: false})
 	})
 
 	require.Len(t, points, 2, "verified and unverified must be distinct series")

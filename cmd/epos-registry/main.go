@@ -66,6 +66,14 @@ func newRootCommand() *cobra.Command {
 	flags.String("metrics.exporter", metrics.ExporterStdout, "metrics exporter: stdout or none")
 	flags.Duration("metrics.interval", 0,
 		"how often the metrics exporter emits (0 uses the SDK default)")
+	flags.String("traces.exporter", metrics.TracesExporterNone,
+		"download-span exporter: otlp or none")
+	flags.String("traces.endpoint", "",
+		"collector OTLP/HTTP endpoint as host:port (default: the OTLP default)")
+	flags.Bool("traces.insecure", false,
+		"send spans over plain HTTP, for a collector on the same host or network")
+	flags.Duration("traces.timeout", 0,
+		"how long one span export may take (0 uses the exporter default)")
 	flags.Bool("metrics.version-attribute", false,
 		"record the skill version on each download; off by default because "+
 			"version-valued attributes are unbounded in cardinality")
@@ -93,6 +101,14 @@ type config struct {
 	exporter         string
 	interval         time.Duration
 	versionAttribute bool
+
+	// The download span's own switch, independent of the metrics exporter
+	// above: numbers in a store without a metrics pipeline is a configuration,
+	// and so is the reverse.
+	tracesExporter string
+	tracesEndpoint string
+	tracesInsecure bool
+	tracesTimeout  time.Duration
 
 	// registryHost is the upstream's host[:port], which is what an OCI client
 	// is built against; plainHTTP follows the upstream's scheme.
@@ -137,6 +153,11 @@ func loadConfig(flags *pflag.FlagSet) (config, error) {
 			// EPOS_REGISTRY_METRICS_VERSION_ATTRIBUTE — a breaking change to a
 			// shipped key, bought for punctuation.
 			key = strings.Replace(key, "catalog_", "catalog.", 1)
+			// And the same one line again for the span's keys. Each prefix
+			// needs its own: the transform is a per-group replace, not a rule,
+			// and a group without a line here collapses to a flat kebab key
+			// that resolves to nothing.
+			key = strings.Replace(key, "traces_", "traces.", 1)
 			return strings.ReplaceAll(key, "_", "-"), value
 		},
 	}), nil); err != nil {
@@ -161,6 +182,10 @@ func loadConfig(flags *pflag.FlagSet) (config, error) {
 		exporter:         k.String("metrics.exporter"),
 		interval:         k.Duration("metrics.interval"),
 		versionAttribute: k.Bool("metrics.version-attribute"),
+		tracesExporter:   k.String("traces.exporter"),
+		tracesEndpoint:   k.String("traces.endpoint"),
+		tracesInsecure:   k.Bool("traces.insecure"),
+		tracesTimeout:    k.Duration("traces.timeout"),
 		catalogOut:       k.String("out"),
 		statsDSN:         k.String("catalog.stats-dsn"),
 		catalog: catalogConfig{
@@ -244,6 +269,10 @@ func run(ctx context.Context, cfg config) error {
 		Exporter:         cfg.exporter,
 		Interval:         cfg.interval,
 		VersionAttribute: cfg.versionAttribute,
+		TracesExporter:   cfg.tracesExporter,
+		TracesEndpoint:   cfg.tracesEndpoint,
+		TracesInsecure:   cfg.tracesInsecure,
+		TracesTimeout:    cfg.tracesTimeout,
 	})
 	if err != nil {
 		return err

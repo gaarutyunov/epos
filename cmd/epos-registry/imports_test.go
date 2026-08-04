@@ -41,3 +41,22 @@ func TestTheRegistryLinksNeitherTheCLINorTheBuildLanguage(t *testing.T) {
 	assert.Contains(t, deps, "github.com/gaarutyunov/epos/internal/catalog")
 	assert.Contains(t, deps, "github.com/gaarutyunov/epos/internal/registry")
 }
+
+// The registry holds no credential that can write to the store, and the
+// cheapest way for that to stop being true is a ClickHouse client appearing in
+// the binary.
+//
+// epos writes no ingestion code: the rollup is schema, the raw tables are the
+// collector's, and epos reads. A write client here would mean the process on
+// the public internet — the one answering unauthenticated GETs — had acquired a
+// database credential, which is the whole property the collector exists to
+// avoid.
+func TestTheRegistryLinksNoClickHouseWriteClient(t *testing.T) {
+	out, err := exec.Command("go", "list", "-deps", "./").CombinedOutput()
+	require.NoError(t, err, "go list -deps: %s", out)
+
+	for _, dep := range strings.Fields(string(out)) {
+		assert.NotContains(t, strings.ToLower(dep), "clickhouse",
+			"epos-registry links %s: the store is filled by the collector, never from Go", dep)
+	}
+}

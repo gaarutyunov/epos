@@ -219,11 +219,35 @@ One instrumentation path: the OpenTelemetry Go SDK. The exporter is chosen by co
 |`prometheus`|Production scrape            |
 |`otlp`      |Production push              |
 
+`stdout` and `none` are implemented. **`prometheus` and `otlp` are not**, and neither is completed by the download span below: a scrape needs a second listener and reaches one replica of a deployment §4.4 specifies as N behind a load balancer, and a second durable path for the same event would be two answers to "how many downloads".
+
 Instrument: `epos.downloads`, a monotonic counter.
 
-Attributes: `repository`, `verified`, `client` (from `User-Agent`; `oras-go` sets `User-Agent: oras-go` on its auth `DefaultClient`).
+Attributes: `repository`, `verified`, and optionally `version`.
+
+**`client` was removed.** It carried the raw `User-Agent`. Under a metrics exporter that is unbounded cardinality — one time series per distinct User-Agent per repository, forever, created by anyone who can issue a blob `GET`. Once §5.3.1 made a download a durable row it stopped being a cardinality problem and became a data one: a registry with a public read path storing arbitrary caller-supplied text, retained for the store's TTL. It is removed in both directions — there is no field to set on the span, and the meter provider applies an allow-list view (`repository`, `verified`, `version`) with exemplars off, since a view's filtered-out attributes may otherwise ride along on an exemplar.
 
 **Cardinality control.** The attribute set is configurable. Version-valued attributes accumulate without bound under a Prometheus exporter and are off by default.
+
+### 5.3.1 The download span — the durable record
+
+The counter lives in an exporter's pipeline and dies with the process, so it cannot answer "how many times has this been pulled". A second emission does, and it is an **event** rather than a gauge:
+
+`epos-registry --traces.exporter otlp` emits one **`epos.download`** span per counted download, from the **same call site** that increments the counter and with the **same attribute set** — one function, one list, so the two cannot describe different events. `none` is the default: the registry emits no spans, needs no collector, and stores nothing.
+
+|Attribute|Value|
+|---|---|
+|`repository`|the OCI repository name, as on the counter|
+|`verified`|whether the request carried `Epos-Download` (§5.2)|
+|`version`|only when the version attribute is enabled|
+
+Resource: `service.name = epos-registry`. The span is minimal by construction — no events, no links, no HTTP semantics — and the relay is deliberately **not** wrapped in `otelhttp`, which would record `http.user_agent` on a server span of its own and reintroduce exactly what the paragraph above removes.
+
+**Sampling is always on.** Every span is a download and the count is a `count()` of spans, so a sampled trace is a sampled count — a wrong number presented as a right one, with nothing on the page disclosing it. If volume ever forces a reduction, the answer is pre-aggregation in the collector, never a sampled count.
+
+**Exporting never fails a request.** A collector that is unreachable costs telemetry and not availability: the exporter connects lazily, the batch processor drops what it cannot deliver, and the relay is unaffected.
+
+The store itself is not epos's code. An OpenTelemetry Collector's `clickhouseexporter` writes the spans, and a materialized view rolls them into the one table the catalog reads. epos ships that configuration and the DDL (`deploy/`) and writes no ingestion code at all — which is what lets the relay hold an OTLP endpoint and no database credential of any kind.
 
 ### 5.4 Publishes — withdrawn
 

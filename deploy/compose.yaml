@@ -1,0 +1,66 @@
+# The statistics stack, for local development and for a deployment to copy.
+#
+# Three containers and one ordering rule that matters more than the rest: the
+# DDL is applied BEFORE the collector starts. A ClickHouse materialized view is
+# an insert trigger and does not backfill, so a collector that inserts first
+# produces spans the rollup never sees — with nothing in any log to say so. The
+# `schema` service below exists only to make that ordering explicit rather than
+# a sentence in a README.
+#
+# Every image is pinned. Nothing here holds a credential: both passwords come
+# from the environment, and the registry has neither.
+
+name: epos-stats
+
+services:
+  clickhouse:
+    image: clickhouse/clickhouse-server:25.3.3.42-alpine
+    environment:
+      CLICKHOUSE_USER: default
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:?set CLICKHOUSE_PASSWORD}
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
+    ports:
+      - "8123:8123"   # HTTP
+      - "9000:9000"   # native
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:8123/ping"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+
+  # Applies epos's own objects and exits. The collector waits for it.
+  schema:
+    image: clickhouse/clickhouse-server:25.3.3.42-alpine
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+    volumes:
+      - ./clickhouse/epos.sql:/epos.sql:ro
+    entrypoint: ["sh", "-c"]
+    command: >
+      clickhouse-client --host clickhouse --user default
+      --password "$$CLICKHOUSE_PASSWORD" --multiquery < /epos.sql
+    environment:
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:?set CLICKHOUSE_PASSWORD}
+
+  collector:
+    image: otel/opentelemetry-collector-contrib:0.121.0
+    depends_on:
+      schema:
+        condition: service_completed_successfully
+    volumes:
+      - ./collector/config.yaml:/etc/otelcol-contrib/config.yaml:ro
+    environment:
+      EPOS_COLLECTOR_PASSWORD: ${EPOS_COLLECTOR_PASSWORD:?set EPOS_COLLECTOR_PASSWORD}
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+
+# epos-registry is deliberately not a service here. It is pointed at the
+# collector with:
+#
+#   epos-registry --upstream <registry> \
+#     --traces.exporter otlp --traces.endpoint 127.0.0.1:4318 --traces.insecure
+#
+# and, if it also serves the catalog, with EPOS_REGISTRY_CATALOG_STATS_DSN
+# carrying the *read-only* epos_catalog credential. It never gets a write one.

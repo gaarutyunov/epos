@@ -1,0 +1,67 @@
+# The OpenTelemetry Collector that turns epos-registry's download spans into
+# rows in ClickHouse.
+#
+# epos writes no ingestion code. ClickHouse has no OTLP receiver — it speaks
+# native TCP and an HTTP interface, neither of which is OTLP — so the two ways
+# in are this exporter or bespoke INSERTs from the registry itself. The second
+# would mean a ClickHouse *write* client inside the process on the public
+# internet, plus batching, retry and back-pressure written by hand. This is a
+# container and a file, and it is why the relay holds no database credential.
+
+receivers:
+  otlp:
+    protocols:
+      # Both, so an operator can choose. epos-registry ships with the HTTP
+      # exporter because an ordinary POST traverses a proxy or a
+      # TLS-terminating load balancer without special configuration; gRPC needs
+      # HTTP/2 end to end. Neither is lighter — measured, they are the same 21
+      # modules — so the choice is about what is between the two processes.
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  # Bounded, because the collector is downstream of a public read path: a burst
+  # of blob GETs is a burst of spans, and the collector must shed rather than
+  # grow without limit.
+  memory_limiter:
+    check_interval: 1s
+    limit_percentage: 80
+    spike_limit_percentage: 20
+  batch:
+    timeout: 5s
+    send_batch_size: 1024
+
+exporters:
+  clickhouse:
+    endpoint: tcp://clickhouse:9000?dial_timeout=10s
+    database: epos
+    username: epos_collector
+    # From the environment, never from this file. Nothing in this repository
+    # holds it.
+    password: ${env:EPOS_COLLECTOR_PASSWORD}
+    # The tables are the exporter's own. Set this false and provision them
+    # yourself in production, which is what the exporter's README recommends —
+    # epos's own objects are in ../clickhouse/epos.sql either way, and they must
+    # exist before the first insert.
+    create_schema: true
+    ttl: 720h
+    timeout: 10s
+    retry_on_failure:
+      enabled: true
+      initial_interval: 5s
+      max_interval: 30s
+
+service:
+  pipelines:
+    # Traces only. The registry's counter keeps its own stdout/none exporters
+    # and does not pass through here; a second durable path for the same event
+    # would be two answers to "how many downloads".
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [clickhouse]
+  telemetry:
+    logs:
+      level: info
