@@ -87,7 +87,18 @@ func (p *page) syntax(ref skillfile.Reference) {
 }
 
 // sources renders the FROM table of SPEC.md 8.3.
+//
+// Each value cell repeats its column's label in a data-label attribute. Below
+// the layout's breakpoint the table has no room for three columns, so it stacks
+// and the header is hidden — and a bare "none" sitting under a paragraph of
+// prose does not say which column it came from. The labels are named once here
+// so the header and the cells cannot drift apart.
 func (p *page) sources(ref skillfile.Reference) {
+	const (
+		refCol = "Reference"
+		pinCol = "Pin"
+	)
+
 	p.w(
 		`  <section id="from-sources">`,
 		`    <h2>FROM sources</h2>`,
@@ -96,7 +107,8 @@ func (p *page) sources(ref skillfile.Reference) {
 			"registry, so a Skillfile built on local or git bases is a complete, standalone workflow."),
 		`    </p>`,
 		`    <ga-table`,
-		`      columns='[&#123;"label":"Source"&#125;,&#123;"label":"Reference","mono":true&#125;,&#123;"label":"Pin","width":"170px"&#125;]'`,
+		`      columns='[&#123;"label":"Source"&#125;,&#123;"label":"`+refCol+`","mono":true&#125;,`+
+			`&#123;"label":"`+pinCol+`","width":"170px"&#125;]'`,
 		`    >`,
 	)
 	for _, src := range ref.Sources {
@@ -106,8 +118,8 @@ func (p *page) sources(ref skillfile.Reference) {
 			`          <strong>`+escape(src.Scheme)+`</strong>`,
 			`          <div class="cell-note">`+inline(src.Notes)+`</div>`,
 			`        </div>`,
-			`        <span>`+escape(src.Example)+`</span>`,
-			`        <span>`+escape(src.Pin)+`</span>`,
+			`        <span data-label="`+refCol+`">`+escape(src.Example)+`</span>`,
+			`        <span data-label="`+pinCol+`">`+escape(src.Pin)+`</span>`,
 			`      </div>`,
 		)
 	}

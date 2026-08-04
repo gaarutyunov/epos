@@ -406,6 +406,78 @@ const nav = [
         margin-top: var(--ga-space-3, 12px);
       }
 
+      /* ---------------------------------------------------------------
+         <ga-table>. The kit renders the header in its shadow tree and
+         leaves the rows in the light DOM, so a consumer adapts it from
+         two sides: `::part()` for the header, ordinary child selectors
+         for the rows. Three things needed adapting.
+         --------------------------------------------------------------- */
+
+      /* One. The kit turns uppercasing *off* for a column marked `mono`,
+         so a table with one mono column rendered "SOURCE / Reference /
+         PIN" — three headers in two fonts and two cases. The reference
+         site's leaderboard sets every header in mono uppercase; so does
+         this. */
+      ga-table::part(head-cell) {
+        font-family: var(--ga-font-mono);
+        text-transform: uppercase;
+        letter-spacing: 0.02em;
+      }
+
+      /* Two. The kit centres a row's cells. Next to a cell holding four
+         lines of prose that leaves a one-word cell floating in the middle
+         of the row, pointing at nothing. Cells start at the top, as the
+         leaderboard's do below its own breakpoint. */
+      ga-table > *:not([slot]) {
+        align-items: start !important;
+      }
+
+      /* A reference is one long unbreakable token. Without this it does
+         not wrap: it spills out of its column and paints over the next
+         one. `anywhere` rather than `break-word` because only `anywhere`
+         also lowers the cell's min-content width, which is what the grid
+         sizes the track from. */
+      ga-table > *:not([slot]) > span {
+        overflow-wrap: anywhere;
+        font-size: var(--ga-fs-sm, 14px);
+      }
+
+      /* Three, and the reason the table was reported: below this width
+         the columns cannot hold. A fixed-width column keeps its pixels
+         whatever the viewport, so at 375px the two flexible columns were
+         left 53px each — every cell overflowed, and a four-row table ran
+         to 2700px because prose wrapped one word per line.
+
+         A row is locked to `display: grid !important` in the kit's
+         `::slotted` rule, and an important declaration in an inner tree
+         beats one out here, so a row cannot be made a block. It reads its
+         track list from --ga-table-cols, though: collapsing that to a
+         single column stacks the cells, which is the same result through
+         the seam the component does offer. The header no longer labels
+         anything once the columns are gone, so it is hidden and each cell
+         carries its own label. */
+      @media (max-width: 767px) {
+        ga-table {
+          --ga-table-cols: minmax(0, 1fr) !important;
+        }
+
+        ga-table::part(header) {
+          display: none;
+        }
+
+        ga-table > *:not([slot]) > [data-label]::before {
+          content: attr(data-label);
+          display: block;
+          margin-bottom: 2px;
+          font-family: var(--ga-font-mono);
+          font-size: var(--ga-fs-xs, 12px);
+          font-weight: 600;
+          letter-spacing: 0.02em;
+          text-transform: uppercase;
+          color: var(--ga-muted, #878787);
+        }
+      }
+
       section {
         margin-bottom: var(--ga-space-12, 48px);
         scroll-margin-top: calc(56px + var(--ga-space-4, 16px));

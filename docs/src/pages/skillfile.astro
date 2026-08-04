@@ -49,32 +49,32 @@ const href = (path: string) =>
               <strong>Local</strong>
               <div class="cell-note">A directory in the build context. There is no stable name for a directory on somebody's disk, so the build records no pin for it.</div>
             </div>
-            <span>FROM ./skills/base</span>
-            <span>none</span>
+            <span data-label="Reference">FROM ./skills/base</span>
+            <span data-label="Pin">none</span>
           </div>
           <div>
             <div>
               <strong>Git</strong>
               <div class="cell-note">The fragment carries the ref and, after a <code>:</code>, the subdirectory. The ref may be a branch, a tag, a full <code>refs/…</code> name or a commit SHA; omit the fragment for the default branch. An annotated tag is peeled to the commit it points at. <code>git+http://</code> reaches a server without TLS.</div>
             </div>
-            <span>FROM git+https://github.com/o/r#v1.2.0:skills/pdf</span>
-            <span>commit SHA + tree SHA</span>
+            <span data-label="Reference">FROM git+https://github.com/o/r#v1.2.0:skills/pdf</span>
+            <span data-label="Pin">commit SHA + tree SHA</span>
           </div>
           <div>
             <div>
               <strong>OCI</strong>
               <div class="cell-note">The only scheme that touches a registry. A reference is told from a local directory the way Docker tells them apart: what precedes the first slash is a registry only if it carries a dot or a port, or is <code>localhost</code>.</div>
             </div>
-            <span>FROM ghcr.io/o/agent-skills/pdf:1.2.0</span>
-            <span>manifest digest</span>
+            <span data-label="Reference">FROM ghcr.io/o/agent-skills/pdf:1.2.0</span>
+            <span data-label="Pin">manifest digest</span>
           </div>
           <div>
             <div>
               <strong>Stage</strong>
               <div class="cell-note">A name a previous <code>FROM … AS base</code> bound. Checked before the filesystem, so a directory that happens to share the name cannot shadow the stage.</div>
             </div>
-            <span>FROM base</span>
-            <span>none</span>
+            <span data-label="Reference">FROM base</span>
+            <span data-label="Pin">none</span>
           </div>
         </ga-table>
       </section>
