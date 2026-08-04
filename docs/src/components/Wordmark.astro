@@ -16,14 +16,19 @@ const BANNER = `███████╗██████╗  █████�
 <pre class="wordmark" aria-label="Epos">{BANNER}</pre>
 
 <style>
-  /* Fira Mono at 125% leading with -1px tracking is what closes the gaps
-     between the box-drawing characters; anything else leaves hairlines. */
+  /* garutyunov.com closes the gaps between the box-drawing characters with
+     -1px tracking and 125% leading, which is correct for the Fira Mono it
+     loads as a web font. This site loads no web font, so the same numbers
+     shear the glyphs apart against the fallback: at the platform's own
+     monospace the characters already tile, and it is zero tracking and a
+     leading of exactly 1 that keeps them touching. Checked in a browser, not
+     assumed. */
   .wordmark {
     margin: 0;
     font-family: var(--ga-font-display);
     font-size: 8px;
-    letter-spacing: -1px;
-    line-height: 125%;
+    letter-spacing: 0;
+    line-height: 1;
     color: var(--ga-fg, #ededed);
     user-select: none;
     white-space: pre;

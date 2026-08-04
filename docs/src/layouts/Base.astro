@@ -137,6 +137,16 @@ const nav = [
     </script>
 
     <style is:global>
+      /* The reference site is Tailwind, whose preflight makes every box a
+         border-box. Without this the 1152px container becomes 1216px once the
+         gutters are added, and the reading column grows with it — measuring
+         the grid rather than assuming it is what catches this. */
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+
       /* ---------------------------------------------------------------
          The shell. One container for every page — the width garutyunov.com
          uses on its landing *and* on its inner pages (max-w-6xl = 1152px).
