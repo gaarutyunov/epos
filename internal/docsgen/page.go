@@ -11,11 +11,19 @@ import "strings"
 // exactly one leg of the CI matrix.
 type page struct {
 	b strings.Builder
+	// pad is prefixed to every non-empty line. The section emitters were
+	// written when the page had no wrapper; the content column added two
+	// levels, and indenting from here keeps that a one-line change rather than
+	// a re-indent of every string in the package.
+	pad string
 }
 
 // w writes one line.
 func (p *page) w(lines ...string) {
 	for _, line := range lines {
+		if line != "" {
+			p.b.WriteString(p.pad)
+		}
 		p.b.WriteString(line)
 		p.b.WriteString("\n")
 	}
@@ -40,15 +48,93 @@ func (p *page) frontmatter(banner string) {
 	)
 }
 
-func (p *page) footer() {
+// docOpen writes the layout call and opens the content column.
+//
+// crumb is the second breadcrumb. The layout renders it, which is why the
+// generated pages gain one without a line of Astro being hand-written: the
+// generator learned the capability, and the drift check still owns the file.
+func (p *page) docOpen(title, description, crumb string) {
 	p.w(
-		`  <footer>`,
-		`    <p>`,
-		`      <ga-button variant="primary" href="https://github.com/gaarutyunov/epos">`,
-		`        Source on GitHub`,
-		`      </ga-button>`,
-		`    </p>`,
-		`  </footer>`,
+		`<Base`,
+		`  title="`+escape(title)+`"`,
+		`  description="`+escape(description)+`"`,
+		`  crumb="`+escape(crumb)+`"`,
+		`>`,
+		`  <div class="doc">`,
+		`    <div class="doc-main">`,
+	)
+	p.pad = "    "
+}
+
+// heading writes the page's visible h1 and its lede.
+func (p *page) heading(title string, lede []string) {
+	p.w(`  <h1>` + escape(title) + `</h1>`)
+	p.w(`  <p class="lede">`)
+	p.w(lede...)
+	p.w(`  </p>`, "")
+}
+
+// asideLink is one row of the sidebar.
+//
+// attr is the whole href value as it is written in the markup — `"#syntax"` for
+// an in-page anchor, `{href("cli")}` for a page the base path has to reach —
+// because those two forms differ in Astro and the generator emits both.
+type asideLink struct {
+	attr  string
+	label string
+	// code renders the label monospaced, for a command or an instruction.
+	code bool
+	// arrow is the trailing glyph: → within the site, ↗ off it.
+	arrow string
+}
+
+// asideStart closes the content column and opens the sidebar.
+func (p *page) asideStart() {
+	p.pad = ""
+	p.w(
+		`    </div>`,
+		"",
+		`    <aside class="doc-aside">`,
+	)
+}
+
+// asideSection writes one labelled group of links.
+func (p *page) asideSection(title string, links []asideLink) {
+	p.w(
+		`      <div>`,
+		`        <h2 class="section-label">`+escape(title)+`</h2>`,
+		`        <ul class="rows">`,
+	)
+	for _, link := range links {
+		label := escape(link.label)
+		if link.code {
+			label = `<code>` + label + `</code>`
+		}
+		arrow := link.arrow
+		if arrow == "" {
+			arrow = "&rarr;"
+		}
+		p.w(
+			`          <li>`,
+			`            <a href=`+link.attr+`>`,
+			`              <span>`+label+`</span>`,
+			`              <span class="arrow">`+arrow+`</span>`,
+			`            </a>`,
+			`          </li>`,
+		)
+	}
+	p.w(`        </ul>`, `      </div>`)
+}
+
+// docClose closes the sidebar, the grid and the layout.
+//
+// No page footer of its own: the layout carries the repository, spec and
+// licence links every page needs, and a second footer here would be the same
+// three links twice.
+func (p *page) docClose() {
+	p.w(
+		`    </aside>`,
+		`  </div>`,
 		`</Base>`,
 		"",
 	)

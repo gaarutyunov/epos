@@ -1,647 +1,276 @@
 ---
+import { readFileSync } from "node:fs";
 import Base from "../layouts/Base.astro";
+
+// The recipe lives at exactly one path in the repository and this page reads it
+// from there. A second copy pasted into the markup is a copy that goes stale
+// the first time the Skillfile is touched, which is the failure this whole page
+// is about.
+const read = (path: string) =>
+  readFileSync(new URL(`../../../${path}`, import.meta.url), "utf8").trimEnd();
+
+const skillfile = read("examples/go-house/Skillfile");
+const valuesLibrary = read("examples/go-house/values-library.yaml");
+const valuesService = read("examples/go-house/values-service.yaml");
+
+// Only the stages, so the page shows the shape before it shows the detail. The
+// full file is below, and it is the same string.
+const stages = skillfile
+  .split("\n")
+  .filter((line) => line.startsWith("FROM ") || line.startsWith("ARG "))
+  .join("\n");
+
+const skillmd = `---
+name: reviewer
+version: "1.0.0"
+description: Reviews a pull request against our house standard.
+---
+
+# Reviewer
+
+Review in {{ .Values.language }}. Escalate anything you would block on.`;
+
+const values = `language: Go
+global:
+  org: Acme`;
 
 // BASE_URL carries a trailing slash only when `base` was written with one, so
 // joining by hand is what keeps a link off /pr-preview/pr-1skillfile.
 const href = (path: string) =>
   `${import.meta.env.BASE_URL.replace(/\/$/, "")}/${path}`;
+
+const contents = [
+  ["install", "Install"],
+  ["use", "Use a published skill"],
+  ["author", "Author your own"],
+  ["derive", "Derive one skill from five"],
+  ["parameters", "Turn features off, and back on"],
+];
 ---
 
 <Base
   title="Quick start — Epos"
-  description="Author a skill, publish it to a registry with oras, pull it back and install it with values. An end-to-end tutorial that assumes no prior OCI knowledge."
+  description="Install a published skill, author your own, derive one skill from five others, and turn its features on and off with a values file."
+  crumb="Quick start"
 >
-  <p class="back"><a href={href("")}>← Epos</a></p>
-
-  <header class="hero">
-    <ga-badge color="blue">Tutorial</ga-badge>
-    <h1>Quick start</h1>
-    <p class="lede">
-      In about ten minutes you will write a skill, publish it to a registry,
-      pull it back onto a machine that has never seen it, and install it with
-      your own values filled in. Every command below was run start to finish
-      before it was written down.
-    </p>
-    <p>No prior knowledge of OCI or registries is assumed.</p>
-  </header>
-
-  <nav class="toc" aria-label="On this page">
-    <ul>
-      <li><a href="#what-you-need">What you need</a></li>
-      <li><a href="#throwaway-store">1. A throwaway store</a></li>
-      <li><a href="#author">2. Author the skill</a></li>
-      <li><a href="#pack">3. Pack it</a></li>
-      <li><a href="#publish">4. Publish it</a></li>
-      <li><a href="#pull">5. Pull it back</a></li>
-      <li><a href="#install">6. Install it with values</a></li>
-      <li><a href="#close-the-loop">7. ls and uninstall</a></li>
-      <li><a href="#clean-up">8. Clean up</a></li>
-      <li><a href="#next">Where to go next</a></li>
-    </ul>
-  </nav>
-
-  <section id="what-you-need">
-    <h2>What you need</h2>
-
-    <p>
-      A <strong>registry</strong> is a server that stores versioned, immutable
-      blobs of data addressed by name and tag — <code>reviewer:1.0.0</code> —
-      and by a SHA-256 <strong>digest</strong> of their bytes. Container images
-      live in one. So does anything else that follows the same wire protocol,
-      which is called <strong>OCI</strong>. A skill packaged by Epos is an
-      ordinary OCI artifact, so any registry you can already push a container
-      image to will hold it, and any OCI client can read it back.
-    </p>
-
-    <p>You need three things:</p>
-
-    <ul>
-      <li>
-        <strong>Epos.</strong>
-        <ga-code prompt="$">go install github.com/gaarutyunov/epos/cmd/epos@latest</ga-code>
-      </li>
-      <li>
-        <strong><code>oras</code></strong>, the reference OCI command-line
-        client. It does the publishing step, for the reason in
-        <a href="#publish">step 4</a>. Installation instructions are at
-        <a href="https://oras.land/docs/installation">oras.land</a>.
-      </li>
-      <li>
-        <strong>A registry you can write to.</strong> If your code is on
-        GitHub you already have one: <code>ghcr.io</code>. If you would rather
-        not touch a public registry at all, run one locally — see the note in
-        step 4.
-      </li>
-    </ul>
-
-    <p>
-      Everything below happens in one empty directory. Make one and stay in
-      it:
-    </p>
-    <ga-code prompt="$">mkdir epos-quickstart &amp;&amp; cd epos-quickstart</ga-code>
-  </section>
-
-  <section id="throwaway-store">
-    <h2>1. A throwaway store</h2>
-
-    <p>
-      Epos keeps every skill it packs, builds or pulls in a <strong>local
-      store</strong>: a directory of content-addressed blobs, the same idea as
-      the Go module cache or <code>~/.docker</code>. By default it lives under
-      <code>~/.epos</code>. <code>EPOS_HOME</code> moves it, which is what
-      makes this tutorial safe to try and easy to undo — put the store inside
-      the directory you just made, and deleting that directory deletes
-      everything the tutorial created.
-    </p>
-
-    <ga-code prompt="$">export EPOS_HOME="$PWD/.epos-store"</ga-code>
-    <ga-code prompt="$">epos store path</ga-code>
-
-    <pre class="out">/home/you/epos-quickstart/.epos-store/store</pre>
-
-    <ga-note tone="info" title="EPOS_HOME is per-shell">
-      It is read on every command, so it has to be exported in the shell you
-      run the rest of these steps in. Open a new terminal and you are back on
-      <code>~/.epos</code>.
-    </ga-note>
-  </section>
-
-  <section id="author">
-    <h2>2. Author the skill</h2>
-
-    <p>
-      A skill is a directory with a <code>SKILL.md</code> at its root. The
-      file opens with a <code>---</code> fenced <strong>frontmatter</strong>
-      block of YAML — that is where the skill's <code>name</code> and
-      <code>version</code> live, and Epos copies the whole block into the
-      artifact so a registry can describe the skill without unpacking it.
-      Everything below the fence is the instructions themselves.
-    </p>
-
-    <p>
-      Anything in <code>&#123;&#123; &#125;&#125;</code> is a
-      <strong>template</strong>. It is not filled in now, and it is not filled
-      in by the registry: it travels inside the artifact exactly as written
-      and is rendered in <a href="#install">step 6</a>, when the skill is
-      installed, with the values whoever installs it supplies. This is Helm's
-      model, and it is the reason one published skill can serve teams that
-      want different things from it.
-    </p>
-
-    <p>Create the two files:</p>
-
-    <ga-card padding="lg">
-      <div class="example">
-        <p class="filename"><code>reviewer/SKILL.md</code></p>
-        <pre>---
-name: reviewer
-version: 1.0.0
-description: Reviews a change and reports what to fix.
-model: '&#123;&#123; .Values.model &#125;&#125;'
----
-
-# &#123;&#123; .Values.title &#125;&#125;
-
-Review &#123;&#123; .Values.language &#125;&#125; changes for &#123;&#123; .Values.global.org &#125;&#125;.
-
-See `references/checklist.md` before you start.</pre>
-        <p class="filename"><code>reviewer/references/checklist.md</code></p>
-        <pre># Checklist
-
-- Every exported function has a test.
-- Errors are wrapped with context.</pre>
-      </div>
-    </ga-card>
-
-    <ga-note tone="warning" title="Quote a template in a frontmatter value">
-      <code>model: '&#123;&#123; .Values.model &#125;&#125;'</code> is quoted
-      on purpose. Frontmatter is YAML, and YAML reads a bare <code>&#123;</code>
-      as the opening of a flow mapping, so the unquoted form is a syntax error
-      and packing stops before it starts:
-      <pre class="out">Error: parse SKILL.md frontmatter: [4:9] could not find flow map content
-   1 | name: reviewer
-   2 | version: 1.0.0
-   3 | description: Reviews a change and reports what to fix.
-&gt;  4 | model: &#123;&#123; .Values.model &#125;&#125;
-               ^</pre>
-      Below the frontmatter fence the file is Markdown, not YAML, so no
-      quoting is needed there.
-    </ga-note>
-  </section>
-
-  <section id="pack">
-    <h2>3. Pack it</h2>
-
-    <p>
-      <code>epos pack</code> turns the directory into an artifact and writes
-      it into the local store. It reads the name and version out of the
-      frontmatter, so it needs no arguments beyond the directory.
-    </p>
-
-    <ga-code prompt="$">epos pack ./reviewer</ga-code>
-    <pre class="out">reviewer:1.0.0 sha256:a32fa1dfea1118829a06ab4975e38ca502cc3c3f1ccfdab909f846276f486558</pre>
-
-    <p>
-      The tag is on the left and the digest is on the right. The digest is a
-      hash of the artifact's bytes, and packing is deterministic: pack the
-      same directory on another machine, on another operating system, and you
-      get that same <code>a32fa1df…</code> back. That is what makes the digest
-      worth pinning.
-    </p>
-
-    <ga-code prompt="$">epos store ls</ga-code>
-    <pre class="out">reviewer:1.0.0</pre>
-  </section>
-
-  <section id="publish">
-    <h2>4. Publish it</h2>
-
-    <p>
-      <strong>Publishing is <a href={href("cli")}><code>epos push</code></a></strong>
-      — a direct copy from the local store to your registry, with
-      <a href={href("cli")}><code>epos registry login</code></a> for the
-      credential. What was withdrawn is publishing <em>through</em>
-      <code>epos-registry</code>, the component that fronts your registry to
-      count downloads: it would have had to redirect the upload session to the
-      registry behind it, and <code>oras-go</code> refuses an upload redirect
-      that crosses hosts. That refusal is the fix for a real credential-leak
-      advisory, so it is not something to work around — and it does not apply
-      to a client pointed straight at your registry, which is what
-      <code>epos push</code> is. See SPEC §4.5 for the full reasoning.
-    </p>
-
-    <p>
-      Any other OCI client works too, because the artifact Epos produced is not
-      an Epos format. It is a plain OCI artifact, so plain OCI tools handle it —
-      which is what the rest of this section shows with <code>oras</code>.
-    </p>
-
-    <p>Point at your registry and log in:</p>
-
-    <ga-code prompt="$">export REGISTRY=ghcr.io/your-github-username</ga-code>
-    <ga-code prompt="$">echo $GITHUB_TOKEN | oras login ghcr.io -u your-github-username --password-stdin</ga-code>
-    <pre class="out">Login Succeeded</pre>
-
-    <p>
-      Then copy the artifact out of the local store and into the registry.
-      Epos's store is an OCI image layout — a directory in the format the OCI
-      specification defines for holding artifacts on disk — which is exactly
-      what <code>oras cp</code> can read from:
-    </p>
-
-    <ga-code prompt="$">oras cp --from-oci-layout-path "$(epos store path)" reviewer:1.0.0 "$REGISTRY/agent-skills/reviewer:1.0.0"</ga-code>
-    <pre class="out">Copying 11b90ecf569e application/vnd.agentskills.skill.config.v1+json
-Copying 4ddd04a7449c application/vnd.agentskills.skill.content.v1.tar+gzip
-Copied  4ddd04a7449c application/vnd.agentskills.skill.content.v1.tar+gzip
-Copied  11b90ecf569e application/vnd.agentskills.skill.config.v1+json
-Copying a32fa1dfea11 reviewer
-Copied  a32fa1dfea11 reviewer
-Copied [oci-layout] reviewer:1.0.0 =&gt; [registry] ghcr.io/your-github-username/agent-skills/reviewer:1.0.0
-Digest: sha256:a32fa1dfea1118829a06ab4975e38ca502cc3c3f1ccfdab909f846276f486558</pre>
-
-    <p>
-      Same digest as <code>epos pack</code> printed. Publishing copies bytes;
-      it does not rewrite them.
-    </p>
-
-    <p>
-      The repository name is <code>&lt;namespace&gt;/agent-skills/&lt;skill&gt;</code>
-      by convention: one skill per repository, so the repository name alone
-      says which skill it holds.
-    </p>
-
-    <ga-note tone="info" title="Why --from-oci-layout-path and not --from-oci-layout">
-      The shorter <code>oras cp --from-oci-layout &lt;dir&gt;:&lt;tag&gt;</code>
-      form splits its argument at the last colon, and an Epos store tag
-      <em>contains</em> a colon — <code>reviewer:1.0.0</code> — so it would
-      look for a directory called <code>…/store:reviewer</code>.
-      <code>--from-oci-layout-path</code> keeps the two apart. Addressing the
-      artifact by digest works with the short form too:
-      <code>oras cp --from-oci-layout "$(epos store path)@sha256:a32fa1df…"
-      "$REGISTRY/agent-skills/reviewer:1.0.0"</code>.
-    </ga-note>
-
-    <ga-note tone="neutral" title="No registry account? Run one on your laptop">
-      <p>
-        <a href="https://zotregistry.dev/">zot</a> is a small OCI registry that
-        needs no configuration:
+  <div class="doc">
+    <div class="doc-main">
+      <h1>Quick start</h1>
+      <p class="lede">
+        Two paths — use a skill someone published, or publish your own — then
+        the thing epos is actually for: one skill derived from five, with its
+        dependencies on a switch.
       </p>
-      <pre>$ docker run -d -p 5000:5000 ghcr.io/project-zot/zot-linux-amd64:v2.1.18
-$ export REGISTRY=localhost:5000/you</pre>
-      <p>
-        It speaks HTTP rather than HTTPS, so add <code>--to-plain-http</code>
-        to the <code>oras cp</code> above and <code>--plain-http</code> to the
-        <code>epos pull</code> in the next step. Skip the
-        <code>oras login</code>: it has no authentication. Everything else in
-        this tutorial is unchanged — it is the same protocol either way.
-      </p>
-    </ga-note>
-  </section>
 
-  <section id="pull">
-    <h2>5. Pull it back</h2>
+      <section id="install">
+        <h2 class="section-label">Install</h2>
+        <ga-code prompt="$"
+          >go install github.com/gaarutyunov/epos/cmd/epos@latest</ga-code
+        >
+        <ga-code prompt="$">export EPOS_HOME="$PWD/.epos"</ga-code>
+        <p>
+          <code>EPOS_HOME</code> is optional; without it the store is
+          <code>~/.epos</code>. Setting it makes this a throwaway.
+        </p>
+      </section>
 
-    <p>
-      Point <code>EPOS_HOME</code> somewhere new. That store is empty, so what
-      happens next can only come from the registry — it is the same situation
-      a colleague, or your CI, starts in.
-    </p>
-
-    <ga-code prompt="$">export EPOS_HOME="$PWD/.epos-fresh"</ga-code>
-    <ga-code prompt="$">epos store ls</ga-code>
-    <pre class="out"><span class="dim">(nothing)</span></pre>
-
-    <ga-code prompt="$">epos pull "$REGISTRY/agent-skills/reviewer:1.0.0"</ga-code>
-    <pre class="out">reviewer:1.0.0 sha256:a32fa1dfea1118829a06ab4975e38ca502cc3c3f1ccfdab909f846276f486558</pre>
-
-    <ga-code prompt="$">epos store ls</ga-code>
-    <pre class="out">reviewer:1.0.0</pre>
-
-    <p>
-      The digest is the one that was packed and the one that was published.
-      That is the whole point of a content-addressed artifact: you can tell,
-      without trusting anybody, that what arrived is what left.
-    </p>
-
-    <p>
-      <code>pull</code> takes the skill's name from the repository — the last
-      path segment — and tags it in the store as
-      <code>&lt;name&gt;:&lt;version&gt;</code>. That short tag is what you
-      install by.
-    </p>
-  </section>
-
-  <section id="install">
-    <h2>6. Install it with values</h2>
-
-    <p>
-      Installing is where the <code>&#123;&#123; &#125;&#125;</code>
-      placeholders finally get filled in. Nothing rendered them earlier: the
-      artifact in the registry still holds them verbatim, and it can be
-      installed a hundred times with a hundred different answers.
-    </p>
-
-    <p>Write the answers down:</p>
-
-    <ga-card padding="lg">
-      <div class="example">
+      <section id="use">
+        <h2 class="section-label">Use a published skill</h2>
+        <ga-code prompt="$"
+          >epos pull ghcr.io/acme/agent-skills/reviewer:1.0.0</ga-code
+        >
         <p class="filename"><code>values.yaml</code></p>
-        <pre>title: The reviewer
-language: Go
-model: opus
-global:
-  org: Acme</pre>
+        <pre class="file">{values}</pre>
+        <ga-code prompt="$">epos install reviewer:1.0.0 -f values.yaml</ga-code>
+        <ga-code prompt="$">epos ls</ga-code>
+        <pre
+          class="out">reviewer:1.0.0 sha256:a32fa1dfea1118829a06ab4975e38ca502cc3c3f1ccfdab909f846276f486558</pre>
+        <p>
+          The skill is now in <code>.claude/skills/reviewer/</code> with your
+          values filled in, and the digest is pinned in
+          <code>skills.lock.json</code>. Commit the lock file.
+        </p>
+        <ga-note tone="info" title="install resolves, it does not fetch">
+          <code>install</code> reads the local store. Run <code>pull</code> or
+          <code>build</code> first, and a value the skill needs but nobody
+          supplied fails the install rather than rendering a hole.
+        </ga-note>
+      </section>
+
+      <section id="author">
+        <h2 class="section-label">Author your own</h2>
+        <p class="filename"><code>reviewer/SKILL.md</code></p>
+        <pre class="file">{skillmd}</pre>
+        <ga-code prompt="$">epos pack ./reviewer</ga-code>
+        <pre
+          class="out">reviewer:1.0.0 sha256:a32fa1dfea1118829a06ab4975e38ca502cc3c3f1ccfdab909f846276f486558</pre>
+        <ga-code prompt="$">epos registry login ghcr.io -u you</ga-code>
+        <ga-code prompt="$"
+          >epos push reviewer:1.0.0 oci://ghcr.io/acme/agent-skills</ga-code
+        >
+        <p>
+          Nothing is repacked on the way out, so the digest <code>pack</code>
+          printed is the digest that arrives. Any other OCI client publishes it
+          just as well —
+          <code
+            >oras cp --from-oci-layout-path "$(epos store path)"
+            reviewer:1.0.0 …</code
+          >.
+        </p>
+      </section>
+
+      <section id="derive">
+        <h2 class="section-label">Derive one skill from five</h2>
+        <p>
+          The workspace routes Go work at five skills that disagree with each
+          other. One <code>Skillfile</code> settles it: five stages, each from
+          its own source, and one artifact that reads as though it was written
+          that way.
+        </p>
+        <pre class="file">{stages}</pre>
+        <p>
+          Each stage is edited where it is wrong and copied where it is right.
+          <code>RM</code> drops a file whole; <code>AWK</code> drops a section on
+          its heading; <code>REPLACE</code> takes a block out of a section that
+          is otherwise kept, or wraps one in a condition.
+        </p>
+        <ga-note tone="success" title="Why deriving beats forking">
+          The house rule against Viper had to live <em>outside</em> spf13's CLI
+          skill, in a separate rules file, because an edit inside a vendored
+          skill is lost the next time it is installed. The
+          <code>cli</code> stage puts it back in: the Viper section is dropped and
+          the house's koanf answer takes its place, and it survives the next upstream
+          release because it is a recipe rather than a patch.
+        </ga-note>
+        <ga-code prompt="$">epos build -t go-house:0.1.0 examples/go-house</ga-code>
+        <details>
+          <summary>The whole recipe</summary>
+          <pre class="file">{skillfile}</pre>
+        </details>
+      </section>
+
+      <section id="parameters">
+        <h2 class="section-label">Turn features off, and back on</h2>
+        <p>
+          The base skill mandates an OpenAPI generator, a dependency-injection
+          graph, a telemetry registry and containers for the integration suite.
+          A single-purpose library has none of those.
+        </p>
+        <p class="filename"><code>examples/go-house/values-library.yaml</code></p>
+        <pre class="file">{valuesLibrary}</pre>
+        <ga-code prompt="$"
+          >epos install go-house:0.1.0 -f examples/go-house/values-library.yaml</ga-code
+        >
+        <p>
+          Four sections and two generator lines are gone from the installed
+          skill. Change your mind and apply the other profile:
+        </p>
+        <p class="filename"><code>examples/go-house/values-service.yaml</code></p>
+        <pre class="file">{valuesService}</pre>
+        <ga-code prompt="$"
+          >epos install go-house:0.1.0 -f examples/go-house/values-service.yaml</ga-code
+        >
+        <p>
+          They are back, and nothing was rebuilt — the artifact in the store did
+          not change, only the values did.
+        </p>
+        <ga-note tone="warning" title="Booleans belong in the file">
+          <!-- epos#47: delete this note and the --set form in it when --set
+               infers types the way helm's pkg/strvals does. -->
+          <code>--set x=false</code> stores the string <code>"false"</code>,
+          which is truthy, so it turns nothing off — see
+          <a href="https://github.com/gaarutyunov/epos/issues/47">epos#47</a>.
+          The one-off off-switch is <code>--set x=</code>; a real boolean needs a
+          values file.
+        </ga-note>
+      </section>
+    </div>
+
+    <aside class="doc-aside">
+      <div>
+        <h2 class="section-label">On this page</h2>
+        <ul class="rows">
+          {
+            contents.map(([id, label]) => (
+              <li>
+                <a href={`#${id}`}>
+                  <span>{label}</span>
+                  <span class="arrow">→</span>
+                </a>
+              </li>
+            ))
+          }
+        </ul>
       </div>
-    </ga-card>
-
-    <ga-code prompt="$">epos install reviewer:1.0.0 -f values.yaml</ga-code>
-    <pre class="out">installed into .claude/skills/reviewer
-reviewer:1.0.0 sha256:a32fa1dfea1118829a06ab4975e38ca502cc3c3f1ccfdab909f846276f486558</pre>
-
-    <ga-code prompt="$">cat .claude/skills/reviewer/SKILL.md</ga-code>
-    <pre class="out">---
-name: reviewer
-version: 1.0.0
-description: Reviews a change and reports what to fix.
-model: 'opus'
----
-
-# The reviewer
-
-Review Go changes for Acme.
-
-See `references/checklist.md` before you start.</pre>
-
-    <p>
-      Every placeholder is gone, including the one in the frontmatter, and the
-      quotes that made it legal YAML are still there.
-      <code>&#123;&#123; .Values.global.org &#125;&#125;</code> came from the
-      <code>global</code> block: values are scoped, and <code>global</code> is
-      the block every part of a skill can see — which matters once a skill is
-      composed from several others.
-    </p>
-
-    <h3><code>--set</code> for one-off answers</h3>
-
-    <p>
-      <code>--set k=v</code> overrides the file, key by key, and dots name
-      nested keys. It is repeatable, and it always wins over every
-      <code>-f</code> file:
-    </p>
-
-    <ga-code prompt="$">epos install reviewer:1.0.0 -f values.yaml --set model=haiku --set global.org=Contoso</ga-code>
-    <ga-code prompt="$">cat .claude/skills/reviewer/SKILL.md</ga-code>
-    <pre class="out">---
-name: reviewer
-version: 1.0.0
-description: Reviews a change and reports what to fix.
-model: 'haiku'
----
-
-# The reviewer
-
-Review Go changes for Contoso.
-
-See `references/checklist.md` before you start.</pre>
-
-    <p>
-      <code>title</code> and <code>language</code> still came from the file;
-      <code>model</code> and <code>global.org</code> came from the flags.
-    </p>
-
-    <h3>What install wrote down</h3>
-
-    <p>
-      Two files appeared next to <code>values.yaml</code>.
-      <code>skills.json</code> records what you asked for.
-      <code>skills.lock.json</code> records the digest that answered:
-    </p>
-
-    <pre class="out">&#123;
-  "lockfileVersion": 1,
-  "skills": [
-    &#123;
-      "name": "reviewer",
-      "version": "1.0.0",
-      "ref": "reviewer:1.0.0",
-      "digest": "sha256:a32fa1dfea1118829a06ab4975e38ca502cc3c3f1ccfdab909f846276f486558",
-      "basePaths": [
-        ".claude/skills"
-      ]
-    &#125;
-  ]
-&#125;</pre>
-
-    <p>
-      Commit both. The store is a cache and the lock is the truth, so the next
-      machine resolves the same bytes you did, and two checkouts on one
-      machine can sit on two different versions at the same time.
-    </p>
-
-    <ga-note tone="warning" title="A value nobody supplied stops the install">
-      A skill installed with a hole in it is worse than an install that
-      stops, so a missing value is an error rather than an empty string, and
-      nothing is written:
-      <pre class="out">$ epos install reviewer:1.0.0 --set title=Reviewer
-Error: render SKILL.md: it uses a value that was not supplied</pre>
-    </ga-note>
-
-    <ga-note tone="info" title="install resolves, it does not fetch">
-      <code>epos install</code> reads the local store and never touches the
-      network. Run <code>epos pull</code> — or <code>epos build</code> — first.
-    </ga-note>
-  </section>
-
-  <section id="close-the-loop">
-    <h2>7. <code>ls</code> and <code>uninstall</code></h2>
-
-    <p>
-      <code>epos ls</code> prints what this directory is pinned to. It reads
-      the lock file, not the filesystem, because the lock is what the
-      directory actually installed:
-    </p>
-
-    <ga-code prompt="$">epos ls</ga-code>
-    <pre class="out">reviewer:1.0.0 sha256:a32fa1dfea1118829a06ab4975e38ca502cc3c3f1ccfdab909f846276f486558</pre>
-
-    <p>
-      <code>epos uninstall</code> takes the rendered skill back out and drops
-      it from both manifests:
-    </p>
-
-    <ga-code prompt="$">epos uninstall reviewer</ga-code>
-    <pre class="out">removed .claude/skills/reviewer</pre>
-
-    <ga-code prompt="$">epos ls</ga-code>
-    <pre class="out"><span class="dim">(nothing)</span></pre>
-
-    <p>
-      The store keeps its copy, so reinstalling costs nothing and needs no
-      network:
-    </p>
-
-    <ga-code prompt="$">epos store ls</ga-code>
-    <pre class="out">reviewer:1.0.0</pre>
-
-    <p>
-      <code>epos ls</code> is the directory; <code>epos store ls</code> is the
-      cache. <code>epos store prune</code> collects what no tag reaches, when
-      you want the space back.
-    </p>
-  </section>
-
-  <section id="clean-up">
-    <h2>8. Clean up</h2>
-
-    <p>
-      Both stores were inside this directory, which is what
-      <code>EPOS_HOME</code> bought you. Deleting them leaves nothing behind:
-    </p>
-
-    <ga-code prompt="$">rm -rf .epos-store .epos-fresh</ga-code>
-
-    <p>
-      Then <code>unset EPOS_HOME</code>, or close the shell, and Epos is back
-      on <code>~/.epos</code>.
-    </p>
-  </section>
-
-  <section id="next">
-    <h2>Where to go next</h2>
-
-    <p>
-      You packed a skill you wrote. The other way to make one is to
-      <strong>derive</strong> it from a skill somebody else published, with a
-      <code>Skillfile</code> that reads like a Dockerfile:
-    </p>
-
-    <ga-card padding="lg">
-      <div class="example">
-        <p class="filename"><code>Skillfile</code></p>
-        <pre>FROM ./reviewer
-
-APPEND references/checklist.md &lt;&lt;EOF
-- Public API changes are noted in the changelog.
-EOF</pre>
+      <div>
+        <h2 class="section-label">Reference</h2>
+        <ul class="rows">
+          <li>
+            <a href={href("cli")}>
+              <span>CLI</span>
+              <span class="arrow">→</span>
+            </a>
+          </li>
+          <li>
+            <a href={href("skillfile")}>
+              <span>Skillfile</span>
+              <span class="arrow">→</span>
+            </a>
+          </li>
+          <li>
+            <a
+              href="https://github.com/gaarutyunov/epos/tree/main/examples/go-house"
+            >
+              <span>examples/go-house</span>
+              <span class="arrow">↗</span>
+            </a>
+          </li>
+        </ul>
       </div>
-    </ga-card>
-
-    <ga-code prompt="$">epos build . -t reviewer:1.1.0</ga-code>
-    <pre class="out">reviewer:1.1.0 sha256:347657e7fee142b72881c4977275073d59332e5010074ec023e68fec4e9dc895</pre>
-
-    <p>
-      Install that and the checklist has a fourth line the base never had. The
-      base can just as well be a skill somebody else published —
-      <code>FROM ghcr.io/their-org/agent-skills/reviewer:1.0.0</code> — in
-      which case the build pins the digest it resolved and records it on the
-      artifact.
-    </p>
-
-    <p>
-      A built skill lands in the store like a packed one, so steps 4 to 7
-      above work on it unchanged. Nothing executes during a build, and the
-      result is a pure function of the base, the Skillfile and the context —
-      the same three inputs always give the same digest.
-    </p>
-
-    <p>
-      Every instruction, with syntax and a worked example, is in the
-      <a href={href("skillfile")}>Skillfile reference</a>. Every command you
-      ran above, with its flags and their defaults, is in the
-      <a href={href("cli")}>CLI reference</a>.
-    </p>
-  </section>
-
-  <footer>
-    <p>
-      <ga-button variant="primary" href="https://github.com/gaarutyunov/epos">
-        Source on GitHub
-      </ga-button>
-    </p>
-  </footer>
+    </aside>
+  </div>
 </Base>
 
 <style>
-  .back {
-    font-size: 0.9rem;
-    margin: 0 0 2rem;
+  .filename {
+    margin: var(--ga-space-4, 16px) 0 var(--ga-space-2, 8px);
+    font-family: var(--ga-font-mono);
+    font-size: var(--ga-fs-xs, 12px);
+    text-transform: uppercase;
+    color: var(--ga-dim, #454545);
   }
 
-  .hero {
-    margin-bottom: 2.5rem;
+  .file,
+  .out {
+    padding: var(--ga-space-3, 12px) var(--ga-space-4, 16px);
+    border: 1px solid var(--ga-border, #1a1a1a);
+    border-radius: var(--ga-radius, 6px);
+    background: color-mix(in srgb, var(--ga-bg-elev, #1a1a1a) 40%, transparent);
+    color: var(--ga-fg, #ededed);
   }
 
-  h1 {
-    font-size: clamp(1.9rem, 5vw, 2.6rem);
-    line-height: 1.15;
-    letter-spacing: -0.02em;
-    margin: 1rem 0 0.75rem;
+  .out {
+    color: var(--ga-muted, #878787);
   }
 
-  .lede {
-    font-size: 1.1rem;
-    color: var(--ga-fg-muted, #a1a1a1);
-    max-width: 42rem;
+  details {
+    margin-bottom: var(--ga-space-4, 16px);
   }
 
-  .toc {
-    margin-bottom: 3rem;
+  summary {
+    cursor: pointer;
+    font-family: var(--ga-font-mono);
+    font-size: var(--ga-fs-sm, 14px);
+    color: var(--ga-muted, #878787);
+    margin-bottom: var(--ga-space-3, 12px);
   }
 
-  .toc ul {
-    list-style: none;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem 1rem;
-    padding: 0;
-    margin: 0;
-    font-size: 0.9rem;
+  summary:hover {
+    color: var(--ga-fg, #ededed);
   }
 
-  section {
-    margin-bottom: 3.5rem;
-    scroll-margin-top: 1.5rem;
-  }
-
-  h2 {
-    font-size: 1.35rem;
-    letter-spacing: -0.01em;
-    margin-bottom: 0.75rem;
-  }
-
-  h3 {
-    font-size: 1.05rem;
-    letter-spacing: -0.01em;
-    margin: 2rem 0 0.5rem;
-  }
-
-  code {
-    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
-    font-size: 0.9em;
-  }
-
-  ga-code {
-    display: block;
-    margin-bottom: 0.75rem;
-  }
-
-  pre {
-    margin: 0 0 1rem;
-    overflow-x: auto;
-    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
-    font-size: 0.85rem;
-    line-height: 1.65;
-    white-space: pre;
-  }
-
-  pre.out {
-    color: var(--ga-fg-muted, #a1a1a1);
-    margin-bottom: 1.5rem;
-  }
-
-  .dim {
-    font-style: italic;
-  }
-
-  .example .filename {
-    margin: 1.25rem 0 0.25rem;
-    font-size: 0.8rem;
-    color: var(--ga-fg-muted, #a1a1a1);
-  }
-
-  .example .filename:first-child {
-    margin-top: 0;
-  }
-
-  ul {
-    padding-left: 1.25rem;
-  }
-
-  li {
-    margin-bottom: 0.75rem;
-  }
-
-  footer {
-    margin-top: 4rem;
+  .arrow {
+    font-family: var(--ga-font-mono);
+    font-size: var(--ga-fs-xs, 12px);
   }
 </style>

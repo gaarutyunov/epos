@@ -19,7 +19,6 @@ func renderSkillfile() []byte {
 
 	p.frontmatter(skillfileBanner)
 	p.header()
-	p.contents(ref)
 	p.syntax(ref)
 	p.sources(ref)
 	for _, doc := range ref.Instructions {
@@ -28,51 +27,55 @@ func renderSkillfile() []byte {
 	for _, topic := range ref.Topics {
 		p.topic(topic)
 	}
-	p.footer()
+	p.contents(ref)
+	p.docClose()
 	p.styles()
 
 	return []byte(p.b.String())
 }
 
 func (p *page) header() {
-	p.w(
-		`<Base`,
-		`  title="Skillfile reference — Epos"`,
-		`  description="Every Skillfile instruction with its syntax and a worked example: FROM, COPY, RM, APPEND, REPLACE, PATCH, AWK, SET, UNSET and ARG, plus multi-stage composition and the values model."`,
-		`>`,
-		`  <p class="back"><a href={href("")}>← Epos</a></p>`,
-		"",
-		`  <header class="hero">`,
-		`    <ga-badge color="blue">Reference</ga-badge>`,
-		`    <h1>Skillfile reference</h1>`,
-		`    <p class="lede">`,
-		`      A Skillfile derives one skill from another. It reads like a Dockerfile and`,
-		`      builds like a pure function: nothing executes, and the same bases,`,
-		`      Skillfile and context always produce the same artifact.`,
-		`    </p>`,
-		`    <p>`,
-		`      The commands that evaluate one are in the`,
-		`      <a href={href("cli")}>CLI reference</a>, and the`,
-		`      <a href={href("quickstart")}>quick start</a> runs the whole round trip`,
-		`      end to end.`,
-		`    </p>`,
-		`  </header>`,
-		"",
+	p.docOpen(
+		"Skillfile reference — Epos",
+		"Every Skillfile instruction with its syntax and a worked example: FROM, COPY, RM, APPEND, REPLACE, PATCH, AWK, SET, UNSET and ARG, plus multi-stage composition and the values model.",
+		"Skillfile reference",
 	)
+	p.heading("Skillfile reference", []string{
+		`    A Skillfile derives one skill from another. It reads like a`,
+		`    Dockerfile and builds like a pure function: nothing executes, and`,
+		`    the same bases, Skillfile and context always produce the same`,
+		`    artifact.`,
+	})
 }
 
-// contents is the in-page index.
+// contents is the sidebar: an index of the page, plus the way out of it.
+//
+// Built from the same instruction table the page is, so an instruction added to
+// internal/skillfile appears here without an edit. 3300 words of reference had
+// no within-page navigation at all; this is the column that earns its width.
 func (p *page) contents(ref skillfile.Reference) {
-	p.w(`  <nav class="toc" aria-label="On this page">`, `    <ul>`)
-	p.w(`      <li><a href="#syntax">Syntax</a></li>`)
-	p.w(`      <li><a href="#from-sources">FROM sources</a></li>`)
+	p.asideStart()
+
+	links := []asideLink{
+		{attr: `"#syntax"`, label: "Syntax"},
+		{attr: `"#from-sources"`, label: "FROM sources"},
+	}
 	for _, doc := range ref.Instructions {
-		p.w(`      <li><a href="#` + slug(doc.Op) + `"><code>` + escape(doc.Op) + `</code></a></li>`)
+		links = append(links, asideLink{
+			attr: `"#` + slug(doc.Op) + `"`, label: doc.Op, code: true,
+		})
 	}
 	for _, topic := range ref.Topics {
-		p.w(`      <li><a href="#` + escape(topic.Slug) + `">` + escape(topic.Title) + `</a></li>`)
+		links = append(links, asideLink{
+			attr: `"#` + escape(topic.Slug) + `"`, label: topic.Title,
+		})
 	}
-	p.w(`    </ul>`, `  </nav>`, "")
+	p.asideSection("On this page", links)
+
+	p.asideSection("Elsewhere", []asideLink{
+		{attr: `{href("quickstart")}`, label: "Quick start"},
+		{attr: `{href("cli")}`, label: "CLI reference"},
+	})
 }
 
 func (p *page) syntax(ref skillfile.Reference) {
@@ -227,117 +230,62 @@ func (p *page) file(f skillfile.ExampleFile) {
 //
 // Written out rather than escaped: a <style> element is raw text to Astro, so
 // the braces here are CSS braces and must stay braces.
+// styles is what this page needs on top of the shared chrome in the layout.
 func (p *page) styles() {
 	p.w(
 		"<style>",
-		"  .back {",
-		"    font-size: 0.9rem;",
-		"    margin: 0 0 2rem;",
-		"  }",
-		"",
-		"  .hero {",
-		"    margin-bottom: 2.5rem;",
-		"  }",
-		"",
-		"  h1 {",
-		"    font-size: clamp(1.9rem, 5vw, 2.6rem);",
-		"    line-height: 1.15;",
-		"    letter-spacing: -0.02em;",
-		"    margin: 1rem 0 0.75rem;",
-		"  }",
-		"",
-		"  .lede {",
-		"    font-size: 1.1rem;",
-		"    color: var(--ga-fg-muted, #a1a1a1);",
-		"    max-width: 42rem;",
-		"  }",
-		"",
-		"  .toc {",
-		"    margin-bottom: 3rem;",
-		"  }",
-		"",
-		"  .toc ul {",
-		"    list-style: none;",
-		"    display: flex;",
-		"    flex-wrap: wrap;",
-		"    gap: 0.5rem 1rem;",
-		"    padding: 0;",
-		"    margin: 0;",
-		"    font-size: 0.9rem;",
-		"  }",
-		"",
-		"  section {",
-		"    margin-bottom: 3.5rem;",
-		"    scroll-margin-top: 1.5rem;",
-		"  }",
-		"",
-		"  h2 {",
-		"    font-size: 1.35rem;",
-		"    letter-spacing: -0.01em;",
-		"    margin-bottom: 0.75rem;",
-		"  }",
-		"",
 		"  .summary {",
-		"    color: var(--ga-fg-muted, #a1a1a1);",
-		"  }",
-		"",
-		"  code {",
-		"    font-family: ui-monospace, SFMono-Regular, \"SF Mono\", Menlo, monospace;",
-		"    font-size: 0.9em;",
-		"  }",
-		"",
-		"  pre {",
-		"    margin: 0 0 1rem;",
-		"    overflow-x: auto;",
-		"    font-family: ui-monospace, SFMono-Regular, \"SF Mono\", Menlo, monospace;",
-		"    font-size: 0.85rem;",
-		"    line-height: 1.65;",
-		"    white-space: pre;",
+		"    color: var(--ga-muted, #878787);",
 		"  }",
 		"",
 		"  pre.syntax {",
-		"    color: var(--ga-accent, #3b82f6);",
-		"    margin-bottom: 0.75rem;",
+		"    color: var(--ga-accent, #54a2ff);",
+		"    margin-bottom: var(--ga-space-3, 12px);",
 		"  }",
 		"",
 		"  .flags {",
-		"    margin: 0 0 1rem;",
+		"    margin: 0 0 var(--ga-space-4, 16px);",
 		"  }",
 		"",
 		"  .flags dt {",
-		"    margin-top: 0.5rem;",
+		"    margin-top: var(--ga-space-2, 8px);",
+		"    font-family: var(--ga-font-mono);",
+		"    font-size: var(--ga-fs-sm, 14px);",
 		"  }",
 		"",
 		"  .flags dd {",
 		"    margin: 0.15rem 0 0 1.25rem;",
-		"    color: var(--ga-fg-muted, #a1a1a1);",
+		"    color: var(--ga-muted, #878787);",
 		"  }",
 		"",
-		"  .example .label {",
-		"    margin: 1.25rem 0 0.35rem;",
-		"    font-size: 0.75rem;",
-		"    letter-spacing: 0.06em;",
+		"  .example {",
+		"    margin-bottom: var(--ga-space-4, 16px);",
+		"  }",
+		"",
+		"  .label {",
+		"    margin: var(--ga-space-4, 16px) 0 var(--ga-space-2, 8px);",
+		"    font-family: var(--ga-font-mono);",
+		"    font-size: var(--ga-fs-xs, 12px);",
 		"    text-transform: uppercase;",
-		"    color: var(--ga-fg-muted, #a1a1a1);",
-		"  }",
-		"",
-		"  .example .label:first-child {",
-		"    margin-top: 0;",
-		"  }",
-		"",
-		"  .example .filename {",
-		"    margin: 0 0 0.25rem;",
-		"    font-size: 0.8rem;",
-		"    color: var(--ga-fg-muted, #a1a1a1);",
+		"    color: var(--ga-fg, #ededed);",
 		"  }",
 		"",
 		"  .cell-note {",
-		"    font-size: 0.85rem;",
-		"    color: var(--ga-fg-muted, #a1a1a1);",
+		"    font-size: var(--ga-fs-sm, 14px);",
+		"    color: var(--ga-muted, #878787);",
 		"  }",
 		"",
-		"  footer {",
-		"    margin-top: 4rem;",
+		"  .filename {",
+		"    margin: var(--ga-space-4, 16px) 0 var(--ga-space-2, 8px);",
+		"    font-family: var(--ga-font-mono);",
+		"    font-size: var(--ga-fs-xs, 12px);",
+		"    text-transform: uppercase;",
+		"    color: var(--ga-dim, #454545);",
+		"  }",
+		"",
+		"  .arrow {",
+		"    font-family: var(--ga-font-mono);",
+		"    font-size: var(--ga-fs-xs, 12px);",
 		"  }",
 		"</style>",
 	)

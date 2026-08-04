@@ -14,547 +14,612 @@ const href = (path: string) =>
 <Base
   title="CLI reference — Epos"
   description="Every epos command and flag — attest, build, generate-key-pair, install, list, ls, pack, pull, push, registry, search, sign, store, uninstall, verify — with its usage, its options and their defaults. Generated from the CLI's own command definitions."
+  crumb="CLI reference"
 >
-  <p class="back"><a href={href("")}>← Epos</a></p>
+  <div class="doc">
+    <div class="doc-main">
+      <h1>CLI reference</h1>
+      <p class="lede">
+        Every <code>epos</code> command and every flag it takes, generated
+        from the command definitions themselves — the same text
+        <code>epos --help</code> prints.
+      </p>
 
-  <header class="hero">
-    <ga-badge color="blue">Reference</ga-badge>
-    <h1>CLI reference</h1>
-    <p class="lede">
-      Every <code>epos</code> command and every flag it takes. This page is
-      generated from the command definitions themselves, so it is the same
-      text <code>epos --help</code> prints.
-    </p>
-    <p>
-      New to Epos? The <a href={href("quickstart")}>quick start</a> runs the
-      whole round trip end to end. For the composition language
-      <code>epos build</code> evaluates, see the
-      <a href={href("skillfile")}>Skillfile reference</a>.
-    </p>
-  </header>
+      <section id="environment">
+        <h2>Environment</h2>
+        <p>
+          Epos keeps its state — the local store above all — under one root
+          directory. The root resolves in this order, first match winning:
+        </p>
+        <ol>
+          <li>a directory an embedding program names outright; the CLI has no flag for this</li>
+          <li><code>$EPOS_HOME</code></li>
+          <li><code>&lt;home&gt;/.epos</code>, the default</li>
+        </ol>
+        <p>
+          Set <code>EPOS_HOME</code> to keep epos state somewhere other than
+          your home directory — a throwaway directory for an experiment, or a
+          shared cache. It must be on a local filesystem: the store's advisory
+          locks are unreliable over NFS and SMB.
+        </p>
+        <ga-code prompt="$">EPOS_HOME=/tmp/epos epos store path</ga-code>
+        <p>
+          <a href="#epos-store-path"><code>epos store path</code></a> prints the
+          directory that resolution arrived at, which is the quickest way to see
+          whether the variable took effect.
+        </p>
+      </section>
 
-  <nav class="toc" aria-label="On this page">
-    <ul>
-      <li><a href="#environment">Environment</a></li>
-      <li><a href="#epos"><code>epos</code></a></li>
-      <li><a href="#epos-attest"><code>epos attest</code></a></li>
-      <li><a href="#epos-build"><code>epos build</code></a></li>
-      <li><a href="#epos-generate-key-pair"><code>epos generate-key-pair</code></a></li>
-      <li><a href="#epos-install"><code>epos install</code></a></li>
-      <li><a href="#epos-list"><code>epos list</code></a></li>
-      <li><a href="#epos-ls"><code>epos ls</code></a></li>
-      <li><a href="#epos-pack"><code>epos pack</code></a></li>
-      <li><a href="#epos-pull"><code>epos pull</code></a></li>
-      <li><a href="#epos-push"><code>epos push</code></a></li>
-      <li><a href="#epos-registry"><code>epos registry</code></a></li>
-      <li><a href="#epos-registry-login"><code>epos registry login</code></a></li>
-      <li><a href="#epos-registry-logout"><code>epos registry logout</code></a></li>
-      <li><a href="#epos-search"><code>epos search</code></a></li>
-      <li><a href="#epos-sign"><code>epos sign</code></a></li>
-      <li><a href="#epos-store"><code>epos store</code></a></li>
-      <li><a href="#epos-store-ls"><code>epos store ls</code></a></li>
-      <li><a href="#epos-store-path"><code>epos store path</code></a></li>
-      <li><a href="#epos-store-prune"><code>epos store prune</code></a></li>
-      <li><a href="#epos-uninstall"><code>epos uninstall</code></a></li>
-      <li><a href="#epos-verify"><code>epos verify</code></a></li>
-      <li><a href="#publishing">Publishing</a></li>
-    </ul>
-  </nav>
+      <section id="epos">
+        <h2><code>epos</code></h2>
+        <pre class="syntax">epos [flags]</pre>
+        <p class="summary">OCI-native packaging and composition for agent skills</p>
+        <p>epos packages agent skills as OCI artifacts and composes them.</p>
+        <p>State lives under ~/.epos, or under $EPOS_HOME when that is set.</p>
+        <dl class="flags">
+          <dt><code>-h, --help</code></dt>
+          <dd>help for epos</dd>
+          <dt><code>-v, --version</code></dt>
+          <dd>version for epos</dd>
+        </dl>
+        <p class="subcommands">Subcommands: <a href="#epos-attest"><code>epos attest</code></a>, <a href="#epos-build"><code>epos build</code></a>, <a href="#epos-generate-key-pair"><code>epos generate-key-pair</code></a>, <a href="#epos-install"><code>epos install</code></a>, <a href="#epos-list"><code>epos list</code></a>, <a href="#epos-ls"><code>epos ls</code></a>, <a href="#epos-pack"><code>epos pack</code></a>, <a href="#epos-pull"><code>epos pull</code></a>, <a href="#epos-push"><code>epos push</code></a>, <a href="#epos-registry"><code>epos registry</code></a>, <a href="#epos-search"><code>epos search</code></a>, <a href="#epos-sign"><code>epos sign</code></a>, <a href="#epos-store"><code>epos store</code></a>, <a href="#epos-uninstall"><code>epos uninstall</code></a>, <a href="#epos-verify"><code>epos verify</code></a></p>
+      </section>
 
-  <section id="environment">
-    <h2>Environment</h2>
-    <p>
-      Epos keeps its state — the local store above all — under one root
-      directory. The root resolves in this order, first match winning:
-    </p>
-    <ol>
-      <li>a directory an embedding program names outright; the CLI has no flag for this</li>
-      <li><code>$EPOS_HOME</code></li>
-      <li><code>&lt;home&gt;/.epos</code>, the default</li>
-    </ol>
-    <p>
-      Set <code>EPOS_HOME</code> to keep epos state somewhere other than
-      your home directory — a throwaway directory for an experiment, or a
-      shared cache. It must be on a local filesystem: the store's advisory
-      locks are unreliable over NFS and SMB.
-    </p>
-    <ga-code prompt="$">EPOS_HOME=/tmp/epos epos store path</ga-code>
-    <p>
-      <a href="#epos-store-path"><code>epos store path</code></a> prints the
-      directory that resolution arrived at, which is the quickest way to see
-      whether the variable took effect.
-    </p>
-  </section>
+      <section id="epos-attest">
+        <h2><code>epos attest</code></h2>
+        <pre class="syntax">epos attest &lt;ref&gt; [flags]</pre>
+        <p class="summary">Attest a published skill, as an OCI referrer</p>
+        <p>attest wraps a predicate document in an in-toto statement and a DSSE envelope, signs it, and attaches it to the skill's manifest as a referrer — the same layout a signature uses (SPEC.md 11).</p>
+        <dl class="flags">
+          <dt><code>-h, --help</code></dt>
+          <dd>help for attest</dd>
+          <dt><code>--key string</code></dt>
+          <dd>private key to sign with (default &quot;cosign.key&quot;)</dd>
+          <dt><code>--plain-http</code></dt>
+          <dd>talk to the registry over HTTP</dd>
+          <dt><code>--predicate string</code></dt>
+          <dd>JSON predicate document</dd>
+          <dt><code>--registry-config string</code></dt>
+          <dd>registry credentials file to use instead of Docker's ($DOCKER_CONFIG/config.json, or ~/.docker/config.json)</dd>
+          <dt><code>--type string</code></dt>
+          <dd>predicate type the document conforms to (default &quot;https://in-toto.io/attestation/custom/v0.1&quot;)</dd>
+        </dl>
+      </section>
 
-  <section id="epos">
-    <h2><code>epos</code></h2>
-    <pre class="syntax">epos [flags]</pre>
-    <p class="summary">OCI-native packaging and composition for agent skills</p>
-    <p>epos packages agent skills as OCI artifacts and composes them.</p>
-    <p>State lives under ~/.epos, or under $EPOS_HOME when that is set.</p>
-    <dl class="flags">
-      <dt><code>-h, --help</code></dt>
-      <dd>help for epos</dd>
-      <dt><code>-v, --version</code></dt>
-      <dd>version for epos</dd>
-    </dl>
-    <p class="subcommands">Subcommands: <a href="#epos-attest"><code>epos attest</code></a>, <a href="#epos-build"><code>epos build</code></a>, <a href="#epos-generate-key-pair"><code>epos generate-key-pair</code></a>, <a href="#epos-install"><code>epos install</code></a>, <a href="#epos-list"><code>epos list</code></a>, <a href="#epos-ls"><code>epos ls</code></a>, <a href="#epos-pack"><code>epos pack</code></a>, <a href="#epos-pull"><code>epos pull</code></a>, <a href="#epos-push"><code>epos push</code></a>, <a href="#epos-registry"><code>epos registry</code></a>, <a href="#epos-search"><code>epos search</code></a>, <a href="#epos-sign"><code>epos sign</code></a>, <a href="#epos-store"><code>epos store</code></a>, <a href="#epos-uninstall"><code>epos uninstall</code></a>, <a href="#epos-verify"><code>epos verify</code></a></p>
-  </section>
+      <section id="epos-build">
+        <h2><code>epos build</code></h2>
+        <pre class="syntax">epos build &lt;context&gt; [flags]</pre>
+        <p class="summary">Build a skill from a Skillfile into the local store</p>
+        <p>build evaluates a Skillfile against a context directory and writes one conformant artifact into the local store. Nothing executes.</p>
+        <p>Only an OCI FROM touches a registry, and it is pinned by the manifest digest the reference resolved to; with local and git bases the whole workflow is standalone.</p>
+        <p>The build is a pure function of its bases, the Skillfile and the context, so the same three inputs always produce the same digest.</p>
+        <dl class="flags">
+          <dt><code>--build-arg stringArray</code></dt>
+          <dd>set a build argument, as k=v; repeatable</dd>
+          <dt><code>-f, --file string</code></dt>
+          <dd>Skillfile to build (default: &lt;context&gt;/Skillfile)</dd>
+          <dt><code>-h, --help</code></dt>
+          <dd>help for build</dd>
+          <dt><code>--plain-http</code></dt>
+          <dd>talk to the registry of an OCI FROM over HTTP</dd>
+          <dt><code>-t, --tag string</code></dt>
+          <dd>tag as &lt;name&gt;:&lt;version&gt; (default: the name and version of the built SKILL.md)</dd>
+        </dl>
+      </section>
 
-  <section id="epos-attest">
-    <h2><code>epos attest</code></h2>
-    <pre class="syntax">epos attest &lt;ref&gt; [flags]</pre>
-    <p class="summary">Attest a published skill, as an OCI referrer</p>
-    <p>attest wraps a predicate document in an in-toto statement and a DSSE envelope, signs it, and attaches it to the skill's manifest as a referrer — the same layout a signature uses (SPEC.md 11).</p>
-    <dl class="flags">
-      <dt><code>-h, --help</code></dt>
-      <dd>help for attest</dd>
-      <dt><code>--key string</code></dt>
-      <dd>private key to sign with (default &quot;cosign.key&quot;)</dd>
-      <dt><code>--plain-http</code></dt>
-      <dd>talk to the registry over HTTP</dd>
-      <dt><code>--predicate string</code></dt>
-      <dd>JSON predicate document</dd>
-      <dt><code>--registry-config string</code></dt>
-      <dd>registry credentials file to use instead of Docker's ($DOCKER_CONFIG/config.json, or ~/.docker/config.json)</dd>
-      <dt><code>--type string</code></dt>
-      <dd>predicate type the document conforms to (default &quot;https://in-toto.io/attestation/custom/v0.1&quot;)</dd>
-    </dl>
-  </section>
+      <section id="epos-generate-key-pair">
+        <h2><code>epos generate-key-pair</code></h2>
+        <pre class="syntax">epos generate-key-pair [flags]</pre>
+        <p class="summary">Write a signing keypair</p>
+        <p>generate-key-pair writes cosign.key and cosign.pub. The private key is an unencrypted PKCS#8 PEM file and is yours to protect; the public key is the same PKIX PEM cosign writes.</p>
+        <dl class="flags">
+          <dt><code>-h, --help</code></dt>
+          <dd>help for generate-key-pair</dd>
+          <dt><code>--output-dir string</code></dt>
+          <dd>directory to write the keypair into (default &quot;.&quot;)</dd>
+        </dl>
+      </section>
 
-  <section id="epos-build">
-    <h2><code>epos build</code></h2>
-    <pre class="syntax">epos build &lt;context&gt; [flags]</pre>
-    <p class="summary">Build a skill from a Skillfile into the local store</p>
-    <p>build evaluates a Skillfile against a context directory and writes one conformant artifact into the local store. Nothing executes.</p>
-    <p>Only an OCI FROM touches a registry, and it is pinned by the manifest digest the reference resolved to; with local and git bases the whole workflow is standalone.</p>
-    <p>The build is a pure function of its bases, the Skillfile and the context, so the same three inputs always produce the same digest.</p>
-    <dl class="flags">
-      <dt><code>--build-arg stringArray</code></dt>
-      <dd>set a build argument, as k=v; repeatable</dd>
-      <dt><code>-f, --file string</code></dt>
-      <dd>Skillfile to build (default: &lt;context&gt;/Skillfile)</dd>
-      <dt><code>-h, --help</code></dt>
-      <dd>help for build</dd>
-      <dt><code>--plain-http</code></dt>
-      <dd>talk to the registry of an OCI FROM over HTTP</dd>
-      <dt><code>-t, --tag string</code></dt>
-      <dd>tag as &lt;name&gt;:&lt;version&gt; (default: the name and version of the built SKILL.md)</dd>
-    </dl>
-  </section>
+      <section id="epos-install">
+        <h2><code>epos install</code></h2>
+        <pre class="syntax">epos install &lt;ref|name:version&gt; [flags]</pre>
+        <p class="summary">Install a skill from the local store into this worktree</p>
+        <p>install renders the skill's templates with the values you supply and writes the result into .claude/skills, plus any additionalBasePaths skills.json names. The artifact carries its templates verbatim; this is where they are rendered, and nothing upstream renders anything.</p>
+        <p>The resolved digest is pinned in skills.lock.json. The store is a cache and the lock is the truth, so two worktrees can pin two different versions out of one store at the same time.</p>
+        <p>The skill must already be in the local store: install resolves, it does not fetch. Run epos pull or epos build first.</p>
+        <dl class="flags">
+          <dt><code>-h, --help</code></dt>
+          <dd>help for install</dd>
+          <dt><code>--set stringArray</code></dt>
+          <dd>set one value, as k=v with dots naming nested keys; repeatable</dd>
+          <dt><code>-f, --values stringArray</code></dt>
+          <dd>read values from a YAML file; repeatable, later files win</dd>
+        </dl>
+      </section>
 
-  <section id="epos-generate-key-pair">
-    <h2><code>epos generate-key-pair</code></h2>
-    <pre class="syntax">epos generate-key-pair [flags]</pre>
-    <p class="summary">Write a signing keypair</p>
-    <p>generate-key-pair writes cosign.key and cosign.pub. The private key is an unencrypted PKCS#8 PEM file and is yours to protect; the public key is the same PKIX PEM cosign writes.</p>
-    <dl class="flags">
-      <dt><code>-h, --help</code></dt>
-      <dd>help for generate-key-pair</dd>
-      <dt><code>--output-dir string</code></dt>
-      <dd>directory to write the keypair into (default &quot;.&quot;)</dd>
-    </dl>
-  </section>
+      <section id="epos-list">
+        <h2><code>epos list</code></h2>
+        <pre class="syntax">epos list [flags]</pre>
+        <p class="summary">List the skills a registry holds</p>
+        <p>list reads the registry's catalog and keeps the repositories under the configured namespace. It stops there unless --versions is given: with it, each repository is asked for its versions and each version's manifest for the skill name and description.</p>
+        <p>Discovery needs GET /v2/_catalog. Registries that do not implement it cannot be enumerated at all; direct references still work.</p>
+        <dl class="flags">
+          <dt><code>-h, --help</code></dt>
+          <dd>help for list</dd>
+          <dt><code>--namespace string</code></dt>
+          <dd>only enumerate repositories under this namespace (default: the whole registry)</dd>
+          <dt><code>--plain-http</code></dt>
+          <dd>talk to the registry over HTTP</dd>
+          <dt><code>--registry string</code></dt>
+          <dd>registry to enumerate, as host[:port] (required)</dd>
+          <dt><code>--registry-config string</code></dt>
+          <dd>registry credentials file to use instead of Docker's ($DOCKER_CONFIG/config.json, or ~/.docker/config.json)</dd>
+          <dt><code>--versions</code></dt>
+          <dd>also resolve each repository's versions, names and descriptions</dd>
+        </dl>
+      </section>
 
-  <section id="epos-install">
-    <h2><code>epos install</code></h2>
-    <pre class="syntax">epos install &lt;ref|name:version&gt; [flags]</pre>
-    <p class="summary">Install a skill from the local store into this worktree</p>
-    <p>install renders the skill's templates with the values you supply and writes the result into .claude/skills, plus any additionalBasePaths skills.json names. The artifact carries its templates verbatim; this is where they are rendered, and nothing upstream renders anything.</p>
-    <p>The resolved digest is pinned in skills.lock.json. The store is a cache and the lock is the truth, so two worktrees can pin two different versions out of one store at the same time.</p>
-    <p>The skill must already be in the local store: install resolves, it does not fetch. Run epos pull or epos build first.</p>
-    <dl class="flags">
-      <dt><code>-h, --help</code></dt>
-      <dd>help for install</dd>
-      <dt><code>--set stringArray</code></dt>
-      <dd>set one value, as k=v with dots naming nested keys; repeatable</dd>
-      <dt><code>-f, --values stringArray</code></dt>
-      <dd>read values from a YAML file; repeatable, later files win</dd>
-    </dl>
-  </section>
+      <section id="epos-ls">
+        <h2><code>epos ls</code></h2>
+        <pre class="syntax">epos ls [flags]</pre>
+        <p class="summary">List the skills this worktree has pinned</p>
+        <p>ls prints what skills.lock.json pins: the skill, the version and the digest this worktree is on. It reads the lock and not the filesystem, because the lock is what the worktree actually installed.</p>
+        <p>For what the local store holds, use epos store ls.</p>
+        <dl class="flags">
+          <dt><code>-h, --help</code></dt>
+          <dd>help for ls</dd>
+        </dl>
+      </section>
 
-  <section id="epos-list">
-    <h2><code>epos list</code></h2>
-    <pre class="syntax">epos list [flags]</pre>
-    <p class="summary">List the skills a registry holds</p>
-    <p>list reads the registry's catalog and keeps the repositories under the configured namespace. It stops there unless --versions is given: with it, each repository is asked for its versions and each version's manifest for the skill name and description.</p>
-    <p>Discovery needs GET /v2/_catalog. Registries that do not implement it cannot be enumerated at all; direct references still work.</p>
-    <dl class="flags">
-      <dt><code>-h, --help</code></dt>
-      <dd>help for list</dd>
-      <dt><code>--namespace string</code></dt>
-      <dd>only enumerate repositories under this namespace (default: the whole registry)</dd>
-      <dt><code>--plain-http</code></dt>
-      <dd>talk to the registry over HTTP</dd>
-      <dt><code>--registry string</code></dt>
-      <dd>registry to enumerate, as host[:port] (required)</dd>
-      <dt><code>--registry-config string</code></dt>
-      <dd>registry credentials file to use instead of Docker's ($DOCKER_CONFIG/config.json, or ~/.docker/config.json)</dd>
-      <dt><code>--versions</code></dt>
-      <dd>also resolve each repository's versions, names and descriptions</dd>
-    </dl>
-  </section>
+      <section id="epos-pack">
+        <h2><code>epos pack</code></h2>
+        <pre class="syntax">epos pack &lt;dir&gt; [flags]</pre>
+        <p class="summary">Pack a skill directory into the local store</p>
+        <p>pack derives the config blob from SKILL.md's frontmatter, builds the deterministic content layer, and writes the artifact into the local store. Packing the same directory twice produces the same digest.</p>
+        <dl class="flags">
+          <dt><code>-h, --help</code></dt>
+          <dd>help for pack</dd>
+          <dt><code>-t, --tag string</code></dt>
+          <dd>tag as &lt;name&gt;:&lt;version&gt; (default: the name and version from SKILL.md)</dd>
+        </dl>
+      </section>
 
-  <section id="epos-ls">
-    <h2><code>epos ls</code></h2>
-    <pre class="syntax">epos ls [flags]</pre>
-    <p class="summary">List the skills this worktree has pinned</p>
-    <p>ls prints what skills.lock.json pins: the skill, the version and the digest this worktree is on. It reads the lock and not the filesystem, because the lock is what the worktree actually installed.</p>
-    <p>For what the local store holds, use epos store ls.</p>
-    <dl class="flags">
-      <dt><code>-h, --help</code></dt>
-      <dd>help for ls</dd>
-    </dl>
-  </section>
+      <section id="epos-pull">
+        <h2><code>epos pull</code></h2>
+        <pre class="syntax">epos pull &lt;ref&gt; [flags]</pre>
+        <p class="summary">Pull a skill from a registry into the local store</p>
+        <p>pull fetches a skill and tags it in the local store. It sends Epos-Download, so a registry fronted by epos-registry records the download as verified.</p>
+        <p>A credential stored for the registry is sent; finding none is normal and the fetch is made anonymously.</p>
+        <dl class="flags">
+          <dt><code>-h, --help</code></dt>
+          <dd>help for pull</dd>
+          <dt><code>--plain-http</code></dt>
+          <dd>talk to the registry over HTTP</dd>
+          <dt><code>--registry-config string</code></dt>
+          <dd>registry credentials file to use instead of Docker's ($DOCKER_CONFIG/config.json, or ~/.docker/config.json)</dd>
+        </dl>
+      </section>
 
-  <section id="epos-pack">
-    <h2><code>epos pack</code></h2>
-    <pre class="syntax">epos pack &lt;dir&gt; [flags]</pre>
-    <p class="summary">Pack a skill directory into the local store</p>
-    <p>pack derives the config blob from SKILL.md's frontmatter, builds the deterministic content layer, and writes the artifact into the local store. Packing the same directory twice produces the same digest.</p>
-    <dl class="flags">
-      <dt><code>-h, --help</code></dt>
-      <dd>help for pack</dd>
-      <dt><code>-t, --tag string</code></dt>
-      <dd>tag as &lt;name&gt;:&lt;version&gt; (default: the name and version from SKILL.md)</dd>
-    </dl>
-  </section>
+      <section id="epos-push">
+        <h2><code>epos push</code></h2>
+        <pre class="syntax">epos push &lt;name&gt;:&lt;version&gt; &lt;destination&gt; [flags]</pre>
+        <p class="summary">Publish a skill from the local store to a registry</p>
+        <p>push copies a skill the local store already holds to an OCI registry, byte for byte. Nothing is repacked and nothing is re-derived, so the digest `epos pack` printed is the digest that arrives.</p>
+        <p>The destination names a namespace and the skill's name is appended:</p>
+        <p>epos push reviewer:1.0.0 oci://ghcr.io/acme/agent-skills</p>
+        <p>publishes ghcr.io/acme/agent-skills/reviewer, tagged 1.0.0. An oci:// prefix is accepted and is not required. The reference push reports is the one it resolved, so a destination that already ends in the skill's own name shows the doubled segment straight away.</p>
+        <p>A credential stored for the registry is sent; a registry that permits anonymous writes needs none. Log in with `epos registry login`.</p>
+        <p>This is a direct client-to-registry copy. epos-registry serves no write path (SPEC.md 4.5) and no bytes pass through it.</p>
+        <dl class="flags">
+          <dt><code>-h, --help</code></dt>
+          <dd>help for push</dd>
+          <dt><code>--plain-http</code></dt>
+          <dd>talk to the registry over HTTP</dd>
+          <dt><code>--registry-config string</code></dt>
+          <dd>registry credentials file to use instead of Docker's ($DOCKER_CONFIG/config.json, or ~/.docker/config.json)</dd>
+        </dl>
+      </section>
 
-  <section id="epos-pull">
-    <h2><code>epos pull</code></h2>
-    <pre class="syntax">epos pull &lt;ref&gt; [flags]</pre>
-    <p class="summary">Pull a skill from a registry into the local store</p>
-    <p>pull fetches a skill and tags it in the local store. It sends Epos-Download, so a registry fronted by epos-registry records the download as verified.</p>
-    <p>A credential stored for the registry is sent; finding none is normal and the fetch is made anonymously.</p>
-    <dl class="flags">
-      <dt><code>-h, --help</code></dt>
-      <dd>help for pull</dd>
-      <dt><code>--plain-http</code></dt>
-      <dd>talk to the registry over HTTP</dd>
-      <dt><code>--registry-config string</code></dt>
-      <dd>registry credentials file to use instead of Docker's ($DOCKER_CONFIG/config.json, or ~/.docker/config.json)</dd>
-    </dl>
-  </section>
+      <section id="epos-registry">
+        <h2><code>epos registry</code></h2>
+        <pre class="syntax">epos registry [flags]</pre>
+        <p class="summary">Log in to and out of OCI registries</p>
+        <p>registry manages the credentials epos sends to a registry.</p>
+        <p>They are read from and written to Docker's configuration and the platform's native credential helpers, so a login performed by epos, docker, oras or helm is usable by all of them. Where no native helper is configured the credential is stored in a configuration file — as base64, which is not encryption.</p>
+        <p>Epos issues no credentials of its own; these commands only hold the ones your registry gave you.</p>
+        <dl class="flags">
+          <dt><code>-h, --help</code></dt>
+          <dd>help for registry</dd>
+        </dl>
+        <p class="subcommands">Subcommands: <a href="#epos-registry-login"><code>epos registry login</code></a>, <a href="#epos-registry-logout"><code>epos registry logout</code></a></p>
+      </section>
 
-  <section id="epos-push">
-    <h2><code>epos push</code></h2>
-    <pre class="syntax">epos push &lt;name&gt;:&lt;version&gt; &lt;destination&gt; [flags]</pre>
-    <p class="summary">Publish a skill from the local store to a registry</p>
-    <p>push copies a skill the local store already holds to an OCI registry, byte for byte. Nothing is repacked and nothing is re-derived, so the digest `epos pack` printed is the digest that arrives.</p>
-    <p>The destination names a namespace and the skill's name is appended:</p>
-    <p>epos push reviewer:1.0.0 oci://ghcr.io/acme/agent-skills</p>
-    <p>publishes ghcr.io/acme/agent-skills/reviewer, tagged 1.0.0. An oci:// prefix is accepted and is not required. The reference push reports is the one it resolved, so a destination that already ends in the skill's own name shows the doubled segment straight away.</p>
-    <p>A credential stored for the registry is sent; a registry that permits anonymous writes needs none. Log in with `epos registry login`.</p>
-    <p>This is a direct client-to-registry copy. epos-registry serves no write path (SPEC.md 4.5) and no bytes pass through it.</p>
-    <dl class="flags">
-      <dt><code>-h, --help</code></dt>
-      <dd>help for push</dd>
-      <dt><code>--plain-http</code></dt>
-      <dd>talk to the registry over HTTP</dd>
-      <dt><code>--registry-config string</code></dt>
-      <dd>registry credentials file to use instead of Docker's ($DOCKER_CONFIG/config.json, or ~/.docker/config.json)</dd>
-    </dl>
-  </section>
+      <section id="epos-registry-login">
+        <h2><code>epos registry login</code></h2>
+        <pre class="syntax">epos registry login &lt;host&gt; [flags]</pre>
+        <p class="summary">Log in to a registry</p>
+        <p>login verifies a credential against the registry and then stores it, so a bad password fails here rather than at the next push.</p>
+        <p>The secret is read from standard input with --password-stdin, or typed at a prompt that does not echo. There is deliberately no --password flag: an argument vector is world-readable through /proc/&lt;pid&gt;/cmdline and lands in your shell history.</p>
+        <p>Where the platform has no credential helper configured, the credential is written to the configuration file as base64. That is Docker's format and it is not encryption; the file is created readable only by you.</p>
+        <dl class="flags">
+          <dt><code>-h, --help</code></dt>
+          <dd>help for login</dd>
+          <dt><code>--password-stdin</code></dt>
+          <dd>read the password or token from standard input</dd>
+          <dt><code>--plain-http</code></dt>
+          <dd>talk to the registry over HTTP</dd>
+          <dt><code>--registry-config string</code></dt>
+          <dd>registry credentials file to use instead of Docker's ($DOCKER_CONFIG/config.json, or ~/.docker/config.json)</dd>
+          <dt><code>-u, --username string</code></dt>
+          <dd>user to log in as (required)</dd>
+        </dl>
+      </section>
 
-  <section id="epos-registry">
-    <h2><code>epos registry</code></h2>
-    <pre class="syntax">epos registry [flags]</pre>
-    <p class="summary">Log in to and out of OCI registries</p>
-    <p>registry manages the credentials epos sends to a registry.</p>
-    <p>They are read from and written to Docker's configuration and the platform's native credential helpers, so a login performed by epos, docker, oras or helm is usable by all of them. Where no native helper is configured the credential is stored in a configuration file — as base64, which is not encryption.</p>
-    <p>Epos issues no credentials of its own; these commands only hold the ones your registry gave you.</p>
-    <dl class="flags">
-      <dt><code>-h, --help</code></dt>
-      <dd>help for registry</dd>
-    </dl>
-    <p class="subcommands">Subcommands: <a href="#epos-registry-login"><code>epos registry login</code></a>, <a href="#epos-registry-logout"><code>epos registry logout</code></a></p>
-  </section>
+      <section id="epos-registry-logout">
+        <h2><code>epos registry logout</code></h2>
+        <pre class="syntax">epos registry logout &lt;host&gt; [flags]</pre>
+        <p class="summary">Log out of a registry</p>
+        <p>logout removes the stored credential for a registry. Logging out of one you are not logged in to succeeds and does nothing.</p>
+        <p>The credential is removed from wherever it was stored, which may be a native credential helper shared with docker, oras and helm.</p>
+        <dl class="flags">
+          <dt><code>-h, --help</code></dt>
+          <dd>help for logout</dd>
+          <dt><code>--plain-http</code></dt>
+          <dd>talk to the registry over HTTP</dd>
+          <dt><code>--registry-config string</code></dt>
+          <dd>registry credentials file to use instead of Docker's ($DOCKER_CONFIG/config.json, or ~/.docker/config.json)</dd>
+        </dl>
+      </section>
 
-  <section id="epos-registry-login">
-    <h2><code>epos registry login</code></h2>
-    <pre class="syntax">epos registry login &lt;host&gt; [flags]</pre>
-    <p class="summary">Log in to a registry</p>
-    <p>login verifies a credential against the registry and then stores it, so a bad password fails here rather than at the next push.</p>
-    <p>The secret is read from standard input with --password-stdin, or typed at a prompt that does not echo. There is deliberately no --password flag: an argument vector is world-readable through /proc/&lt;pid&gt;/cmdline and lands in your shell history.</p>
-    <p>Where the platform has no credential helper configured, the credential is written to the configuration file as base64. That is Docker's format and it is not encryption; the file is created readable only by you.</p>
-    <dl class="flags">
-      <dt><code>-h, --help</code></dt>
-      <dd>help for login</dd>
-      <dt><code>--password-stdin</code></dt>
-      <dd>read the password or token from standard input</dd>
-      <dt><code>--plain-http</code></dt>
-      <dd>talk to the registry over HTTP</dd>
-      <dt><code>--registry-config string</code></dt>
-      <dd>registry credentials file to use instead of Docker's ($DOCKER_CONFIG/config.json, or ~/.docker/config.json)</dd>
-      <dt><code>-u, --username string</code></dt>
-      <dd>user to log in as (required)</dd>
-    </dl>
-  </section>
+      <section id="epos-search">
+        <h2><code>epos search</code></h2>
+        <pre class="syntax">epos search &lt;query&gt; [flags]</pre>
+        <p class="summary">Search a registry's skills by name or description</p>
+        <p>search enumerates the registry the way list --versions does and filters the result on the client: the query is matched against the repository name, the skill name and the description. The OCI Distribution API has no search endpoint and epos-registry does not add one.</p>
+        <p>Discovery needs GET /v2/_catalog. Registries that do not implement it cannot be searched at all; direct references still work.</p>
+        <dl class="flags">
+          <dt><code>-h, --help</code></dt>
+          <dd>help for search</dd>
+          <dt><code>--namespace string</code></dt>
+          <dd>only enumerate repositories under this namespace (default: the whole registry)</dd>
+          <dt><code>--plain-http</code></dt>
+          <dd>talk to the registry over HTTP</dd>
+          <dt><code>--registry string</code></dt>
+          <dd>registry to enumerate, as host[:port] (required)</dd>
+          <dt><code>--registry-config string</code></dt>
+          <dd>registry credentials file to use instead of Docker's ($DOCKER_CONFIG/config.json, or ~/.docker/config.json)</dd>
+        </dl>
+      </section>
 
-  <section id="epos-registry-logout">
-    <h2><code>epos registry logout</code></h2>
-    <pre class="syntax">epos registry logout &lt;host&gt; [flags]</pre>
-    <p class="summary">Log out of a registry</p>
-    <p>logout removes the stored credential for a registry. Logging out of one you are not logged in to succeeds and does nothing.</p>
-    <p>The credential is removed from wherever it was stored, which may be a native credential helper shared with docker, oras and helm.</p>
-    <dl class="flags">
-      <dt><code>-h, --help</code></dt>
-      <dd>help for logout</dd>
-      <dt><code>--plain-http</code></dt>
-      <dd>talk to the registry over HTTP</dd>
-      <dt><code>--registry-config string</code></dt>
-      <dd>registry credentials file to use instead of Docker's ($DOCKER_CONFIG/config.json, or ~/.docker/config.json)</dd>
-    </dl>
-  </section>
+      <section id="epos-sign">
+        <h2><code>epos sign</code></h2>
+        <pre class="syntax">epos sign &lt;ref&gt; [flags]</pre>
+        <p class="summary">Sign a published skill, as an OCI referrer</p>
+        <p>sign attaches a cosign signature to the skill's manifest, as a referrer whose subject is that manifest (SPEC.md 11).</p>
+        <p>The signature is written to the registry the skill lives in, which is the upstream registry rather than epos-registry: epos-registry serves no write path (SPEC.md 4.5), and a referrer can only live beside what it refers to.</p>
+        <dl class="flags">
+          <dt><code>-h, --help</code></dt>
+          <dd>help for sign</dd>
+          <dt><code>--key string</code></dt>
+          <dd>private key to sign with (default &quot;cosign.key&quot;)</dd>
+          <dt><code>--plain-http</code></dt>
+          <dd>talk to the registry over HTTP</dd>
+          <dt><code>--registry-config string</code></dt>
+          <dd>registry credentials file to use instead of Docker's ($DOCKER_CONFIG/config.json, or ~/.docker/config.json)</dd>
+        </dl>
+      </section>
 
-  <section id="epos-search">
-    <h2><code>epos search</code></h2>
-    <pre class="syntax">epos search &lt;query&gt; [flags]</pre>
-    <p class="summary">Search a registry's skills by name or description</p>
-    <p>search enumerates the registry the way list --versions does and filters the result on the client: the query is matched against the repository name, the skill name and the description. The OCI Distribution API has no search endpoint and epos-registry does not add one.</p>
-    <p>Discovery needs GET /v2/_catalog. Registries that do not implement it cannot be searched at all; direct references still work.</p>
-    <dl class="flags">
-      <dt><code>-h, --help</code></dt>
-      <dd>help for search</dd>
-      <dt><code>--namespace string</code></dt>
-      <dd>only enumerate repositories under this namespace (default: the whole registry)</dd>
-      <dt><code>--plain-http</code></dt>
-      <dd>talk to the registry over HTTP</dd>
-      <dt><code>--registry string</code></dt>
-      <dd>registry to enumerate, as host[:port] (required)</dd>
-      <dt><code>--registry-config string</code></dt>
-      <dd>registry credentials file to use instead of Docker's ($DOCKER_CONFIG/config.json, or ~/.docker/config.json)</dd>
-    </dl>
-  </section>
+      <section id="epos-store">
+        <h2><code>epos store</code></h2>
+        <pre class="syntax">epos store [flags]</pre>
+        <p class="summary">Inspect and maintain the local artifact store</p>
+        <p>store inspects and maintains the local OCI layout epos packs, builds and pulls into.</p>
+        <p>It lives at ~/.epos/store, or at $EPOS_HOME/store when EPOS_HOME is set. Set EPOS_HOME to keep epos state somewhere other than your home directory; it must be on a local filesystem, because the store's advisory locks are unreliable over NFS and SMB.</p>
+        <dl class="flags">
+          <dt><code>-h, --help</code></dt>
+          <dd>help for store</dd>
+        </dl>
+        <p class="subcommands">Subcommands: <a href="#epos-store-ls"><code>epos store ls</code></a>, <a href="#epos-store-path"><code>epos store path</code></a>, <a href="#epos-store-prune"><code>epos store prune</code></a></p>
+      </section>
 
-  <section id="epos-sign">
-    <h2><code>epos sign</code></h2>
-    <pre class="syntax">epos sign &lt;ref&gt; [flags]</pre>
-    <p class="summary">Sign a published skill, as an OCI referrer</p>
-    <p>sign attaches a cosign signature to the skill's manifest, as a referrer whose subject is that manifest (SPEC.md 11).</p>
-    <p>The signature is written to the registry the skill lives in, which is the upstream registry rather than epos-registry: epos-registry serves no write path (SPEC.md 4.5), and a referrer can only live beside what it refers to.</p>
-    <dl class="flags">
-      <dt><code>-h, --help</code></dt>
-      <dd>help for sign</dd>
-      <dt><code>--key string</code></dt>
-      <dd>private key to sign with (default &quot;cosign.key&quot;)</dd>
-      <dt><code>--plain-http</code></dt>
-      <dd>talk to the registry over HTTP</dd>
-      <dt><code>--registry-config string</code></dt>
-      <dd>registry credentials file to use instead of Docker's ($DOCKER_CONFIG/config.json, or ~/.docker/config.json)</dd>
-    </dl>
-  </section>
+      <section id="epos-store-ls">
+        <h2><code>epos store ls</code></h2>
+        <pre class="syntax">epos store ls [flags]</pre>
+        <p class="summary">List the skills the local store holds</p>
+        <dl class="flags">
+          <dt><code>-h, --help</code></dt>
+          <dd>help for ls</dd>
+        </dl>
+      </section>
 
-  <section id="epos-store">
-    <h2><code>epos store</code></h2>
-    <pre class="syntax">epos store [flags]</pre>
-    <p class="summary">Inspect and maintain the local artifact store</p>
-    <p>store inspects and maintains the local OCI layout epos packs, builds and pulls into.</p>
-    <p>It lives at ~/.epos/store, or at $EPOS_HOME/store when EPOS_HOME is set. Set EPOS_HOME to keep epos state somewhere other than your home directory; it must be on a local filesystem, because the store's advisory locks are unreliable over NFS and SMB.</p>
-    <dl class="flags">
-      <dt><code>-h, --help</code></dt>
-      <dd>help for store</dd>
-    </dl>
-    <p class="subcommands">Subcommands: <a href="#epos-store-ls"><code>epos store ls</code></a>, <a href="#epos-store-path"><code>epos store path</code></a>, <a href="#epos-store-prune"><code>epos store prune</code></a></p>
-  </section>
+      <section id="epos-store-path">
+        <h2><code>epos store path</code></h2>
+        <pre class="syntax">epos store path [flags]</pre>
+        <p class="summary">Print where the local store lives</p>
+        <p>path prints the resolved store directory: $EPOS_HOME/store when EPOS_HOME is set, ~/.epos/store otherwise.</p>
+        <dl class="flags">
+          <dt><code>-h, --help</code></dt>
+          <dd>help for path</dd>
+        </dl>
+      </section>
 
-  <section id="epos-store-ls">
-    <h2><code>epos store ls</code></h2>
-    <pre class="syntax">epos store ls [flags]</pre>
-    <p class="summary">List the skills the local store holds</p>
-    <dl class="flags">
-      <dt><code>-h, --help</code></dt>
-      <dd>help for ls</dd>
-    </dl>
-  </section>
+      <section id="epos-store-prune">
+        <h2><code>epos store prune</code></h2>
+        <pre class="syntax">epos store prune [flags]</pre>
+        <p class="summary">Delete blobs no tagged skill reaches</p>
+        <p>prune is mark-and-sweep from the tagged manifests. Collection is manual only, like the Go module cache, pnpm, Cargo and Bazel.</p>
+        <dl class="flags">
+          <dt><code>-h, --help</code></dt>
+          <dd>help for prune</dd>
+        </dl>
+      </section>
 
-  <section id="epos-store-path">
-    <h2><code>epos store path</code></h2>
-    <pre class="syntax">epos store path [flags]</pre>
-    <p class="summary">Print where the local store lives</p>
-    <p>path prints the resolved store directory: $EPOS_HOME/store when EPOS_HOME is set, ~/.epos/store otherwise.</p>
-    <dl class="flags">
-      <dt><code>-h, --help</code></dt>
-      <dd>help for path</dd>
-    </dl>
-  </section>
+      <section id="epos-uninstall">
+        <h2><code>epos uninstall</code></h2>
+        <pre class="syntax">epos uninstall &lt;name&gt; [flags]</pre>
+        <p class="summary">Remove an installed skill from this worktree</p>
+        <p>uninstall removes the skill from every base path it was installed into and drops it from skills.json and skills.lock.json. The store keeps its copy; use epos store prune to collect it.</p>
+        <dl class="flags">
+          <dt><code>-h, --help</code></dt>
+          <dd>help for uninstall</dd>
+        </dl>
+      </section>
 
-  <section id="epos-store-prune">
-    <h2><code>epos store prune</code></h2>
-    <pre class="syntax">epos store prune [flags]</pre>
-    <p class="summary">Delete blobs no tagged skill reaches</p>
-    <p>prune is mark-and-sweep from the tagged manifests. Collection is manual only, like the Go module cache, pnpm, Cargo and Bazel.</p>
-    <dl class="flags">
-      <dt><code>-h, --help</code></dt>
-      <dd>help for prune</dd>
-    </dl>
-  </section>
+      <section id="epos-verify">
+        <h2><code>epos verify</code></h2>
+        <pre class="syntax">epos verify &lt;ref&gt; [flags]</pre>
+        <p class="summary">Verify the cosign signature attached to a skill</p>
+        <p>verify resolves the skill's manifest, lists its referrers, and checks the cosign signature over that manifest (SPEC.md 11). Attestations attached to the same manifest are verified too, and every one of them must hold.</p>
+        <p>Verification fetches the signature blob from the skill's own repository, so a registry fronted by epos-registry counts it as an unverified download of the skill. That inflation is known and deliberate: telling a signature blob from a content blob needs state, and epos-registry holds none (SPEC.md 4.4, 5.2).</p>
+        <dl class="flags">
+          <dt><code>-h, --help</code></dt>
+          <dd>help for verify</dd>
+          <dt><code>--key string</code></dt>
+          <dd>public key to verify against (default &quot;cosign.pub&quot;)</dd>
+          <dt><code>--plain-http</code></dt>
+          <dd>talk to the registry over HTTP</dd>
+          <dt><code>--registry-config string</code></dt>
+          <dd>registry credentials file to use instead of Docker's ($DOCKER_CONFIG/config.json, or ~/.docker/config.json)</dd>
+        </dl>
+      </section>
 
-  <section id="epos-uninstall">
-    <h2><code>epos uninstall</code></h2>
-    <pre class="syntax">epos uninstall &lt;name&gt; [flags]</pre>
-    <p class="summary">Remove an installed skill from this worktree</p>
-    <p>uninstall removes the skill from every base path it was installed into and drops it from skills.json and skills.lock.json. The store keeps its copy; use epos store prune to collect it.</p>
-    <dl class="flags">
-      <dt><code>-h, --help</code></dt>
-      <dd>help for uninstall</dd>
-    </dl>
-  </section>
+      <section id="publishing">
+        <h2>Publishing</h2>
+        <p>
+          <a href="#epos-push"><code>epos push</code></a> copies a packed or built
+          skill from the local store to a registry. It is a direct
+          client-to-registry copy of bytes that already exist: nothing is repacked
+          and no digest is re-derived, so what lands upstream is what
+          <a href="#epos-pack"><code>epos pack</code></a> printed.
+        </p>
+        <p>
+          For a registry that wants a credential, run
+          <a href="#epos-registry-login"><code>epos registry login</code></a>
+          first; <a href="#epos-registry-logout"><code>epos registry logout</code></a>
+          discards it. Both use the Docker credential store, so a credential a
+          <code>docker login</code> already placed there is found without being
+          copied.
+        </p>
+        <p>
+          Publishing <em>through</em> <code>epos-registry</code> is a separate
+          matter and stays withdrawn (SPEC.md 4.5): it would have to redirect the
+          upload session to the registry behind it, and oras-go refuses a
+          cross-host upload location. A client pointed straight at your registry
+          gets that registry's own location and is unaffected, which is what
+          <code>epos push</code> is.
+        </p>
+        <p>
+          What epos produces is an ordinary OCI artifact in an OCI layout, so any
+          other OCI client publishes it too — the
+          <a href={href("quickstart")}>quick start</a> shows
+          <code>oras cp</code> reading straight out of the directory
+          <a href="#epos-store-path"><code>epos store path</code></a> prints.
+        </p>
+      </section>
 
-  <section id="epos-verify">
-    <h2><code>epos verify</code></h2>
-    <pre class="syntax">epos verify &lt;ref&gt; [flags]</pre>
-    <p class="summary">Verify the cosign signature attached to a skill</p>
-    <p>verify resolves the skill's manifest, lists its referrers, and checks the cosign signature over that manifest (SPEC.md 11). Attestations attached to the same manifest are verified too, and every one of them must hold.</p>
-    <p>Verification fetches the signature blob from the skill's own repository, so a registry fronted by epos-registry counts it as an unverified download of the skill. That inflation is known and deliberate: telling a signature blob from a content blob needs state, and epos-registry holds none (SPEC.md 4.4, 5.2).</p>
-    <dl class="flags">
-      <dt><code>-h, --help</code></dt>
-      <dd>help for verify</dd>
-      <dt><code>--key string</code></dt>
-      <dd>public key to verify against (default &quot;cosign.pub&quot;)</dd>
-      <dt><code>--plain-http</code></dt>
-      <dd>talk to the registry over HTTP</dd>
-      <dt><code>--registry-config string</code></dt>
-      <dd>registry credentials file to use instead of Docker's ($DOCKER_CONFIG/config.json, or ~/.docker/config.json)</dd>
-    </dl>
-  </section>
+    </div>
 
-  <section id="publishing">
-    <h2>Publishing</h2>
-    <p>
-      <a href="#epos-push"><code>epos push</code></a> copies a packed or built
-      skill from the local store to a registry. It is a direct
-      client-to-registry copy of bytes that already exist: nothing is repacked
-      and no digest is re-derived, so what lands upstream is what
-      <a href="#epos-pack"><code>epos pack</code></a> printed.
-    </p>
-    <p>
-      For a registry that wants a credential, run
-      <a href="#epos-registry-login"><code>epos registry login</code></a>
-      first; <a href="#epos-registry-logout"><code>epos registry logout</code></a>
-      discards it. Both use the Docker credential store, so a credential a
-      <code>docker login</code> already placed there is found without being
-      copied.
-    </p>
-    <p>
-      Publishing <em>through</em> <code>epos-registry</code> is a separate
-      matter and stays withdrawn (SPEC.md 4.5): it would have to redirect the
-      upload session to the registry behind it, and oras-go refuses a
-      cross-host upload location. A client pointed straight at your registry
-      gets that registry's own location and is unaffected, which is what
-      <code>epos push</code> is.
-    </p>
-    <p>
-      What epos produces is an ordinary OCI artifact in an OCI layout, so any
-      other OCI client publishes it too — the
-      <a href={href("quickstart")}>quick start</a> shows
-      <code>oras cp</code> reading straight out of the directory
-      <a href="#epos-store-path"><code>epos store path</code></a> prints.
-    </p>
-  </section>
-
-  <footer>
-    <p>
-      <ga-button variant="primary" href="https://github.com/gaarutyunov/epos">
-        Source on GitHub
-      </ga-button>
-    </p>
-  </footer>
+    <aside class="doc-aside">
+      <div>
+        <h2 class="section-label">On this page</h2>
+        <ul class="rows">
+          <li>
+            <a href="#environment">
+              <span>Environment</span>
+              <span class="arrow">&rarr;</span>
+            </a>
+          </li>
+          <li>
+            <a href="#epos">
+              <span><code>epos</code></span>
+              <span class="arrow">&rarr;</span>
+            </a>
+          </li>
+          <li>
+            <a href="#epos-attest">
+              <span><code>epos attest</code></span>
+              <span class="arrow">&rarr;</span>
+            </a>
+          </li>
+          <li>
+            <a href="#epos-build">
+              <span><code>epos build</code></span>
+              <span class="arrow">&rarr;</span>
+            </a>
+          </li>
+          <li>
+            <a href="#epos-generate-key-pair">
+              <span><code>epos generate-key-pair</code></span>
+              <span class="arrow">&rarr;</span>
+            </a>
+          </li>
+          <li>
+            <a href="#epos-install">
+              <span><code>epos install</code></span>
+              <span class="arrow">&rarr;</span>
+            </a>
+          </li>
+          <li>
+            <a href="#epos-list">
+              <span><code>epos list</code></span>
+              <span class="arrow">&rarr;</span>
+            </a>
+          </li>
+          <li>
+            <a href="#epos-ls">
+              <span><code>epos ls</code></span>
+              <span class="arrow">&rarr;</span>
+            </a>
+          </li>
+          <li>
+            <a href="#epos-pack">
+              <span><code>epos pack</code></span>
+              <span class="arrow">&rarr;</span>
+            </a>
+          </li>
+          <li>
+            <a href="#epos-pull">
+              <span><code>epos pull</code></span>
+              <span class="arrow">&rarr;</span>
+            </a>
+          </li>
+          <li>
+            <a href="#epos-push">
+              <span><code>epos push</code></span>
+              <span class="arrow">&rarr;</span>
+            </a>
+          </li>
+          <li>
+            <a href="#epos-registry">
+              <span><code>epos registry</code></span>
+              <span class="arrow">&rarr;</span>
+            </a>
+          </li>
+          <li>
+            <a href="#epos-registry-login">
+              <span><code>epos registry login</code></span>
+              <span class="arrow">&rarr;</span>
+            </a>
+          </li>
+          <li>
+            <a href="#epos-registry-logout">
+              <span><code>epos registry logout</code></span>
+              <span class="arrow">&rarr;</span>
+            </a>
+          </li>
+          <li>
+            <a href="#epos-search">
+              <span><code>epos search</code></span>
+              <span class="arrow">&rarr;</span>
+            </a>
+          </li>
+          <li>
+            <a href="#epos-sign">
+              <span><code>epos sign</code></span>
+              <span class="arrow">&rarr;</span>
+            </a>
+          </li>
+          <li>
+            <a href="#epos-store">
+              <span><code>epos store</code></span>
+              <span class="arrow">&rarr;</span>
+            </a>
+          </li>
+          <li>
+            <a href="#epos-store-ls">
+              <span><code>epos store ls</code></span>
+              <span class="arrow">&rarr;</span>
+            </a>
+          </li>
+          <li>
+            <a href="#epos-store-path">
+              <span><code>epos store path</code></span>
+              <span class="arrow">&rarr;</span>
+            </a>
+          </li>
+          <li>
+            <a href="#epos-store-prune">
+              <span><code>epos store prune</code></span>
+              <span class="arrow">&rarr;</span>
+            </a>
+          </li>
+          <li>
+            <a href="#epos-uninstall">
+              <span><code>epos uninstall</code></span>
+              <span class="arrow">&rarr;</span>
+            </a>
+          </li>
+          <li>
+            <a href="#epos-verify">
+              <span><code>epos verify</code></span>
+              <span class="arrow">&rarr;</span>
+            </a>
+          </li>
+          <li>
+            <a href="#publishing">
+              <span>Publishing</span>
+              <span class="arrow">&rarr;</span>
+            </a>
+          </li>
+        </ul>
+      </div>
+      <div>
+        <h2 class="section-label">Elsewhere</h2>
+        <ul class="rows">
+          <li>
+            <a href={href("quickstart")}>
+              <span>Quick start</span>
+              <span class="arrow">&rarr;</span>
+            </a>
+          </li>
+          <li>
+            <a href={href("skillfile")}>
+              <span>Skillfile reference</span>
+              <span class="arrow">&rarr;</span>
+            </a>
+          </li>
+        </ul>
+      </div>
+    </aside>
+  </div>
 </Base>
 
 <style>
-  .back {
-    font-size: 0.9rem;
-    margin: 0 0 2rem;
-  }
-
-  .hero {
-    margin-bottom: 2.5rem;
-  }
-
-  h1 {
-    font-size: clamp(1.9rem, 5vw, 2.6rem);
-    line-height: 1.15;
-    letter-spacing: -0.02em;
-    margin: 1rem 0 0.75rem;
-  }
-
-  .lede {
-    font-size: 1.1rem;
-    color: var(--ga-fg-muted, #a1a1a1);
-    max-width: 42rem;
-  }
-
-  .toc {
-    margin-bottom: 3rem;
-  }
-
-  .toc ul {
-    list-style: none;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem 1rem;
-    padding: 0;
-    margin: 0;
-    font-size: 0.9rem;
-  }
-
-  section {
-    margin-bottom: 3.5rem;
-    scroll-margin-top: 1.5rem;
-  }
-
-  h2 {
-    font-size: 1.35rem;
-    letter-spacing: -0.01em;
-    margin-bottom: 0.75rem;
-  }
-
   .summary {
-    color: var(--ga-fg-muted, #a1a1a1);
-  }
-
-  code {
-    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
-    font-size: 0.9em;
-  }
-
-  pre {
-    margin: 0 0 1rem;
-    overflow-x: auto;
-    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
-    font-size: 0.85rem;
-    line-height: 1.65;
-    white-space: pre;
+    color: var(--ga-muted, #878787);
   }
 
   pre.syntax {
-    color: var(--ga-accent, #3b82f6);
-    margin-bottom: 0.75rem;
+    color: var(--ga-accent, #54a2ff);
+    margin-bottom: var(--ga-space-3, 12px);
   }
 
   .flags {
-    margin: 0 0 1rem;
+    margin: 0 0 var(--ga-space-4, 16px);
   }
 
   .flags dt {
-    margin-top: 0.5rem;
+    margin-top: var(--ga-space-2, 8px);
+    font-family: var(--ga-font-mono);
+    font-size: var(--ga-fs-sm, 14px);
   }
 
   .flags dd {
     margin: 0.15rem 0 0 1.25rem;
-    color: var(--ga-fg-muted, #a1a1a1);
+    color: var(--ga-muted, #878787);
   }
 
   .subcommands {
-    font-size: 0.9rem;
+    font-size: var(--ga-fs-sm, 14px);
   }
 
   ol {
     padding-left: 1.25rem;
+    color: var(--ga-muted, #878787);
   }
 
-  footer {
-    margin-top: 4rem;
+  .arrow {
+    font-family: var(--ga-font-mono);
+    font-size: var(--ga-fs-xs, 12px);
   }
 </style>

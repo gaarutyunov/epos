@@ -13,305 +13,279 @@ const href = (path: string) =>
 <Base
   title="Skillfile reference — Epos"
   description="Every Skillfile instruction with its syntax and a worked example: FROM, COPY, RM, APPEND, REPLACE, PATCH, AWK, SET, UNSET and ARG, plus multi-stage composition and the values model."
+  crumb="Skillfile reference"
 >
-  <p class="back"><a href={href("")}>← Epos</a></p>
+  <div class="doc">
+    <div class="doc-main">
+      <h1>Skillfile reference</h1>
+      <p class="lede">
+        A Skillfile derives one skill from another. It reads like a
+        Dockerfile and builds like a pure function: nothing executes, and
+        the same bases, Skillfile and context always produce the same
+        artifact.
+      </p>
 
-  <header class="hero">
-    <ga-badge color="blue">Reference</ga-badge>
-    <h1>Skillfile reference</h1>
-    <p class="lede">
-      A Skillfile derives one skill from another. It reads like a Dockerfile and
-      builds like a pure function: nothing executes, and the same bases,
-      Skillfile and context always produce the same artifact.
-    </p>
-    <p>
-      The commands that evaluate one are in the
-      <a href={href("cli")}>CLI reference</a>, and the
-      <a href={href("quickstart")}>quick start</a> runs the whole round trip
-      end to end.
-    </p>
-  </header>
+      <section id="syntax">
+        <h2>Syntax</h2>
+        <p>A Skillfile is read top to bottom, one instruction per line. Instructions apply in file order, and when two of them touch the same bytes the later one wins.</p>
+        <p>A line ending in <code>\</code> continues on the next. A line whose first non-blank character is <code>#</code> is a comment; a <code>#</code> anywhere else is ordinary text, so <code>git+https://host/o/r#v1.2.0</code> and a <code># note</code> inside a regex both survive.</p>
+        <p>Arguments are split on whitespace, and single or double quotes group an argument that contains spaces. Quoting means nothing to any instruction except <code>SET</code>, where it forces the value to be a string.</p>
+        <p>Flags are written <code>--name=value</code>. A bare <code>--name value</code> is rejected: it would make <code>SET --file values.yaml model opus</code> ambiguous with a positional argument.</p>
+        <p><code>APPEND</code>, <code>PATCH</code> and <code>AWK</code> take their payload either inline as a heredoc — <code>&lt;&lt;EOF</code>, then the body, then a line holding only <code>EOF</code> — or as the path of a file in the build context. A heredoc body is taken verbatim: no comment stripping, no line joining, and no <code>$NAME</code> expansion, so an AWK script's <code>$1</code> and a template's <code>&#123;&#123; &#125;&#125;</code> both reach the artifact as written.</p>
+        <p><code>$NAME</code> and <code>$&#123;NAME&#125;</code> in an argument expand to the value of an <code>ARG</code> of that name. A name no <code>ARG</code> declared is left exactly as written, which is what keeps <code>REPLACE</code>'s <code>$1</code> submatch references intact.</p>
+        <p>Nothing executes. There is no <code>RUN</code>, no <code>ENTRYPOINT</code> and no <code>CMD</code>, and a build is a pure function of its bases, its Skillfile and its context — the same three inputs always produce the same digest.</p>
+      </section>
 
-  <nav class="toc" aria-label="On this page">
-    <ul>
-      <li><a href="#syntax">Syntax</a></li>
-      <li><a href="#from-sources">FROM sources</a></li>
-      <li><a href="#arg"><code>ARG</code></a></li>
-      <li><a href="#from"><code>FROM</code></a></li>
-      <li><a href="#copy"><code>COPY</code></a></li>
-      <li><a href="#rm"><code>RM</code></a></li>
-      <li><a href="#append"><code>APPEND</code></a></li>
-      <li><a href="#replace"><code>REPLACE</code></a></li>
-      <li><a href="#patch"><code>PATCH</code></a></li>
-      <li><a href="#awk"><code>AWK</code></a></li>
-      <li><a href="#set"><code>SET</code></a></li>
-      <li><a href="#unset"><code>UNSET</code></a></li>
-      <li><a href="#multi-stage">Multi-stage composition</a></li>
-      <li><a href="#values-and-templating">Values and templating</a></li>
-    </ul>
-  </nav>
+      <section id="from-sources">
+        <h2>FROM sources</h2>
+        <p>
+          A <code>FROM</code> reference is one of four things. Only the OCI scheme touches a registry, so a Skillfile built on local or git bases is a complete, standalone workflow.
+        </p>
+        <ga-table
+          columns='[&#123;"label":"Source"&#125;,&#123;"label":"Reference","mono":true&#125;,&#123;"label":"Pin","width":"170px"&#125;]'
+        >
+          <div>
+            <div>
+              <strong>Local</strong>
+              <div class="cell-note">A directory in the build context. There is no stable name for a directory on somebody's disk, so the build records no pin for it.</div>
+            </div>
+            <span>FROM ./skills/base</span>
+            <span>none</span>
+          </div>
+          <div>
+            <div>
+              <strong>Git</strong>
+              <div class="cell-note">The fragment carries the ref and, after a <code>:</code>, the subdirectory. The ref may be a branch, a tag, a full <code>refs/…</code> name or a commit SHA; omit the fragment for the default branch. An annotated tag is peeled to the commit it points at. <code>git+http://</code> reaches a server without TLS.</div>
+            </div>
+            <span>FROM git+https://github.com/o/r#v1.2.0:skills/pdf</span>
+            <span>commit SHA + tree SHA</span>
+          </div>
+          <div>
+            <div>
+              <strong>OCI</strong>
+              <div class="cell-note">The only scheme that touches a registry. A reference is told from a local directory the way Docker tells them apart: what precedes the first slash is a registry only if it carries a dot or a port, or is <code>localhost</code>.</div>
+            </div>
+            <span>FROM ghcr.io/o/agent-skills/pdf:1.2.0</span>
+            <span>manifest digest</span>
+          </div>
+          <div>
+            <div>
+              <strong>Stage</strong>
+              <div class="cell-note">A name a previous <code>FROM … AS base</code> bound. Checked before the filesystem, so a directory that happens to share the name cannot shadow the stage.</div>
+            </div>
+            <span>FROM base</span>
+            <span>none</span>
+          </div>
+        </ga-table>
+      </section>
 
-  <section id="syntax">
-    <h2>Syntax</h2>
-    <p>A Skillfile is read top to bottom, one instruction per line. Instructions apply in file order, and when two of them touch the same bytes the later one wins.</p>
-    <p>A line ending in <code>\</code> continues on the next. A line whose first non-blank character is <code>#</code> is a comment; a <code>#</code> anywhere else is ordinary text, so <code>git+https://host/o/r#v1.2.0</code> and a <code># note</code> inside a regex both survive.</p>
-    <p>Arguments are split on whitespace, and single or double quotes group an argument that contains spaces. Quoting means nothing to any instruction except <code>SET</code>, where it forces the value to be a string.</p>
-    <p>Flags are written <code>--name=value</code>. A bare <code>--name value</code> is rejected: it would make <code>SET --file values.yaml model opus</code> ambiguous with a positional argument.</p>
-    <p><code>APPEND</code>, <code>PATCH</code> and <code>AWK</code> take their payload either inline as a heredoc — <code>&lt;&lt;EOF</code>, then the body, then a line holding only <code>EOF</code> — or as the path of a file in the build context. A heredoc body is taken verbatim: no comment stripping, no line joining, and no <code>$NAME</code> expansion, so an AWK script's <code>$1</code> and a template's <code>&#123;&#123; &#125;&#125;</code> both reach the artifact as written.</p>
-    <p><code>$NAME</code> and <code>$&#123;NAME&#125;</code> in an argument expand to the value of an <code>ARG</code> of that name. A name no <code>ARG</code> declared is left exactly as written, which is what keeps <code>REPLACE</code>'s <code>$1</code> submatch references intact.</p>
-    <p>Nothing executes. There is no <code>RUN</code>, no <code>ENTRYPOINT</code> and no <code>CMD</code>, and a build is a pure function of its bases, its Skillfile and its context — the same three inputs always produce the same digest.</p>
-  </section>
-
-  <section id="from-sources">
-    <h2>FROM sources</h2>
-    <p>
-      A <code>FROM</code> reference is one of four things. Only the OCI scheme touches a registry, so a Skillfile built on local or git bases is a complete, standalone workflow.
-    </p>
-    <ga-table
-      columns='[&#123;"label":"Source"&#125;,&#123;"label":"Reference","mono":true&#125;,&#123;"label":"Pin","width":"170px"&#125;]'
-    >
-      <div>
-        <div>
-          <strong>Local</strong>
-          <div class="cell-note">A directory in the build context. There is no stable name for a directory on somebody's disk, so the build records no pin for it.</div>
-        </div>
-        <span>FROM ./skills/base</span>
-        <span>none</span>
-      </div>
-      <div>
-        <div>
-          <strong>Git</strong>
-          <div class="cell-note">The fragment carries the ref and, after a <code>:</code>, the subdirectory. The ref may be a branch, a tag, a full <code>refs/…</code> name or a commit SHA; omit the fragment for the default branch. An annotated tag is peeled to the commit it points at. <code>git+http://</code> reaches a server without TLS.</div>
-        </div>
-        <span>FROM git+https://github.com/o/r#v1.2.0:skills/pdf</span>
-        <span>commit SHA + tree SHA</span>
-      </div>
-      <div>
-        <div>
-          <strong>OCI</strong>
-          <div class="cell-note">The only scheme that touches a registry. A reference is told from a local directory the way Docker tells them apart: what precedes the first slash is a registry only if it carries a dot or a port, or is <code>localhost</code>.</div>
-        </div>
-        <span>FROM ghcr.io/o/agent-skills/pdf:1.2.0</span>
-        <span>manifest digest</span>
-      </div>
-      <div>
-        <div>
-          <strong>Stage</strong>
-          <div class="cell-note">A name a previous <code>FROM … AS base</code> bound. Checked before the filesystem, so a directory that happens to share the name cannot shadow the stage.</div>
-        </div>
-        <span>FROM base</span>
-        <span>none</span>
-      </div>
-    </ga-table>
-  </section>
-
-  <section id="arg">
-    <h2><code>ARG</code></h2>
-    <pre class="syntax">ARG &lt;name&gt;[=&lt;default&gt;]</pre>
-    <p class="summary">Declare a build argument, optionally with a default.</p>
-    <p><code>--build-arg &lt;name&gt;=&lt;value&gt;</code> on <code>epos build</code> wins over the default. <code>--build-arg &lt;name&gt;=</code> sets it to the empty string, which is how a default is suppressed.</p>
-    <p>Only declared names expand. <code>$1</code> in a <code>REPLACE</code> replacement, or a name nobody declared, is left as written rather than blanked — a typo stays visible in the output instead of vanishing.</p>
-    <p>Build arguments are the build-time substitution mechanism. <code>&#123;&#123; &#125;&#125;</code> is the install-time one and is never touched here (see Values and templating).</p>
-    <ga-card padding="lg">
-      <div class="example">
-        <p class="label">Build context</p>
-        <p class="filename"><code>base/SKILL.md</code></p>
-        <pre>---
+      <section id="arg">
+        <h2><code>ARG</code></h2>
+        <pre class="syntax">ARG &lt;name&gt;[=&lt;default&gt;]</pre>
+        <p class="summary">Declare a build argument, optionally with a default.</p>
+        <p><code>--build-arg &lt;name&gt;=&lt;value&gt;</code> on <code>epos build</code> wins over the default. <code>--build-arg &lt;name&gt;=</code> sets it to the empty string, which is how a default is suppressed.</p>
+        <p>Only declared names expand. <code>$1</code> in a <code>REPLACE</code> replacement, or a name nobody declared, is left as written rather than blanked — a typo stays visible in the output instead of vanishing.</p>
+        <p>Build arguments are the build-time substitution mechanism. <code>&#123;&#123; &#125;&#125;</code> is the install-time one and is never touched here (see Values and templating).</p>
+        <ga-card padding="lg">
+          <div class="example">
+            <p class="label">Build context</p>
+            <p class="filename"><code>base/SKILL.md</code></p>
+            <pre>---
 name: reviewer
 ---
 Reviews changes.</pre>
-        <p class="label">Skillfile</p>
-        <pre>ARG language=Go
+            <p class="label">Skillfile</p>
+            <pre>ARG language=Go
 FROM ./base
 SET language $language</pre>
-        <p class="label">Result</p>
-        <p class="filename"><code>SKILL.md</code></p>
-        <pre>---
+            <p class="label">Result</p>
+            <p class="filename"><code>SKILL.md</code></p>
+            <pre>---
 name: reviewer
 language: Go
 ---
 Reviews changes.</pre>
-      </div>
-    </ga-card>
-  </section>
+          </div>
+        </ga-card>
+      </section>
 
-  <section id="from">
-    <h2><code>FROM</code></h2>
-    <pre class="syntax">FROM &lt;ref&gt; [AS &lt;stage&gt;]</pre>
-    <p class="summary">Start a stage from a base skill.</p>
-    <p>The base enters the stage at its root: <code>base/references/style.md</code> in the context becomes <code>references/style.md</code> in the artifact, which is what every later instruction addresses.</p>
-    <p>A Skillfile needs at least one <code>FROM</code>, and the last one is the stage that becomes the artifact. Earlier stages are sources a <code>COPY --from</code> names.</p>
-    <p>See FROM sources for the four things <code>&lt;ref&gt;</code> can be, and Multi-stage composition for <code>AS</code>.</p>
-    <ga-card padding="lg">
-      <div class="example">
-        <p class="label">Build context</p>
-        <p class="filename"><code>base/SKILL.md</code></p>
-        <pre>---
+      <section id="from">
+        <h2><code>FROM</code></h2>
+        <pre class="syntax">FROM &lt;ref&gt; [AS &lt;stage&gt;]</pre>
+        <p class="summary">Start a stage from a base skill.</p>
+        <p>The base enters the stage at its root: <code>base/references/style.md</code> in the context becomes <code>references/style.md</code> in the artifact, which is what every later instruction addresses.</p>
+        <p>A Skillfile needs at least one <code>FROM</code>, and the last one is the stage that becomes the artifact. Earlier stages are sources a <code>COPY --from</code> names.</p>
+        <p>See FROM sources for the four things <code>&lt;ref&gt;</code> can be, and Multi-stage composition for <code>AS</code>.</p>
+        <ga-card padding="lg">
+          <div class="example">
+            <p class="label">Build context</p>
+            <p class="filename"><code>base/SKILL.md</code></p>
+            <pre>---
 name: reviewer
 ---
 Reviews changes.</pre>
-        <p class="filename"><code>base/references/style.md</code></p>
-        <pre>Two spaces after a full stop.</pre>
-        <p class="label">Skillfile</p>
-        <pre>FROM ./base</pre>
-        <p class="label">Result</p>
-        <p class="filename"><code>references/style.md</code></p>
-        <pre>Two spaces after a full stop.</pre>
-      </div>
-    </ga-card>
-  </section>
+            <p class="filename"><code>base/references/style.md</code></p>
+            <pre>Two spaces after a full stop.</pre>
+            <p class="label">Skillfile</p>
+            <pre>FROM ./base</pre>
+            <p class="label">Result</p>
+            <p class="filename"><code>references/style.md</code></p>
+            <pre>Two spaces after a full stop.</pre>
+          </div>
+        </ga-card>
+      </section>
 
-  <section id="copy">
-    <h2><code>COPY</code></h2>
-    <pre class="syntax">COPY [--from=&lt;stage&gt;] &lt;src&gt;... &lt;dest&gt;</pre>
-    <p class="summary">Copy files in from the build context, or from a finished stage.</p>
-    <dl class="flags">
-      <dt><code>--from=&lt;stage&gt;</code></dt>
-      <dd>Read the sources from the named stage's final tree instead of the build context. The stage must already have finished.</dd>
-    </dl>
-    <p>A <code>&lt;dest&gt;</code> ending in <code>/</code>, or written as <code>.</code>, is a directory: the source keeps its base name under it. Anything else is the destination path itself.</p>
-    <p>A <code>&lt;src&gt;</code> naming no file is taken as a directory prefix, and everything under it is copied with its layout kept. A source that matches neither a file nor a prefix fails the build.</p>
-    <p>Composition is explicit enumeration, not merge-by-default: what you take, you name.</p>
-    <ga-card padding="lg">
-      <div class="example">
-        <p class="label">Build context</p>
-        <p class="filename"><code>base/SKILL.md</code></p>
-        <pre>---
+      <section id="copy">
+        <h2><code>COPY</code></h2>
+        <pre class="syntax">COPY [--from=&lt;stage&gt;] &lt;src&gt;... &lt;dest&gt;</pre>
+        <p class="summary">Copy files in from the build context, or from a finished stage.</p>
+        <dl class="flags">
+          <dt><code>--from=&lt;stage&gt;</code></dt>
+          <dd>Read the sources from the named stage's final tree instead of the build context. The stage must already have finished.</dd>
+        </dl>
+        <p>A <code>&lt;dest&gt;</code> ending in <code>/</code>, or written as <code>.</code>, is a directory: the source keeps its base name under it. Anything else is the destination path itself.</p>
+        <p>A <code>&lt;src&gt;</code> naming no file is taken as a directory prefix, and everything under it is copied with its layout kept. A source that matches neither a file nor a prefix fails the build.</p>
+        <p>Composition is explicit enumeration, not merge-by-default: what you take, you name.</p>
+        <ga-card padding="lg">
+          <div class="example">
+            <p class="label">Build context</p>
+            <p class="filename"><code>base/SKILL.md</code></p>
+            <pre>---
 name: reviewer
 ---
 Reviews changes.</pre>
-        <p class="filename"><code>checklist.md</code></p>
-        <pre>- Table-driven tests for every exported function.</pre>
-        <p class="label">Skillfile</p>
-        <pre>FROM ./base
+            <p class="filename"><code>checklist.md</code></p>
+            <pre>- Table-driven tests for every exported function.</pre>
+            <p class="label">Skillfile</p>
+            <pre>FROM ./base
 COPY checklist.md references/checklist.md</pre>
-        <p class="label">Result</p>
-        <p class="filename"><code>references/checklist.md</code></p>
-        <pre>- Table-driven tests for every exported function.</pre>
-      </div>
-    </ga-card>
-  </section>
+            <p class="label">Result</p>
+            <p class="filename"><code>references/checklist.md</code></p>
+            <pre>- Table-driven tests for every exported function.</pre>
+          </div>
+        </ga-card>
+      </section>
 
-  <section id="rm">
-    <h2><code>RM</code></h2>
-    <pre class="syntax">RM &lt;path&gt;...</pre>
-    <p class="summary">Remove a file, or everything under a directory prefix.</p>
-    <p><strong>An absent path is fatal.</strong> This is deliberately unlike the two instructions that warn: a zero-match <code>REPLACE</code> and an absent-key <code>UNSET</code> end in the state the author asked for — the pattern is gone, the key is gone — so they stay idempotent against a base that has already adopted the same change. <code>RM</code> has no such reading: a path that is not there is a path the author was wrong about, and continuing would ship an artifact built from a Skillfile that no longer describes its base.</p>
-    <p>A directory is not a thing the tree holds, only files are, so <code>RM sections/</code> removes everything beneath it.</p>
-    <ga-card padding="lg">
-      <div class="example">
-        <p class="label">Build context</p>
-        <p class="filename"><code>base/SKILL.md</code></p>
-        <pre>---
+      <section id="rm">
+        <h2><code>RM</code></h2>
+        <pre class="syntax">RM &lt;path&gt;...</pre>
+        <p class="summary">Remove a file, or everything under a directory prefix.</p>
+        <p><strong>An absent path is fatal.</strong> This is deliberately unlike the two instructions that warn: a zero-match <code>REPLACE</code> and an absent-key <code>UNSET</code> end in the state the author asked for — the pattern is gone, the key is gone — so they stay idempotent against a base that has already adopted the same change. <code>RM</code> has no such reading: a path that is not there is a path the author was wrong about, and continuing would ship an artifact built from a Skillfile that no longer describes its base.</p>
+        <p>A directory is not a thing the tree holds, only files are, so <code>RM sections/</code> removes everything beneath it.</p>
+        <ga-card padding="lg">
+          <div class="example">
+            <p class="label">Build context</p>
+            <p class="filename"><code>base/SKILL.md</code></p>
+            <pre>---
 name: reviewer
 ---
 Reviews changes.</pre>
-        <p class="filename"><code>base/sections/house-style.md</code></p>
-        <pre>Oxford comma, always.</pre>
-        <p class="filename"><code>base/sections/checklist.md</code></p>
-        <pre>- One assertion per test.</pre>
-        <p class="label">Skillfile</p>
-        <pre>FROM ./base
+            <p class="filename"><code>base/sections/house-style.md</code></p>
+            <pre>Oxford comma, always.</pre>
+            <p class="filename"><code>base/sections/checklist.md</code></p>
+            <pre>- One assertion per test.</pre>
+            <p class="label">Skillfile</p>
+            <pre>FROM ./base
 RM sections/house-style.md</pre>
-        <p class="label">Result</p>
-        <p class="filename"><code>sections/checklist.md</code></p>
-        <pre>- One assertion per test.</pre>
-        <p class="label">Removed</p>
-        <p class="filename"><code>sections/house-style.md</code></p>
-      </div>
-    </ga-card>
-  </section>
+            <p class="label">Result</p>
+            <p class="filename"><code>sections/checklist.md</code></p>
+            <pre>- One assertion per test.</pre>
+            <p class="label">Removed</p>
+            <p class="filename"><code>sections/house-style.md</code></p>
+          </div>
+        </ga-card>
+      </section>
 
-  <section id="append">
-    <h2><code>APPEND</code></h2>
-    <pre class="syntax">APPEND &lt;path&gt; (&lt;&lt;EOF … EOF | &lt;file&gt;)</pre>
-    <p class="summary">Add text to the end of a file, creating it if it is not there.</p>
-    <p>If the file does not end in a newline, one is added before the payload, so an append never joins itself onto the last line of the base.</p>
-    <p>The payload is verbatim (SPEC.md 8.6): a <code>&#123;&#123; &#125;&#125;</code> in it reaches the artifact untouched and renders at install.</p>
-    <ga-card padding="lg">
-      <div class="example">
-        <p class="label">Build context</p>
-        <p class="filename"><code>base/SKILL.md</code></p>
-        <pre>---
+      <section id="append">
+        <h2><code>APPEND</code></h2>
+        <pre class="syntax">APPEND &lt;path&gt; (&lt;&lt;EOF … EOF | &lt;file&gt;)</pre>
+        <p class="summary">Add text to the end of a file, creating it if it is not there.</p>
+        <p>If the file does not end in a newline, one is added before the payload, so an append never joins itself onto the last line of the base.</p>
+        <p>The payload is verbatim (SPEC.md 8.6): a <code>&#123;&#123; &#125;&#125;</code> in it reaches the artifact untouched and renders at install.</p>
+        <ga-card padding="lg">
+          <div class="example">
+            <p class="label">Build context</p>
+            <p class="filename"><code>base/SKILL.md</code></p>
+            <pre>---
 name: reviewer
 ---
 Reviews changes.</pre>
-        <p class="label">Skillfile</p>
-        <pre>FROM ./base
+            <p class="label">Skillfile</p>
+            <pre>FROM ./base
 APPEND SKILL.md &lt;&lt;EOF
 See references/style.md for the house style.
 EOF</pre>
-        <p class="label">Result</p>
-        <p class="filename"><code>SKILL.md</code></p>
-        <pre>---
+            <p class="label">Result</p>
+            <p class="filename"><code>SKILL.md</code></p>
+            <pre>---
 name: reviewer
 ---
 Reviews changes.
 See references/style.md for the house style.</pre>
-      </div>
-    </ga-card>
-  </section>
+          </div>
+        </ga-card>
+      </section>
 
-  <section id="replace">
-    <h2><code>REPLACE</code></h2>
-    <pre class="syntax">REPLACE [--count=&lt;n&gt;] &lt;path&gt; &lt;pattern&gt; &lt;replacement&gt;</pre>
-    <p class="summary">Rewrite a file with a regular expression.</p>
-    <dl class="flags">
-      <dt><code>--count=&lt;n&gt;</code></dt>
-      <dd>Apply to the first <code>n</code> matches only. Positional, so an upstream insertion of an earlier match silently retargets the edit.</dd>
-    </dl>
-    <p>The engine is Go's <code>regexp</code>, which is RE2: no backreferences, no lookahead or lookbehind, and a linear-time guarantee, so no pattern from a third-party base can hang a build.</p>
-    <p>The replacement uses Go's <code>$1</code> and <code>$&#123;name&#125;</code> expansion.</p>
-    <p><strong>Zero matches is not an error.</strong> A warning is emitted, the file is left alone, and the build continues — which is what makes a defensive edit survive a base that has already adopted the same change. <code>epos build</code> prints every no-op on stderr, so a Skillfile that has quietly stopped doing anything is still visible.</p>
-    <p><code>REPLACE</code> is the instruction for edits that must survive line drift. <code>PATCH</code> is the one that fails on it.</p>
-    <ga-card padding="lg">
-      <div class="example">
-        <p class="label">Build context</p>
-        <p class="filename"><code>base/SKILL.md</code></p>
-        <pre>---
+      <section id="replace">
+        <h2><code>REPLACE</code></h2>
+        <pre class="syntax">REPLACE [--count=&lt;n&gt;] &lt;path&gt; &lt;pattern&gt; &lt;replacement&gt;</pre>
+        <p class="summary">Rewrite a file with a regular expression.</p>
+        <dl class="flags">
+          <dt><code>--count=&lt;n&gt;</code></dt>
+          <dd>Apply to the first <code>n</code> matches only. Positional, so an upstream insertion of an earlier match silently retargets the edit.</dd>
+        </dl>
+        <p>The engine is Go's <code>regexp</code>, which is RE2: no backreferences, no lookahead or lookbehind, and a linear-time guarantee, so no pattern from a third-party base can hang a build.</p>
+        <p>The replacement uses Go's <code>$1</code> and <code>$&#123;name&#125;</code> expansion.</p>
+        <p><strong>Zero matches is not an error.</strong> A warning is emitted, the file is left alone, and the build continues — which is what makes a defensive edit survive a base that has already adopted the same change. <code>epos build</code> prints every no-op on stderr, so a Skillfile that has quietly stopped doing anything is still visible.</p>
+        <p><code>REPLACE</code> is the instruction for edits that must survive line drift. <code>PATCH</code> is the one that fails on it.</p>
+        <ga-card padding="lg">
+          <div class="example">
+            <p class="label">Build context</p>
+            <p class="filename"><code>base/SKILL.md</code></p>
+            <pre>---
 name: reviewer
 model: sonnet
 ---
 Reviews changes.</pre>
-        <p class="label">Skillfile</p>
-        <pre>FROM ./base
+            <p class="label">Skillfile</p>
+            <pre>FROM ./base
 REPLACE SKILL.md &quot;model: (sonnet|haiku)&quot; &quot;model: opus # was $1&quot;
 REPLACE SKILL.md &quot;model: gpt-4&quot; &quot;model: opus&quot;</pre>
-        <p class="label">Result</p>
-        <p class="filename"><code>SKILL.md</code></p>
-        <pre>---
+            <p class="label">Result</p>
+            <p class="filename"><code>SKILL.md</code></p>
+            <pre>---
 name: reviewer
 model: opus # was sonnet
 ---
 Reviews changes.</pre>
-        <p class="label">On stderr</p>
-        <pre>warning: line 3: SKILL.md: &quot;model: gpt-4&quot; matched nothing</pre>
-      </div>
-    </ga-card>
-  </section>
+            <p class="label">On stderr</p>
+            <pre>warning: line 3: SKILL.md: &quot;model: gpt-4&quot; matched nothing</pre>
+          </div>
+        </ga-card>
+      </section>
 
-  <section id="patch">
-    <h2><code>PATCH</code></h2>
-    <pre class="syntax">PATCH &lt;path&gt; (&lt;&lt;EOF … EOF | &lt;diff-file&gt;)</pre>
-    <p class="summary">Apply a unified diff to a file.</p>
-    <p><strong>Strict, and stricter than <code>git apply</code>.</strong> Each hunk is applied at the line its header records. There is no offset search and no fuzz factor, so a pure line-number shift caused by an unrelated upstream insertion fails the build even when every context line still matches.</p>
-    <p><strong>Failure is fatal.</strong> No <code>.rej</code> file, no warn-and-continue, no partial application: the artifact is content-addressed, so half a patch would silently produce a different digest from the same inputs.</p>
-    <p>The payload is authored with <code>git diff</code>. <code>git show</code>, <code>format-patch</code>, GNU unified diffs and Git binary patches are all accepted. It must describe exactly one file — a payload that patches several, or that is not a diff at all, is refused rather than quietly doing nothing.</p>
-    <p>Use <code>REPLACE</code> for an edit that has to survive the base moving under it.</p>
-    <ga-card padding="lg">
-      <div class="example">
-        <p class="label">Build context</p>
-        <p class="filename"><code>base/SKILL.md</code></p>
-        <pre>---
+      <section id="patch">
+        <h2><code>PATCH</code></h2>
+        <pre class="syntax">PATCH &lt;path&gt; (&lt;&lt;EOF … EOF | &lt;diff-file&gt;)</pre>
+        <p class="summary">Apply a unified diff to a file.</p>
+        <p><strong>Strict, and stricter than <code>git apply</code>.</strong> Each hunk is applied at the line its header records. There is no offset search and no fuzz factor, so a pure line-number shift caused by an unrelated upstream insertion fails the build even when every context line still matches.</p>
+        <p><strong>Failure is fatal.</strong> No <code>.rej</code> file, no warn-and-continue, no partial application: the artifact is content-addressed, so half a patch would silently produce a different digest from the same inputs.</p>
+        <p>The payload is authored with <code>git diff</code>. <code>git show</code>, <code>format-patch</code>, GNU unified diffs and Git binary patches are all accepted. It must describe exactly one file — a payload that patches several, or that is not a diff at all, is refused rather than quietly doing nothing.</p>
+        <p>Use <code>REPLACE</code> for an edit that has to survive the base moving under it.</p>
+        <ga-card padding="lg">
+          <div class="example">
+            <p class="label">Build context</p>
+            <p class="filename"><code>base/SKILL.md</code></p>
+            <pre>---
 name: reviewer
 ---
 Reviews changes.</pre>
-        <p class="filename"><code>base/notes.md</code></p>
-        <pre>alpha
+            <p class="filename"><code>base/notes.md</code></p>
+            <pre>alpha
 beta
 gamma</pre>
-        <p class="label">Skillfile</p>
-        <pre>FROM ./base
+            <p class="label">Skillfile</p>
+            <pre>FROM ./base
 PATCH notes.md &lt;&lt;EOF
 --- a/notes.md
 +++ b/notes.md
@@ -321,88 +295,88 @@ PATCH notes.md &lt;&lt;EOF
 +BETA
  gamma
 EOF</pre>
-        <p class="label">Result</p>
-        <p class="filename"><code>notes.md</code></p>
-        <pre>alpha
+            <p class="label">Result</p>
+            <p class="filename"><code>notes.md</code></p>
+            <pre>alpha
 BETA
 gamma</pre>
-      </div>
-    </ga-card>
-  </section>
+          </div>
+        </ga-card>
+      </section>
 
-  <section id="awk">
-    <h2><code>AWK</code></h2>
-    <pre class="syntax">AWK [--timeout=&lt;duration&gt;] &lt;path&gt; (&lt;&lt;EOF … EOF | &lt;script-file&gt;)</pre>
-    <p class="summary">Filter a file through a sandboxed AWK program.</p>
-    <dl class="flags">
-      <dt><code>--timeout=&lt;duration&gt;</code></dt>
-      <dd>How long the program may run, as a Go duration such as <code>2s</code>. Defaults to <code>10s</code>.</dd>
-    </dl>
-    <p>The file's current content is the program's stdin, and its stdout replaces the file. This is what <code>REPLACE</code> cannot do: multi-line, conditional and section-scoped edits.</p>
-    <p><strong>The sandbox is mandatory and not configurable.</strong> <code>NoExec</code>, <code>NoFileWrites</code>, <code>NoFileReads</code> and an empty environment are all set, so the program is a pure stdin-to-stdout function — it cannot spawn a process, touch the filesystem, or read the environment. That is what keeps <code>AWK</code> compatible with the no-<code>RUN</code> rule.</p>
-    <p><strong><code>rand()</code>, <code>srand()</code> and <code>systime()</code> are rejected.</strong> They would make the output digest vary between builds of identical inputs. The check reads the compiled program, not the script text, so the same words inside a string literal or a regex are left alone.</p>
-    <p>AWK is Turing-complete, so execution is bound to a deadline. Exceeding it fails the build, as do parse errors, runtime errors and a non-zero exit. There is no partial application.</p>
-    <p>Output is LF-terminated whatever the input used, on every platform: a build must not produce a different digest depending on the machine that ran it. A CR the script asks for by name still survives.</p>
-    <ga-card padding="lg">
-      <div class="example">
-        <p class="label">Build context</p>
-        <p class="filename"><code>base/SKILL.md</code></p>
-        <pre>---
+      <section id="awk">
+        <h2><code>AWK</code></h2>
+        <pre class="syntax">AWK [--timeout=&lt;duration&gt;] &lt;path&gt; (&lt;&lt;EOF … EOF | &lt;script-file&gt;)</pre>
+        <p class="summary">Filter a file through a sandboxed AWK program.</p>
+        <dl class="flags">
+          <dt><code>--timeout=&lt;duration&gt;</code></dt>
+          <dd>How long the program may run, as a Go duration such as <code>2s</code>. Defaults to <code>10s</code>.</dd>
+        </dl>
+        <p>The file's current content is the program's stdin, and its stdout replaces the file. This is what <code>REPLACE</code> cannot do: multi-line, conditional and section-scoped edits.</p>
+        <p><strong>The sandbox is mandatory and not configurable.</strong> <code>NoExec</code>, <code>NoFileWrites</code>, <code>NoFileReads</code> and an empty environment are all set, so the program is a pure stdin-to-stdout function — it cannot spawn a process, touch the filesystem, or read the environment. That is what keeps <code>AWK</code> compatible with the no-<code>RUN</code> rule.</p>
+        <p><strong><code>rand()</code>, <code>srand()</code> and <code>systime()</code> are rejected.</strong> They would make the output digest vary between builds of identical inputs. The check reads the compiled program, not the script text, so the same words inside a string literal or a regex are left alone.</p>
+        <p>AWK is Turing-complete, so execution is bound to a deadline. Exceeding it fails the build, as do parse errors, runtime errors and a non-zero exit. There is no partial application.</p>
+        <p>Output is LF-terminated whatever the input used, on every platform: a build must not produce a different digest depending on the machine that ran it. A CR the script asks for by name still survives.</p>
+        <ga-card padding="lg">
+          <div class="example">
+            <p class="label">Build context</p>
+            <p class="filename"><code>base/SKILL.md</code></p>
+            <pre>---
 name: reviewer
 ---
 ## Checklist
 - One assertion per test.
 ## House style
 - Oxford comma, always.</pre>
-        <p class="label">Skillfile</p>
-        <pre>FROM ./base
+            <p class="label">Skillfile</p>
+            <pre>FROM ./base
 AWK SKILL.md &lt;&lt;EOF
 BEGIN &#123; keep = 1 &#125;
 /^## House style/ &#123; keep = 0 &#125;
 keep &#123; print &#125;
 EOF</pre>
-        <p class="label">Result</p>
-        <p class="filename"><code>SKILL.md</code></p>
-        <pre>---
+            <p class="label">Result</p>
+            <p class="filename"><code>SKILL.md</code></p>
+            <pre>---
 name: reviewer
 ---
 ## Checklist
 - One assertion per test.</pre>
-      </div>
-    </ga-card>
-  </section>
+          </div>
+        </ga-card>
+      </section>
 
-  <section id="set">
-    <h2><code>SET</code></h2>
-    <pre class="syntax">SET [--file=&lt;path&gt;] &lt;key&gt; &lt;value&gt;</pre>
-    <p class="summary">Write a YAML key, structure-aware.</p>
-    <dl class="flags">
-      <dt><code>--file=&lt;path&gt;</code></dt>
-      <dd>Edit this YAML file instead of <code>SKILL.md</code>'s frontmatter.</dd>
-    </dl>
-    <p>The default target is the YAML frontmatter block of <code>SKILL.md</code> — the block that holds <code>name</code>, <code>description</code> and <code>allowed-tools</code>, the fields that decide whether an agent loads the skill at all. <code>--file=&lt;path&gt;</code> targets any YAML file in the tree.</p>
-    <p>Keys use dotted paths for nested mappings, and an intermediate key that is missing is written along with the leaf.</p>
-    <p><strong>Quoting forces a string.</strong> <code>SET version 1.2</code> writes the float <code>1.2</code>; <code>SET version &quot;1.2&quot;</code> writes the string <code>&quot;1.2&quot;</code>. An unquoted value is parsed as a YAML scalar, so it gets the type it looks like.</p>
-    <p>The edit goes through the document's syntax tree, so it cannot produce invalid YAML, and key order, comments and the quoting style of every key it did not name survive it. An existing key keeps its place and its trailing comment; a new key is appended. Files no instruction targeted are never re-serialised and stay byte-identical.</p>
-    <p>One known deviation: inline comment whitespace is normalised across the edited block, so <code>- Read      # note</code> comes back as <code>- Read # note</code>.</p>
-    <ga-card padding="lg">
-      <div class="example">
-        <p class="label">Build context</p>
-        <p class="filename"><code>base/SKILL.md</code></p>
-        <pre>---
+      <section id="set">
+        <h2><code>SET</code></h2>
+        <pre class="syntax">SET [--file=&lt;path&gt;] &lt;key&gt; &lt;value&gt;</pre>
+        <p class="summary">Write a YAML key, structure-aware.</p>
+        <dl class="flags">
+          <dt><code>--file=&lt;path&gt;</code></dt>
+          <dd>Edit this YAML file instead of <code>SKILL.md</code>'s frontmatter.</dd>
+        </dl>
+        <p>The default target is the YAML frontmatter block of <code>SKILL.md</code> — the block that holds <code>name</code>, <code>description</code> and <code>allowed-tools</code>, the fields that decide whether an agent loads the skill at all. <code>--file=&lt;path&gt;</code> targets any YAML file in the tree.</p>
+        <p>Keys use dotted paths for nested mappings, and an intermediate key that is missing is written along with the leaf.</p>
+        <p><strong>Quoting forces a string.</strong> <code>SET version 1.2</code> writes the float <code>1.2</code>; <code>SET version &quot;1.2&quot;</code> writes the string <code>&quot;1.2&quot;</code>. An unquoted value is parsed as a YAML scalar, so it gets the type it looks like.</p>
+        <p>The edit goes through the document's syntax tree, so it cannot produce invalid YAML, and key order, comments and the quoting style of every key it did not name survive it. An existing key keeps its place and its trailing comment; a new key is appended. Files no instruction targeted are never re-serialised and stay byte-identical.</p>
+        <p>One known deviation: inline comment whitespace is normalised across the edited block, so <code>- Read      # note</code> comes back as <code>- Read # note</code>.</p>
+        <ga-card padding="lg">
+          <div class="example">
+            <p class="label">Build context</p>
+            <p class="filename"><code>base/SKILL.md</code></p>
+            <pre>---
 # The name an agent loads this skill by.
 name: reviewer
 description: 'Reviews changes'
 version: 1.0 # bumped by hand
 ---
 Reviews changes.</pre>
-        <p class="label">Skillfile</p>
-        <pre>FROM ./base
+            <p class="label">Skillfile</p>
+            <pre>FROM ./base
 SET version &quot;1.2&quot;
 SET metadata.author acme</pre>
-        <p class="label">Result</p>
-        <p class="filename"><code>SKILL.md</code></p>
-        <pre>---
+            <p class="label">Result</p>
+            <p class="filename"><code>SKILL.md</code></p>
+            <pre>---
 # The name an agent loads this skill by.
 name: reviewer
 description: 'Reviews changes'
@@ -411,64 +385,64 @@ metadata:
   author: acme
 ---
 Reviews changes.</pre>
-      </div>
-    </ga-card>
-  </section>
+          </div>
+        </ga-card>
+      </section>
 
-  <section id="unset">
-    <h2><code>UNSET</code></h2>
-    <pre class="syntax">UNSET [--file=&lt;path&gt;] &lt;key&gt;</pre>
-    <p class="summary">Remove a YAML key.</p>
-    <dl class="flags">
-      <dt><code>--file=&lt;path&gt;</code></dt>
-      <dd>Edit this YAML file instead of <code>SKILL.md</code>'s frontmatter.</dd>
-    </dl>
-    <p><strong>An absent key warns and continues</strong>, for the same reason a zero-match <code>REPLACE</code> does: the end state is the one the author asked for, so the edit stays idempotent against a base that has already dropped the key. <code>epos build</code> prints the warning on stderr.</p>
-    <p>Only the key's own entry goes. A comment on a line of its own belongs to the key it sits above and leaves with it; every other comment stays attached to the key it was written against.</p>
-    <ga-card padding="lg">
-      <div class="example">
-        <p class="label">Build context</p>
-        <p class="filename"><code>base/SKILL.md</code></p>
-        <pre>---
+      <section id="unset">
+        <h2><code>UNSET</code></h2>
+        <pre class="syntax">UNSET [--file=&lt;path&gt;] &lt;key&gt;</pre>
+        <p class="summary">Remove a YAML key.</p>
+        <dl class="flags">
+          <dt><code>--file=&lt;path&gt;</code></dt>
+          <dd>Edit this YAML file instead of <code>SKILL.md</code>'s frontmatter.</dd>
+        </dl>
+        <p><strong>An absent key warns and continues</strong>, for the same reason a zero-match <code>REPLACE</code> does: the end state is the one the author asked for, so the edit stays idempotent against a base that has already dropped the key. <code>epos build</code> prints the warning on stderr.</p>
+        <p>Only the key's own entry goes. A comment on a line of its own belongs to the key it sits above and leaves with it; every other comment stays attached to the key it was written against.</p>
+        <ga-card padding="lg">
+          <div class="example">
+            <p class="label">Build context</p>
+            <p class="filename"><code>base/SKILL.md</code></p>
+            <pre>---
 name: reviewer
 allowed-tools: Read, Grep
 ---
 Reviews changes.</pre>
-        <p class="label">Skillfile</p>
-        <pre>FROM ./base
+            <p class="label">Skillfile</p>
+            <pre>FROM ./base
 UNSET allowed-tools
 UNSET license</pre>
-        <p class="label">Result</p>
-        <p class="filename"><code>SKILL.md</code></p>
-        <pre>---
+            <p class="label">Result</p>
+            <p class="filename"><code>SKILL.md</code></p>
+            <pre>---
 name: reviewer
 ---
 Reviews changes.</pre>
-        <p class="label">On stderr</p>
-        <pre>warning: line 3: SKILL.md: key &quot;license&quot; was already absent</pre>
-      </div>
-    </ga-card>
-  </section>
+            <p class="label">On stderr</p>
+            <pre>warning: line 3: SKILL.md: key &quot;license&quot; was already absent</pre>
+          </div>
+        </ga-card>
+      </section>
 
-  <section id="multi-stage">
-    <h2>Multi-stage composition</h2>
-    <p>Multi-stage follows Docker's semantics. <code>FROM &lt;ref&gt; AS &lt;stage&gt;</code> binds a name to the stage it starts, <code>COPY --from=&lt;stage&gt;</code> takes named files out of a stage that has finished, and a bare <code>FROM &lt;stage&gt;</code> continues from one.</p>
-    <p>A stage finishes when the next <code>FROM</code> begins, so <code>COPY --from</code> reads the stage's <strong>final</strong> tree — including everything the stage's own instructions did to it after its <code>FROM</code> line. A stage that has not finished yet cannot be read: naming a stage declared further down, or the stage currently being built, is an error rather than a silent miss.</p>
-    <p><code>FROM &lt;stage&gt;</code> takes a copy. Instructions in the derived stage cannot reach back and change the stage they descended from, so a later <code>COPY --from</code> naming it still sees what it was.</p>
-    <p>The <strong>last</strong> stage is the artifact. Earlier stages are sources, however much their own instructions edited them.</p>
-    <p>Stage names are also the values-scope keys at install time: a file a <code>COPY --from=shared</code> brought in renders against <code>.Values</code> scoped to <code>shared</code>, so two stages can both write <code>&#123;&#123; .Values.title &#125;&#125;</code> and mean two different things.</p>
-    <ga-card padding="lg">
-      <div class="example">
-        <p class="label">Build context</p>
-        <p class="filename"><code>pdf/SKILL.md</code></p>
-        <pre>---
+      <section id="multi-stage">
+        <h2>Multi-stage composition</h2>
+        <p>Multi-stage follows Docker's semantics. <code>FROM &lt;ref&gt; AS &lt;stage&gt;</code> binds a name to the stage it starts, <code>COPY --from=&lt;stage&gt;</code> takes named files out of a stage that has finished, and a bare <code>FROM &lt;stage&gt;</code> continues from one.</p>
+        <p>A stage finishes when the next <code>FROM</code> begins, so <code>COPY --from</code> reads the stage's <strong>final</strong> tree — including everything the stage's own instructions did to it after its <code>FROM</code> line. A stage that has not finished yet cannot be read: naming a stage declared further down, or the stage currently being built, is an error rather than a silent miss.</p>
+        <p><code>FROM &lt;stage&gt;</code> takes a copy. Instructions in the derived stage cannot reach back and change the stage they descended from, so a later <code>COPY --from</code> naming it still sees what it was.</p>
+        <p>The <strong>last</strong> stage is the artifact. Earlier stages are sources, however much their own instructions edited them.</p>
+        <p>Stage names are also the values-scope keys at install time: a file a <code>COPY --from=shared</code> brought in renders against <code>.Values</code> scoped to <code>shared</code>, so two stages can both write <code>&#123;&#123; .Values.title &#125;&#125;</code> and mean two different things.</p>
+        <ga-card padding="lg">
+          <div class="example">
+            <p class="label">Build context</p>
+            <p class="filename"><code>pdf/SKILL.md</code></p>
+            <pre>---
 name: pdf
 ---
 Extracts tables from PDFs.</pre>
-        <p class="filename"><code>shared/reference.md</code></p>
-        <pre>Two spaces after a full stop.</pre>
-        <p class="label">Skillfile</p>
-        <pre>FROM ./shared AS shared
+            <p class="filename"><code>shared/reference.md</code></p>
+            <pre>Two spaces after a full stop.</pre>
+            <p class="label">Skillfile</p>
+            <pre>FROM ./shared AS shared
 
 FROM ./pdf AS base
 APPEND SKILL.md &lt;&lt;EOF
@@ -477,167 +451,215 @@ EOF
 
 FROM base
 COPY --from=shared reference.md references/shared.md</pre>
-        <p class="label">Result</p>
-        <p class="filename"><code>SKILL.md</code></p>
-        <pre>---
+            <p class="label">Result</p>
+            <p class="filename"><code>SKILL.md</code></p>
+            <pre>---
 name: pdf
 ---
 Extracts tables from PDFs.
 See references/shared.md for the house style.</pre>
-      </div>
-    </ga-card>
-  </section>
+          </div>
+        </ga-card>
+      </section>
 
-  <section id="values-and-templating">
-    <h2>Values and templating</h2>
-    <p>A <code>&#123;&#123; … &#125;&#125;</code> action is <strong>not</strong> a build-time construct. It passes through the build untouched and is rendered only when the skill is installed, by <code>epos install</code>. Build-time substitution is <code>ARG</code> and <code>$NAME</code>; the two never collide.</p>
-    <p>Every payload is carried verbatim, so a <code>&#123;&#123; &#125;&#125;</code> inside an <code>APPEND</code> heredoc, a <code>COPY</code>'d file, a <code>PATCH</code> or an <code>AWK</code> script reaches the artifact as written.</p>
-    <p>Rendering is Go <code>text/template</code> with <strong>no custom functions</strong>, against <code>.Values</code> and nothing else. Values come from <code>epos install -f values.yaml</code> and <code>--set k=v</code>, with later files winning key by key and <code>--set</code> winning over every file. A file with no <code>&#123;&#123;</code> in it is copied through byte for byte, which is also what keeps binary assets out of the parser. A value a template needs and the user did not supply is an error, not an empty string.</p>
-    <p>Scoping follows Helm. The top level of <code>values.yaml</code> is the skill's own scope; a key named after a Skillfile stage is that stage's scope, seen only by the files that stage contributed; and a <code>global</code> block is visible to all of them.</p>
-    <p><strong>Quote a template in a frontmatter value.</strong> YAML reads a bare <code>&#123;</code> as the start of a flow mapping, so <code>model: &#123;&#123; .Values.model &#125;&#125;</code> is a YAML syntax error and the build fails when it reads the frontmatter. Write <code>model: '&#123;&#123; .Values.model &#125;&#125;'</code>. In the Markdown body below the frontmatter, no quoting is needed.</p>
-    <ga-card padding="lg">
-      <div class="example">
-        <p class="label">Build context</p>
-        <p class="filename"><code>base/SKILL.md</code></p>
-        <pre>---
+      <section id="values-and-templating">
+        <h2>Values and templating</h2>
+        <p>A <code>&#123;&#123; … &#125;&#125;</code> action is <strong>not</strong> a build-time construct. It passes through the build untouched and is rendered only when the skill is installed, by <code>epos install</code>. Build-time substitution is <code>ARG</code> and <code>$NAME</code>; the two never collide.</p>
+        <p>Every payload is carried verbatim, so a <code>&#123;&#123; &#125;&#125;</code> inside an <code>APPEND</code> heredoc, a <code>COPY</code>'d file, a <code>PATCH</code> or an <code>AWK</code> script reaches the artifact as written.</p>
+        <p>Rendering is Go <code>text/template</code> with <strong>no custom functions</strong>, against <code>.Values</code> and nothing else. Values come from <code>epos install -f values.yaml</code> and <code>--set k=v</code>, with later files winning key by key and <code>--set</code> winning over every file. A file with no <code>&#123;&#123;</code> in it is copied through byte for byte, which is also what keeps binary assets out of the parser. A value a template needs and the user did not supply is an error, not an empty string.</p>
+        <p>Scoping follows Helm. The top level of <code>values.yaml</code> is the skill's own scope; a key named after a Skillfile stage is that stage's scope, seen only by the files that stage contributed; and a <code>global</code> block is visible to all of them.</p>
+        <p><strong>Quote a template in a frontmatter value.</strong> YAML reads a bare <code>&#123;</code> as the start of a flow mapping, so <code>model: &#123;&#123; .Values.model &#125;&#125;</code> is a YAML syntax error and the build fails when it reads the frontmatter. Write <code>model: '&#123;&#123; .Values.model &#125;&#125;'</code>. In the Markdown body below the frontmatter, no quoting is needed.</p>
+        <ga-card padding="lg">
+          <div class="example">
+            <p class="label">Build context</p>
+            <p class="filename"><code>base/SKILL.md</code></p>
+            <pre>---
 name: reviewer
 model: '&#123;&#123; .Values.model &#125;&#125;'
 ---
 Reviews &#123;&#123; .Values.language &#125;&#125; changes.</pre>
-        <p class="label">Skillfile</p>
-        <pre>FROM ./base
+            <p class="label">Skillfile</p>
+            <pre>FROM ./base
 APPEND SKILL.md &lt;&lt;EOF
 House style: &#123;&#123; .Values.style &#125;&#125;
 EOF</pre>
-        <p class="label">Result</p>
-        <p class="filename"><code>SKILL.md</code></p>
-        <pre>---
+            <p class="label">Result</p>
+            <p class="filename"><code>SKILL.md</code></p>
+            <pre>---
 name: reviewer
 model: '&#123;&#123; .Values.model &#125;&#125;'
 ---
 Reviews &#123;&#123; .Values.language &#125;&#125; changes.
 House style: &#123;&#123; .Values.style &#125;&#125;</pre>
-      </div>
-    </ga-card>
-  </section>
+          </div>
+        </ga-card>
+      </section>
 
-  <footer>
-    <p>
-      <ga-button variant="primary" href="https://github.com/gaarutyunov/epos">
-        Source on GitHub
-      </ga-button>
-    </p>
-  </footer>
+    </div>
+
+    <aside class="doc-aside">
+      <div>
+        <h2 class="section-label">On this page</h2>
+        <ul class="rows">
+          <li>
+            <a href="#syntax">
+              <span>Syntax</span>
+              <span class="arrow">&rarr;</span>
+            </a>
+          </li>
+          <li>
+            <a href="#from-sources">
+              <span>FROM sources</span>
+              <span class="arrow">&rarr;</span>
+            </a>
+          </li>
+          <li>
+            <a href="#arg">
+              <span><code>ARG</code></span>
+              <span class="arrow">&rarr;</span>
+            </a>
+          </li>
+          <li>
+            <a href="#from">
+              <span><code>FROM</code></span>
+              <span class="arrow">&rarr;</span>
+            </a>
+          </li>
+          <li>
+            <a href="#copy">
+              <span><code>COPY</code></span>
+              <span class="arrow">&rarr;</span>
+            </a>
+          </li>
+          <li>
+            <a href="#rm">
+              <span><code>RM</code></span>
+              <span class="arrow">&rarr;</span>
+            </a>
+          </li>
+          <li>
+            <a href="#append">
+              <span><code>APPEND</code></span>
+              <span class="arrow">&rarr;</span>
+            </a>
+          </li>
+          <li>
+            <a href="#replace">
+              <span><code>REPLACE</code></span>
+              <span class="arrow">&rarr;</span>
+            </a>
+          </li>
+          <li>
+            <a href="#patch">
+              <span><code>PATCH</code></span>
+              <span class="arrow">&rarr;</span>
+            </a>
+          </li>
+          <li>
+            <a href="#awk">
+              <span><code>AWK</code></span>
+              <span class="arrow">&rarr;</span>
+            </a>
+          </li>
+          <li>
+            <a href="#set">
+              <span><code>SET</code></span>
+              <span class="arrow">&rarr;</span>
+            </a>
+          </li>
+          <li>
+            <a href="#unset">
+              <span><code>UNSET</code></span>
+              <span class="arrow">&rarr;</span>
+            </a>
+          </li>
+          <li>
+            <a href="#multi-stage">
+              <span>Multi-stage composition</span>
+              <span class="arrow">&rarr;</span>
+            </a>
+          </li>
+          <li>
+            <a href="#values-and-templating">
+              <span>Values and templating</span>
+              <span class="arrow">&rarr;</span>
+            </a>
+          </li>
+        </ul>
+      </div>
+      <div>
+        <h2 class="section-label">Elsewhere</h2>
+        <ul class="rows">
+          <li>
+            <a href={href("quickstart")}>
+              <span>Quick start</span>
+              <span class="arrow">&rarr;</span>
+            </a>
+          </li>
+          <li>
+            <a href={href("cli")}>
+              <span>CLI reference</span>
+              <span class="arrow">&rarr;</span>
+            </a>
+          </li>
+        </ul>
+      </div>
+    </aside>
+  </div>
 </Base>
 
 <style>
-  .back {
-    font-size: 0.9rem;
-    margin: 0 0 2rem;
-  }
-
-  .hero {
-    margin-bottom: 2.5rem;
-  }
-
-  h1 {
-    font-size: clamp(1.9rem, 5vw, 2.6rem);
-    line-height: 1.15;
-    letter-spacing: -0.02em;
-    margin: 1rem 0 0.75rem;
-  }
-
-  .lede {
-    font-size: 1.1rem;
-    color: var(--ga-fg-muted, #a1a1a1);
-    max-width: 42rem;
-  }
-
-  .toc {
-    margin-bottom: 3rem;
-  }
-
-  .toc ul {
-    list-style: none;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem 1rem;
-    padding: 0;
-    margin: 0;
-    font-size: 0.9rem;
-  }
-
-  section {
-    margin-bottom: 3.5rem;
-    scroll-margin-top: 1.5rem;
-  }
-
-  h2 {
-    font-size: 1.35rem;
-    letter-spacing: -0.01em;
-    margin-bottom: 0.75rem;
-  }
-
   .summary {
-    color: var(--ga-fg-muted, #a1a1a1);
-  }
-
-  code {
-    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
-    font-size: 0.9em;
-  }
-
-  pre {
-    margin: 0 0 1rem;
-    overflow-x: auto;
-    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
-    font-size: 0.85rem;
-    line-height: 1.65;
-    white-space: pre;
+    color: var(--ga-muted, #878787);
   }
 
   pre.syntax {
-    color: var(--ga-accent, #3b82f6);
-    margin-bottom: 0.75rem;
+    color: var(--ga-accent, #54a2ff);
+    margin-bottom: var(--ga-space-3, 12px);
   }
 
   .flags {
-    margin: 0 0 1rem;
+    margin: 0 0 var(--ga-space-4, 16px);
   }
 
   .flags dt {
-    margin-top: 0.5rem;
+    margin-top: var(--ga-space-2, 8px);
+    font-family: var(--ga-font-mono);
+    font-size: var(--ga-fs-sm, 14px);
   }
 
   .flags dd {
     margin: 0.15rem 0 0 1.25rem;
-    color: var(--ga-fg-muted, #a1a1a1);
+    color: var(--ga-muted, #878787);
   }
 
-  .example .label {
-    margin: 1.25rem 0 0.35rem;
-    font-size: 0.75rem;
-    letter-spacing: 0.06em;
+  .example {
+    margin-bottom: var(--ga-space-4, 16px);
+  }
+
+  .label {
+    margin: var(--ga-space-4, 16px) 0 var(--ga-space-2, 8px);
+    font-family: var(--ga-font-mono);
+    font-size: var(--ga-fs-xs, 12px);
     text-transform: uppercase;
-    color: var(--ga-fg-muted, #a1a1a1);
-  }
-
-  .example .label:first-child {
-    margin-top: 0;
-  }
-
-  .example .filename {
-    margin: 0 0 0.25rem;
-    font-size: 0.8rem;
-    color: var(--ga-fg-muted, #a1a1a1);
+    color: var(--ga-fg, #ededed);
   }
 
   .cell-note {
-    font-size: 0.85rem;
-    color: var(--ga-fg-muted, #a1a1a1);
+    font-size: var(--ga-fs-sm, 14px);
+    color: var(--ga-muted, #878787);
   }
 
-  footer {
-    margin-top: 4rem;
+  .filename {
+    margin: var(--ga-space-4, 16px) 0 var(--ga-space-2, 8px);
+    font-family: var(--ga-font-mono);
+    font-size: var(--ga-fs-xs, 12px);
+    text-transform: uppercase;
+    color: var(--ga-dim, #454545);
+  }
+
+  .arrow {
+    font-family: var(--ga-font-mono);
+    font-size: var(--ga-fs-xs, 12px);
   }
 </style>

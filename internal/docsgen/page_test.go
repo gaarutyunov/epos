@@ -146,3 +146,66 @@ func write(t *testing.T, root, path, body string) {
 	require.NoError(t, os.MkdirAll(filepath.Dir(full), 0o755))
 	require.NoError(t, os.WriteFile(full, []byte(body), 0o644))
 }
+
+// TestGeneratedPagesCarryTheSharedChrome pins the capabilities the generator
+// gained rather than the Astro it emits.
+//
+// Both reference pages have to reach the shared layout through this program:
+// the moment one of them is easier to fix by hand, the drift gate stops being
+// worth having. These are the four things a hand edit would have added — the
+// breadcrumb, the visible title, the content-and-aside grid, and a sidebar that
+// makes a 2000-word page navigable — so a refactor that quietly drops one fails
+// here.
+func TestGeneratedPagesCarryTheSharedChrome(t *testing.T) {
+	for _, target := range targets() {
+		t.Run(target.path, func(t *testing.T) {
+			page := string(target.render())
+
+			assert.Contains(t, page, `  crumb="`,
+				"the layout renders the breadcrumb from this prop")
+			assert.Contains(t, page, `<div class="doc">`)
+			assert.Contains(t, page, `<div class="doc-main">`)
+			assert.Contains(t, page, `<aside class="doc-aside">`)
+			assert.Contains(t, page, "<h1>")
+			assert.Contains(t, page, `<h2 class="section-label">On this page</h2>`)
+
+			// The chrome moved into the layout's global block. A page that
+			// still carried its own copy would be styling itself twice and
+			// drifting from the other three.
+			assert.NotContains(t, page, "--ga-fg-muted")
+			assert.NotContains(t, page, "#a1a1a1")
+			assert.NotContains(t, page, "#3b82f6")
+			assert.NotContains(t, page, `class="back"`)
+		})
+	}
+}
+
+// TestSidebarIndexesEverySection is the assertion that keeps the aside honest.
+//
+// It is derived from the same walk the page is built from, so the way it goes
+// wrong is not a missing entry but a silently empty list.
+func TestSidebarIndexesEverySection(t *testing.T) {
+	for _, target := range targets() {
+		t.Run(target.path, func(t *testing.T) {
+			page := string(target.render())
+			_, aside, ok := strings.Cut(page, `<aside class="doc-aside">`)
+			require.True(t, ok)
+
+			for _, id := range sectionIDs(page) {
+				assert.Contains(t, aside, `href="#`+id+`"`,
+					"section %q is not reachable from the sidebar", id)
+			}
+		})
+	}
+}
+
+// sectionIDs is every `<section id="…">` on a page, in order.
+func sectionIDs(page string) []string {
+	var out []string
+	for _, rest := range strings.Split(page, `<section id="`)[1:] {
+		if id, _, ok := strings.Cut(rest, `"`); ok {
+			out = append(out, id)
+		}
+	}
+	return out
+}
