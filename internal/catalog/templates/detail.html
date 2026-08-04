@@ -29,6 +29,10 @@
 <aside class="col-aside">
   {{- if $.HasCounts }}
   <p class="section-label">Pulls</p>
+  {{- /* The second of the two stat-tile stand-ins. See the note in
+         templates/home.html and the `.stat` rules in app.css: this is
+         ui-kit's ga-metric, hand-rolled because v0.3.0 does not carry it.
+         Both sites go when v0.4.0 is pinned. */}}
   {{- range $.Rows }}
   <div class="stat">
     <p class="stat-label">Verified</p>
