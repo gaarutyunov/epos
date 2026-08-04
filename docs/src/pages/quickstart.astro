@@ -84,7 +84,7 @@ const contents = [
         <ga-code prompt="$">epos install reviewer:1.0.0 -f values.yaml</ga-code>
         <ga-code prompt="$">epos ls</ga-code>
         <pre
-          class="out">reviewer:1.0.0 sha256:a32fa1dfea1118829a06ab4975e38ca502cc3c3f1ccfdab909f846276f486558</pre>
+          class="out">reviewer:1.0.0 sha256:b4d2ded82afc0297d223baf12717ac33257e2921b0be08fa1e4c822990ed020e</pre>
         <p>
           The skill is now in <code>.claude/skills/reviewer/</code> with your
           values filled in, and the digest is pinned in
@@ -103,7 +103,7 @@ const contents = [
         <pre class="file">{skillmd}</pre>
         <ga-code prompt="$">epos pack ./reviewer</ga-code>
         <pre
-          class="out">reviewer:1.0.0 sha256:a32fa1dfea1118829a06ab4975e38ca502cc3c3f1ccfdab909f846276f486558</pre>
+          class="out">reviewer:1.0.0 sha256:b4d2ded82afc0297d223baf12717ac33257e2921b0be08fa1e4c822990ed020e</pre>
         <ga-code prompt="$">epos registry login ghcr.io -u you</ga-code>
         <ga-code prompt="$"
           >epos push reviewer:1.0.0 oci://ghcr.io/acme/agent-skills</ga-code
