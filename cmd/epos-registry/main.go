@@ -236,7 +236,7 @@ func run(ctx context.Context, cfg config) error {
 		return err
 	}
 
-	var handler http.Handler = newHandler(Version, up, downloads)
+	handler := newHandler(Version, up, downloads)
 	if cfg.catalog.enabled {
 		client, err := newRegistryClient(cfg)
 		if err != nil {

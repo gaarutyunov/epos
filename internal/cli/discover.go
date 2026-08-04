@@ -66,7 +66,7 @@ func (f *discoveryFlags) open() (registry.Client, error) {
 	if f.registry == "" {
 		return nil, errors.New("a registry is required: pass --registry")
 	}
-	opts, err := f.registryOptions.resolve()
+	opts, err := f.resolve()
 	if err != nil {
 		return nil, err
 	}

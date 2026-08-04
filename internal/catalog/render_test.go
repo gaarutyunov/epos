@@ -182,7 +182,7 @@ func TestServeAndExportProduceIdenticalBytes(t *testing.T) {
 
 	server, err := NewServer(renderer, client, stats)
 	require.NoError(t, err)
-	handler := server.Handler(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	handler := server.Handler(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
 		t.Error("a catalog route reached the relay")
 	}))
 
