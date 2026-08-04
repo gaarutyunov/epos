@@ -1,0 +1,288 @@
+# go-house — one Go skill derived from five published ones.
+#
+# The workspace routes Go work at five different skills. A reader following all
+# five gets two answers about project layout, two about configuration, and one
+# pattern the house standard forbids outright. This Skillfile settles the
+# arguments once and ships the result as a single skill.
+#
+# Every source is pinned to a commit. A `#main` reference would let the derived
+# skill change meaning without the recipe changing, which is the thing epos
+# exists to stop.
+ARG WORKSPACE=git+https://github.com/gaarutyunov/workspace#dafdffce5fefa06da704f976dd94ee74d8db2142
+ARG SKILLS=.agents/skills
+
+# ---------------------------------------------------------------------------
+# idiomatic — spf13's `go`, kept for its philosophy.
+# ---------------------------------------------------------------------------
+FROM ${WORKSPACE}:${SKILLS}/go AS idiomatic
+
+# Seven sections go. One is a conflict; the rest are a standard-library
+# cookbook and a debugging essay — good writing, but not house guidance, and
+# 290 lines a reader of a *house* skill will not read twice.
+#
+# `## Package Organization: Flat by Default` calls a default `internal/` an
+# anti-pattern. The base skill's `## Layout` puts everything private under
+# `internal/`. Both cannot survive: a skill that answers one question two ways
+# is worse than either answer alone.
+#
+# AWK and not PATCH: these are files nobody here controls, and a strict diff
+# against a 774-line document owned by someone else fails on their next commit.
+# Matching on section boundaries survives everything except a renamed heading.
+AWK SKILL.md <<'EOF'
+/^## / {
+    drop = ($0 == "## When to Activate" ||
+            $0 == "## Package Organization: Flat by Default" ||
+            $0 == "## Standard Library: Use the New Packages" ||
+            $0 == "## Concurrency: Modern Patterns" ||
+            $0 == "## HTTP: Use the Improved stdlib Router (Go 1.22)" ||
+            $0 == "## Syntax: Use Current Go" ||
+            $0 == "## Debugging: The Go Toolchain Is Not the Problem")
+}
+# The frontmatter belongs to a skill; this file is about to become a reference
+# inside one. Printing starts at the title.
+/^# / { started = 1 }
+started && !drop { print }
+EOF
+
+# ---------------------------------------------------------------------------
+# pro — `golang-pro`, kept for its worked examples, minus four conflicts.
+# ---------------------------------------------------------------------------
+FROM ${WORKSPACE}:${SKILLS}/golang-pro AS pro
+
+# 1. project-structure.md — dropped whole, the one drop proportionate at file
+#    scale. It prescribes handler/service/repository layers, a third
+#    configuration library, the archived golang/mock behind a tools.go of blank
+#    imports, and `// +build` tags. Nothing in it survives a house review.
+#
+#    RM is strict where AWK and REPLACE are forgiving, and that is right here:
+#    a path that is not there is a path this recipe is wrong about.
+RM references/project-structure.md
+
+# 2. The `var _ Interface = (*Impl)(nil)` section. The house standard says
+#    "**Never** write" it and its review checklist says to remove it on sight.
+#    A clean two-sided conflict, so the section teaching it goes.
+AWK references/interfaces.md <<'EOF'
+/^## / { drop = ($0 == "## Interface Satisfaction Verification") }
+!drop { print }
+EOF
+
+# 3. The static worker pool — the whole of `## Goroutine Lifecycle Management`
+#    is that one type. spf13's skill names it an anti-pattern and answers with
+#    errgroup + SetLimit, which the idiomatic stage carries. Rate limiting and
+#    pipelines below it stay.
+AWK references/concurrency.md <<'EOF'
+/^## / { drop = ($0 == "## Goroutine Lifecycle Management") }
+!drop { print }
+EOF
+
+# 4. Generics: kept. The material is good and the house has no quarrel with it.
+#    Two shapes out of twelve sections are wrong, and only those two go.
+#
+#    `## Generic Interfaces` teaches a `Container[T any]` interface used for
+#    polymorphism — the exact shape the idiomatic stage shows under "When NOT
+#    to Use Generics" with the comment "this is Java". Clean boundary, so AWK.
+AWK references/generics.md <<'EOF'
+/^## / { drop = ($0 == "## Generic Interfaces") }
+!drop { print }
+EOF
+
+#    The Rust-style `Result[T]` sits *inside* `## Generic Pairs and Tuples`,
+#    whose `Pair`/`Swap` half is fine. A section-boundary edit would take the
+#    good half with it, so this one is a pattern — RE2 with (?s) so the match
+#    can span lines.
+REPLACE references/generics.md '(?s)\n\n// Generic Result type.*?\n    return r\.value\n\}' ''
+
+#    A correction, not a drop: `constraints.Ordered` moved into the standard
+#    library as `cmp.Ordered`, which is what the idiomatic stage tells you to
+#    use. `constraints.Integer | constraints.Float` has no `cmp` equivalent, so
+#    the real x/exp path has to survive alongside it — and the bare
+#    `constraints` in the sample import is not an importable path at all.
+REPLACE references/generics.md 'constraints\.Ordered' 'cmp.Ordered'
+REPLACE references/generics.md '(?m)^import "constraints"$' 'import "golang.org/x/exp/constraints" // cmp.Ordered below is in the standard library'
+
+# ---------------------------------------------------------------------------
+# cli — spf13's `cobra-viper`. Added in order to have its Viper half removed.
+# ---------------------------------------------------------------------------
+#
+# This is the stage that earns the whole exercise. The workspace had already
+# rejected Viper, and had to write that rejection *outside* the skill, in a
+# rules file, because an edit inside a vendored skill is lost the next time the
+# skill is installed. Here the override goes back where it belongs.
+FROM ${WORKSPACE}:${SKILLS}/cobra-viper AS cli
+
+# The configuration half, whole, on its section boundary.
+AWK SKILL.md <<'EOF'
+/^## / {
+    drop = ($0 == "## When to Activate" ||
+            $0 == "## Viper Configuration Patterns")
+}
+/^# / { started = 1 }
+started && !drop { print }
+EOF
+
+# What the boundary misses: the samples that pass a *viper.Viper around. Each
+# one becomes the koanf call the house rule already writes out.
+REPLACE SKILL.md '(?s)Viper acts as the single source of truth.*?application logic\.' 'One koanf instance is the single source of truth: it merges defaults, the config file, the environment and the flags **in the order you load them**, and that explicit order is what makes the winning source readable. See `## Configuration: koanf` below.'
+REPLACE SKILL.md 'v := viper\.New\(\)' 'k := koanf.New(".")'
+REPLACE SKILL.md 'initConfig\(v, cmd\)' 'initConfig(k, cmd)'
+REPLACE SKILL.md 'NewServeCmd\(v\)' 'NewServeCmd(k)'
+REPLACE SKILL.md 'NewBuildCmd\(v\)' 'NewBuildCmd(k)'
+REPLACE SKILL.md '\(v \*viper\.Viper\)' '(k *koanf.Koanf)'
+REPLACE SKILL.md 'v\.Unmarshal\(&cfg\)' 'k.Unmarshal("", &cfg)'
+REPLACE SKILL.md 'github\.com/spf13/viper' 'github.com/knadh/koanf/v2'
+
+# Four bullets that are Viper's failure modes and nobody else's.
+REPLACE SKILL.md '(?s)\n- \*\*Env-only values missing after.*?gotcha above\)\.' ''
+REPLACE SKILL.md '(?s)\n- \*\*Forgetting `BindPFlags`\*\*.*?explicitly\.' ''
+REPLACE SKILL.md '(?s)\n- \*\*Missing `SetEnvKeyReplacer`\*\*.*?replacer\.' ''
+REPLACE SKILL.md "(?s)\n- If you're stuck with the global Viper singleton.*?test cases\." ''
+REPLACE SKILL.md 'no `viper\.Reset\(\)`' 'no global configuration state'
+
+# Everything left is prose. Cobra keeps its name; the other one does not.
+REPLACE SKILL.md 'Viper' 'koanf'
+
+# And the house's answer takes the place of the question, so the derived skill
+# does not leave a hole where the configuration section was.
+APPEND SKILL.md <<'EOF'
+
+## Configuration: koanf
+
+Configuration is [koanf](https://github.com/knadh/koanf)
+(`github.com/knadh/koanf/v2`), never Viper. This is a standing preference, not
+a per-project call.
+
+```go
+k := koanf.New(".")
+k.Load(file.Provider(path), yaml.Parser())            // defaults, then file,
+k.Load(env.Provider("MYCLI_", ".", transform), nil)   // then environment,
+k.Load(posflag.Provider(cmd.Flags(), ".", k), nil)    // then flags
+k.Unmarshal("", &cfg)
+```
+
+Load in explicit precedence order: koanf merges in call order and has no
+equivalent of Viper's implicit precedence table. That explicitness is the
+reason for the preference — which source won is the order you can read in the
+function.
+
+The rule that the engine package imports neither the CLI nor the configuration
+library still holds. `cmd/` unmarshals into a plain config struct and passes
+that in; nothing downstream knows koanf exists.
+EOF
+
+# ---------------------------------------------------------------------------
+# containers — `testcontainers-go`, one file out of a skill with dozens.
+# ---------------------------------------------------------------------------
+FROM ${WORKSPACE}:${SKILLS}/testcontainers-go AS containers
+
+# ---------------------------------------------------------------------------
+# The house standard is the base. The other four arrive as copies.
+# ---------------------------------------------------------------------------
+FROM ${WORKSPACE}:${SKILLS}/go-project-scaffold
+
+COPY --from=idiomatic SKILL.md references/idiomatic-go.md
+COPY --from=cli SKILL.md references/cli.md
+COPY --from=pro references/generics.md references/generics.md
+COPY --from=pro references/interfaces.md references/interfaces.md
+COPY --from=pro references/concurrency.md references/concurrency.md
+COPY --from=pro references/testing.md references/testing.md
+
+# Only the Go example, and only one of them. The skill it comes from is a
+# 1569-line SKILL.md plus a directory of examples; a house skill needs the one
+# that shows a real Postgres coming up under a test.
+#
+# go.mod travels with it so the example is its own module and never lands in
+# the consuming project's build.
+COPY --from=containers examples/01_postgres_basic_test.go references/testcontainers/postgres_container_test.go
+COPY --from=containers examples/go.mod references/testcontainers/go.mod
+
+# A copied file renders under the *stage* it came from, not the skill's own
+# scope: this file's `{{ }}` resolves against `containers`, because that is
+# what `COPY --from=containers` means. `global` is the block every scope sees,
+# so an axis that spans stages belongs there — and this one does, because the
+# entry document below is guarded on the same switch.
+#
+# epos adds and drops *content* at install time, never files: with the feature
+# off this renders to an empty file rather than to no file at all.
+REPLACE references/testcontainers/postgres_container_test.go '(?m)^package examples_test$' '{{ if .Values.global.testcontainers }}package examples_test'
+APPEND references/testcontainers/postgres_container_test.go <<'EOF'
+{{ end }}
+EOF
+
+# ---------------------------------------------------------------------------
+# The mandates become parameters.
+# ---------------------------------------------------------------------------
+#
+# The house standard's `## Non-negotiable` table is written as if it had
+# parameters and then hard-codes them. A single-purpose library has no HTTP
+# API, no injection graph and nothing to instrument; a service has all three.
+# One artifact, two profiles.
+AWK SKILL.md <<'EOF'
+/^## / {
+    if ($0 == "## Non-negotiable") { negotiable(); drop = 1; next }
+    drop = 0
+}
+!drop { print }
+
+function negotiable() {
+    print "## Non-negotiable"
+    print ""
+    print "These are not per-project choices. `{{ .Values.module }}` uses all of them:"
+    print ""
+    print "| | Why it is not optional |"
+    print "|---|---|"
+    print "| **Code generation over hand-rolling** | Anything derivable from a spec is generated from it. Hand-written equivalents drift from the spec silently. |"
+    print "| **`cobra`** for the command line | One command-construction pattern across every binary. |"
+    print "| **`koanf`** for configuration | **Never Viper**, in any project. See [`references/cli.md`](references/cli.md). |"
+    print "{{- if .Values.openapi }}"
+    print "| **`oapi-codegen`** for the HTTP surface | Models, client and server come from `api/openapi.yaml`. A hand-written handler drifts from the spec the first time the spec changes. |"
+    print "{{- end }}"
+    print "{{- if .Values.di }}"
+    print "| **`wire`** for dependency injection | `github.com/goforj/wire`. The graph is compile-time and generated; no service locator, no `init()` wiring. |"
+    print "{{- end }}"
+    print "{{- if .Values.telemetry }}"
+    print "| **OpenTelemetry semantic conventions** | Instrumentation uses the *official* conventions where they exist, and a Weaver registry for what genuinely does not. Inventing an attribute that already has a standard name makes the telemetry unjoinable. |"
+    print "{{- end }}"
+    print "{{- if .Values.global.testcontainers }}"
+    print "| **`testcontainers-go`** for integration tests | Real dependencies in containers, no mocks. See [`references/testcontainers/`](references/testcontainers/). |"
+    print "{{- end }}"
+    print ""
+}
+EOF
+
+# The material that only exists to serve one of those switches goes with it.
+# Each capture group carries its own leading newlines, so switching a feature
+# off takes the blank line with it and leaves no hole in the document.
+REPLACE SKILL.md '(?s)(\n\n## Telemetry\n.*?)(\n\n## Configuration)' '{{ if .Values.telemetry }}${1}{{ end }}${2}'
+REPLACE SKILL.md '(?s)(\n//go:generate go tool oapi-codegen[^\n]*\n//go:generate go tool oapi-codegen[^\n]*)' '{{ if .Values.openapi }}${1}{{ end }}'
+REPLACE SKILL.md '(?s)(\n//go:generate go tool wire[^\n]*)' '{{ if .Values.di }}${1}{{ end }}'
+REPLACE SKILL.md '(?s)(\n\s+github\.com/goforj/wire/cmd/wire)' '{{ if .Values.di }}${1}{{ end }}'
+REPLACE SKILL.md '(?s)(\n\s+github\.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen)' '{{ if .Values.openapi }}${1}{{ end }}'
+REPLACE SKILL.md '(?s)(\n- \*\*Integration tests use no mocks.*?integration test\.)' '{{ if .Values.global.testcontainers }}${1}{{ end }}'
+REPLACE SKILL.md '(?s)( and\n`testcontainers-go` for the container patterns)' '{{ if .Values.global.testcontainers }}${1}{{ end }}'
+REPLACE SKILL.md '(?s)(\n\nWeaver runs through Docker.*?make semconv`\.)' '{{ if .Values.telemetry }}${1}{{ end }}'
+REPLACE SKILL.md '(?s)(\nsemconv           # Weaver[^\n]*)' '{{ if .Values.telemetry }}${1}{{ end }}'
+REPLACE SKILL.md '(?s)(\n- Validate responses against the OpenAPI spec.*?testable too\.)' '{{ if .Values.openapi }}${1}{{ end }}'
+
+# The references the derivation added, listed where a reader will look for them.
+APPEND SKILL.md <<'EOF'
+- [`references/idiomatic-go.md`](references/idiomatic-go.md) — spf13's idiomatic
+  Go, minus the standard-library cookbook and the layout section this standard
+  answers itself.
+- [`references/cli.md`](references/cli.md) — spf13's Cobra architecture, with
+  the configuration half replaced by the house's koanf answer.
+- [`references/generics.md`](references/generics.md),
+  [`references/interfaces.md`](references/interfaces.md),
+  [`references/concurrency.md`](references/concurrency.md) and
+  [`references/testing.md`](references/testing.md) — worked examples, minus the
+  three shapes this standard forbids.
+{{- if .Values.global.testcontainers }}
+- [`references/testcontainers/`](references/testcontainers/) — a real Postgres
+  under a real test, as its own module.
+{{- end }}
+EOF
+
+# No source skill carries a top-level version, so the derived skill declares its
+# own identity rather than inheriting a name that no longer describes it.
+SET name go-house
+SET version "0.1.0"
+SET description "The house Go standard, derived from five published skills: spf13's go and cobra-viper, golang-pro, testcontainers-go, and this workspace's go-project-scaffold. Parameterised, so a project turns off what it does not have."

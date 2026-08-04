@@ -1,0 +1,11 @@
+# A single-purpose library: no HTTP API, no injection graph, nothing to
+# instrument, no containers to run. Real YAML booleans — the value loader parses
+# them as booleans, which is what `{{ if }}` needs.
+module: github.com/gaarutyunov/parse
+
+openapi: false
+di: false
+telemetry: false
+
+global:
+  testcontainers: false
