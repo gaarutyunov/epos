@@ -155,7 +155,21 @@ Consequence, stated plainly: clients need network egress to the upstream’s CDN
 
 ### 4.4 Statelessness
 
-`epos-registry` holds no durable state. No manifest cache, no digest→role lookup table, no shared store between replicas. Scaling is N replicas behind a load balancer; any request may land on any replica.
+`epos-registry` holds no durable state. No manifest cache, no digest→role lookup table, no shared store between replicas. Scaling is N replicas behind a load balancer; **any request may land on any replica.**
+
+**This prohibition is scoped to the relay path.** No request under `/v2/` may be answered from, or made slower by, anything the catalog (§4.6) holds. The catalog's index and its per-digest document cache *are* a manifest cache, and they are permitted because they are not on that path: the index is process-local, in memory, rebuilt at startup, derived entirely from upstream, shared with nothing and never written to disk. The sentence above — any request may land on any replica and get the same answer — is untouched by it.
+
+The cost, stated rather than discovered: with N replicas each building an index at its own startup, two replicas can briefly disagree about which skills the *catalog* lists. That is a property of a read-only view, not a correctness bug, and the alternative is the durable state this section refuses. The counts do not disagree, because they are read per request from a store all replicas share.
+
+### 4.6 The catalog — a second surface, and not a second API
+
+`epos-registry --catalog.enabled` serves a read-only HTML catalog of the registry it fronts, on the listener that already answers `/v2/`, under a base path. **It is off unless enabled**, so a default `epos-registry` serves `/v2/` and nothing else.
+
+`/v2/` is matched first, unconditionally, and no catalog route may shadow one — a base path under `/v2/` is refused at startup rather than discovered in production. The catalog serves `GET` only, speaks no Epos-specific media type and negotiates nothing.
+
+A failed or partial index never stops the registry: the listener comes up first, `/v2/` serves immediately, and the catalog answers a page saying it could not be built. Enabling the catalog cannot reduce the registry's availability, and a store that is unreachable costs the catalog its numbers and costs `/v2/` nothing.
+
+The same renderer runs offline as `epos-registry catalog export`, which writes the site to a directory for a static host.
 
 ### 4.5 `epos-registry` write path — withdrawn
 
@@ -886,7 +900,7 @@ Every page carries Open Graph and Twitter card metadata, so a link pasted into S
 |# |Decision             |Resolution                                                                                                              |
 |--|---------------------|------------------------------------------------------------------------------------------------------------------------|
 |1 |Wire format          |Conform to `vnd.agentskills.skill.v1`; extend with `vnd.epos.*` for Epos-native concepts                                |
-|2 |Registry protocol    |`/v2/` only; no second API surface. Epos semantics would ride on `Accept` negotiation if ever needed — none are, in v2.0|
+|2 |Registry protocol    |`/v2/` only; no second *API* surface. Epos semantics would ride on `Accept` negotiation if ever needed — none are, in v2.0. **Amended:** a read-only HTML catalog (§4.6) may be served on the same listener under a reserved base path, off by default. It is not a second API — it serves `GET`, speaks no Epos media type and negotiates nothing — and `/v2/` is answered before it and never from anything it holds. zot is the precedent: one binary terminates the Distribution API and serves a browsing UI, and nobody installing its client receives a frontend|
 |3 |Rendering location   |Helm model — templates rendered at install, never by the registry or a server                                           |
 |4 |Write path           |No write server. `epos push` copies from the local store to the upstream registry directly; only publishing *through* `epos-registry` is withdrawn (§4.5)|
 |5 |Blob transfer        |Redirect pass-through. Blobs never cross `epos-registry`                                                                |
