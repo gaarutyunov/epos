@@ -196,6 +196,31 @@ Withdrawing the write path costs the least. §4.2’s transfer posture is the lo
 
 **If this is revisited**, the question to answer first is whether `oras-go` will ever accept a cross-host upload `Location` under some opt-in. If not, the only route to one configured host is relaying uploads, and §4.2 has to be amended to say so.
 
+### 4.6 Configuration
+
+`epos-registry` is configured by `github.com/gaarutyunov/goga/config`. Every setting has one key path, reachable two ways:
+
+|Key                        |Flag                          |Environment variable                        |Default  |
+|---------------------------|------------------------------|--------------------------------------------|---------|
+|`addr`                     |`--addr`                      |`EPOS_REGISTRY__ADDR`                       |`:8080`  |
+|`ops_addr`                 |`--ops-addr`                  |`EPOS_REGISTRY__OPS_ADDR`                   |empty — shares `--addr` (§4.1)|
+|`upstream`                 |`--upstream`                  |`EPOS_REGISTRY__UPSTREAM`                   |none; **required**|
+|`metrics.exporter`         |`--metrics.exporter`          |`EPOS_REGISTRY__METRICS__EXPORTER`          |`stdout` |
+|`metrics.interval`         |`--metrics.interval`          |`EPOS_REGISTRY__METRICS__INTERVAL`          |`0` (SDK default)|
+|`metrics.version_attribute`|`--metrics.version-attribute` |`EPOS_REGISTRY__METRICS__VERSION_ATTRIBUTE` |`false` (§5.3)|
+|`traces.exporter`          |`--traces.exporter`           |`EPOS_REGISTRY__TRACES__EXPORTER`           |`none`   |
+|`logs.exporter`            |`--logs.exporter`             |`EPOS_REGISTRY__LOGS__EXPORTER`             |`stderr` |
+
+**Precedence** is goga's fixed order — defaults, files, environment, flags — with later beating earlier. `epos-registry` supplies no file, so in practice: a flag the operator typed beats the environment, and the environment beats a flag left at its default. The order is a property of `config.Load` rather than of the order the sources are registered, which is the whole reason the loader is a dependency rather than eight lines of koanf in `main.go`.
+
+**The environment spelling is goga's, not epos's.** The prefix, then `__` between the segments of a key path, then a single `_` between the words of one segment, lower-cased. The single-underscore names this command accepted before the adoption — `EPOS_REGISTRY_UPSTREAM`, `EPOS_REGISTRY_METRICS_EXPORTER` — no longer resolve, and neither does the per-group exception table that let `EPOS_REGISTRY_METRICS_EXPORTER` and `EPOS_REGISTRY_METRICS__EXPORTER` both mean one key. Two spellings of one setting is a coin toss decided by the order of `environ`, and one convention that a reader can apply to a key they have never seen is worth the rename. An unrecognised name is ignored rather than rejected, as in every environment-variable loader; the missing `upstream` is the one that fails the start, and its message names `EPOS_REGISTRY__UPSTREAM`.
+
+**A key is a value or a parent, never both.** `EPOS_REGISTRY__METRICS=none` beside `metrics.exporter` is a merge koanf cannot represent — one of the two is discarded silently, and which one depends on merge order — so the load fails naming both keys instead. This is why a boolean switch would be `foo.enabled` and never `foo`.
+
+**A value the environment cannot supply fails the start.** `EPOS_REGISTRY__METRICS__VERSION_ATTRIBUTE=maybe` is an error, not `false`, and `EPOS_REGISTRY__METRICS__INTERVAL=250` is an error, not 250 *nanoseconds*. Both used to be accepted, and both started the process on a value nobody wrote.
+
+**No configuration file.** `WithFile` is available and deliberately unused: the godog suite drives `epos-registry` by flags and a container drives it by the environment, and a file would be a user-visible surface this spec would have to describe. Adding one is a decision, not a consequence of the adoption.
+
 -----
 
 ## 5. Usage Metrics
@@ -902,6 +927,7 @@ Every page carries Open Graph and Twitter card metadata, so a link pasted into S
 |23|Discovery            |Only where upstream implements `_catalog`; native discovery deferred to a later `epos-registry` capability              |
 |24|Write path routing   |**Withdrawn.** `epos-registry` was to serve writes for one configured host; `oras-go` rejects the cross-host upload `Location` the 307 produces (GHSA-jxpm-75mh-9fp7), so no client could publish *through* it. A client pointed at the upstream itself is unaffected, which is what `epos push` does (§4.5) |
 |25|HTTP server          |`goga/serve`. Its port is a plain `http.Handler`, so `epos-registry`'s routing is handed over unchanged; it contributes the bounded timeouts, the bounded drain, one OpenTelemetry wrapper, and the four operational endpoints of §4.1 — which are not a second *API* surface (decision 2), carry no Epos semantics, and are never traced. Signal handling stays in `epos-registry` until `goga/cli` ships the one-handler-per-process rule |
+|26|Configuration        |`goga/config`. One `config.Load` call replaces the hand-wired koanf pipeline in `main.go`: the precedence is fixed inside the loader rather than restated in a comment, a key that is both a value and a parent fails the load instead of losing one of the two, and a value the environment cannot supply is an error rather than a zero. The cost is the environment spelling, which is goga's and breaks every `EPOS_REGISTRY_*` name (§4.6). No file source is registered|
 
 ### Removed from scope
 

@@ -19,12 +19,12 @@ import (
 
 // silentConfig configures every signal to go nowhere, so a test that calls
 // telemetry.Setup writes nothing to the process's own output.
-func silentConfig() config {
-	return config{
-		upstreamURL:    "http://zot:5000",
-		exporter:       exporterNone,
-		tracesExporter: exporterNone,
-		logsExporter:   exporterNone,
+func silentConfig() registryConfig {
+	return registryConfig{
+		Upstream: "http://zot:5000",
+		Metrics:  metricsConfig{Exporter: exporterNone},
+		Traces:   signalConfig{Exporter: exporterNone},
+		Logs:     signalConfig{Exporter: exporterNone},
 	}
 }
 
@@ -36,7 +36,7 @@ func silentConfig() config {
 // reversible on its own, so the previous default logger is put back by hand —
 // otherwise the first test to call Setup silences every later test in this
 // binary.
-func setup(t *testing.T, cfg config) (*telemetry.Telemetry, error) {
+func setup(t *testing.T, cfg registryConfig) (*telemetry.Telemetry, error) {
 	t.Helper()
 
 	previous := slog.Default()
@@ -88,7 +88,7 @@ func TestSetupInstallsAllThreeSignals(t *testing.T) {
 // stays the metrics channel the godog suite parses.
 func TestStderrLogExporterResolvesThroughTheRegistry(t *testing.T) {
 	cfg := silentConfig()
-	cfg.logsExporter = exporterStderr
+	cfg.Logs.Exporter = exporterStderr
 
 	_, err := setup(t, cfg)
 	require.NoError(t, err)
@@ -122,7 +122,7 @@ func TestDownloadsReachThePrometheusScrape(t *testing.T) {
 
 func TestUnknownExporterIsRejected(t *testing.T) {
 	cfg := silentConfig()
-	cfg.exporter = "carrier-pigeon"
+	cfg.Metrics.Exporter = "carrier-pigeon"
 
 	_, err := setup(t, cfg)
 	require.Error(t, err, "an unknown exporter must be rejected")
