@@ -9,7 +9,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -36,7 +36,12 @@ var Version = "0.0.0-dev"
 // `metrics.exporter`, and so on.
 const envPrefix = "EPOS_REGISTRY_"
 
-// shutdownGrace bounds both the request drain and the final metric flush.
+// signalPrefixes are the configuration groups whose single-underscore
+// environment spelling reaches a dotted key: EPOS_REGISTRY_METRICS_EXPORTER and
+// EPOS_REGISTRY_METRICS__EXPORTER both mean metrics.exporter.
+var signalPrefixes = []string{"metrics_", "traces_", "logs_"}
+
+// shutdownGrace bounds the request drain and the final telemetry flush.
 const shutdownGrace = 5 * time.Second
 
 func main() {
@@ -61,12 +66,19 @@ func newRootCommand() *cobra.Command {
 	flags := cmd.Flags()
 	flags.String("addr", ":8080", "address to listen on")
 	flags.String("upstream", "", "upstream registry base URL (required)")
-	flags.String("metrics.exporter", metrics.ExporterStdout, "metrics exporter: stdout or none")
+	flags.String("metrics.exporter", exporterStdout, "metrics exporter: stdout, otlp or none")
 	flags.Duration("metrics.interval", 0,
 		"how often the metrics exporter emits (0 uses the SDK default)")
 	flags.Bool("metrics.version-attribute", false,
 		"record the skill version on each download; off by default because "+
 			"version-valued attributes are unbounded in cardinality")
+	// Traces and logs are configurable because they exist: goga/telemetry
+	// installs all three signals or none, so the choice is which exporter each
+	// one gets, not whether the provider is there. Traces default to none —
+	// there is no collector to push to until one is deployed — and logs to
+	// stderr, which is where this command's operator output has always gone.
+	flags.String("traces.exporter", exporterNone, "trace exporter: otlp, stdout or none")
+	flags.String("logs.exporter", exporterStderr, "log exporter: stderr, stdout, otlp or none")
 
 	cmd.RunE = func(cmd *cobra.Command, _ []string) error {
 		cfg, err := loadConfig(flags)
@@ -86,6 +98,8 @@ type config struct {
 	exporter         string
 	interval         time.Duration
 	versionAttribute bool
+	tracesExporter   string
+	logsExporter     string
 }
 
 // loadConfig resolves flags and environment through koanf.
@@ -104,7 +118,12 @@ func loadConfig(flags *pflag.FlagSet) (config, error) {
 			// EPOS_REGISTRY_METRICS__EXPORTER and
 			// EPOS_REGISTRY_METRICS_EXPORTER both reach metrics.exporter.
 			key = strings.ReplaceAll(key, "__", ".")
-			key = strings.Replace(key, "metrics_", "metrics.", 1)
+			for _, prefix := range signalPrefixes {
+				if after, ok := strings.CutPrefix(key, prefix); ok {
+					key = strings.TrimSuffix(prefix, "_") + "." + after
+					break
+				}
+			}
 			return strings.ReplaceAll(key, "_", "-"), value
 		},
 	}), nil); err != nil {
@@ -129,6 +148,8 @@ func loadConfig(flags *pflag.FlagSet) (config, error) {
 		exporter:         k.String("metrics.exporter"),
 		interval:         k.Duration("metrics.interval"),
 		versionAttribute: k.Bool("metrics.version-attribute"),
+		tracesExporter:   k.String("traces.exporter"),
+		logsExporter:     k.String("logs.exporter"),
 	}
 	if cfg.upstreamURL == "" {
 		return config{}, errors.New("an upstream registry is required: pass --upstream or set " +
@@ -143,11 +164,24 @@ func run(ctx context.Context, cfg config) error {
 		return err
 	}
 
-	downloads, shutdownMetrics, err := metrics.New(ctx, metrics.Config{
-		Exporter:         cfg.exporter,
-		Interval:         cfg.interval,
-		VersionAttribute: cfg.versionAttribute,
-	})
+	// Telemetry first, and the flush deferred immediately: everything after
+	// this line records into providers that are installed globally, and the
+	// last interval's counts are lost if the flush is skipped on any exit path.
+	tel, flushTelemetry, err := setupTelemetry(ctx, cfg)
+	if err != nil {
+		return err
+	}
+	defer flushTelemetry()
+
+	// The meter is taken from the returned provider rather than from
+	// tel.Meter so that epos.downloads keeps epos's own instrumentation scope
+	// (SPEC.md 5.3 names the instrument; the scope is how an operator tells
+	// whose instrument it is). Reaching a provider without going through
+	// package-level state is exactly what goga returns *Telemetry for.
+	downloads, err := metrics.New(
+		tel.MeterProvider.Meter(metrics.ScopeName),
+		metrics.Config{VersionAttribute: cfg.versionAttribute},
+	)
 	if err != nil {
 		return err
 	}
@@ -158,10 +192,10 @@ func run(ctx context.Context, cfg config) error {
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 
-	// A signalled shutdown drains in-flight requests and then flushes the
-	// counter, so the last interval's downloads are not lost on every deploy.
-	// This has to be wired explicitly: ListenAndServe blocks until the server
-	// stops, and a deferred flush would never run on an exit path.
+	// A signalled shutdown drains in-flight requests, and the deferred flush
+	// then runs on the way out of run. This has to be wired explicitly:
+	// ListenAndServe blocks until the server stops, so nothing else would
+	// notice the signal.
 	signalled, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	go func() {
@@ -169,18 +203,13 @@ func run(ctx context.Context, cfg config) error {
 		shutdownCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), shutdownGrace)
 		defer cancel()
 		if err := srv.Shutdown(shutdownCtx); err != nil {
-			fmt.Fprintln(os.Stderr, "epos-registry: shutdown:", err)
+			slog.ErrorContext(shutdownCtx, "epos-registry: shutdown", "error", err)
 		}
 	}()
 
-	log.Printf("epos-registry %s listening on %s, fronting %s", Version, cfg.addr, cfg.upstreamURL)
+	slog.InfoContext(ctx, "epos-registry listening",
+		"version", Version, "addr", cfg.addr, "upstream", cfg.upstreamURL)
 	serveErr := srv.ListenAndServe()
-
-	flushCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), shutdownGrace)
-	defer cancel()
-	if err := shutdownMetrics(flushCtx); err != nil {
-		fmt.Fprintln(os.Stderr, "epos-registry: flush metrics:", err)
-	}
 
 	if serveErr != nil && !errors.Is(serveErr, http.ErrServerClosed) {
 		return serveErr

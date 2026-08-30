@@ -26,6 +26,13 @@ func TestConfigDefaults(t *testing.T) {
 	assert.Equal(t, "stdout", cfg.exporter)
 	assert.False(t, cfg.versionAttribute,
 		"SPEC.md 5.3 wants version-valued attributes off by default")
+
+	// goga/telemetry installs all three signals or none, so traces and logs
+	// have a configured exporter whether or not anyone asked for them.
+	assert.Equal(t, "none", cfg.tracesExporter,
+		"traces go nowhere until a collector is deployed")
+	assert.Equal(t, "stderr", cfg.logsExporter,
+		"operator output stays on stderr, where log.Printf wrote it")
 }
 
 func TestUpstreamIsRequired(t *testing.T) {
@@ -48,6 +55,20 @@ func TestConfigFromEnvironment(t *testing.T) {
 	assert.Equal(t, "none", cfg.exporter)
 	assert.Equal(t, 250*time.Millisecond, cfg.interval)
 	assert.True(t, cfg.versionAttribute)
+}
+
+// The traces and logs groups reach their dotted keys the same way the metrics
+// group does.
+func TestTraceAndLogExporterFromEnvironment(t *testing.T) {
+	t.Setenv(envPrefix+"UPSTREAM", "http://zot:5000")
+	t.Setenv(envPrefix+"TRACES_EXPORTER", "otlp")
+	t.Setenv(envPrefix+"LOGS_EXPORTER", "none")
+
+	cfg, err := loadConfig(flagsFor(t))
+	require.NoError(t, err)
+
+	assert.Equal(t, "otlp", cfg.tracesExporter)
+	assert.Equal(t, "none", cfg.logsExporter)
 }
 
 // A flag the user actually typed beats the ambient environment; an untouched

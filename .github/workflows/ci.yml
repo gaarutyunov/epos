@@ -4,7 +4,10 @@ on:
     branches: [main]
   pull_request:
 env:
-  GO_VERSION: "1.26.5"
+  # 1.27 is not epos's own floor: github.com/gaarutyunov/goga declares `go 1.27`
+  # (its registry uses generic methods), and Go's module rule propagates that
+  # into every consumer. See SPEC.md 13.6.
+  GO_VERSION: "1.27.0"
 # Nothing in CI writes to the repository; reading the code is the whole job.
 permissions:
   contents: read
@@ -41,9 +44,11 @@ jobs:
               "Run 'go run ./internal/docsgen' and commit the result."
             exit 1
           fi
+      # v2.13.2 is the first release built with go1.27.0. An older v2 patch
+      # predates the 1.27 std lib and reports spurious findings against it.
       - uses: golangci/golangci-lint-action@d583c34f0599d37dbac4a198b9c83201be380893 # v9.3.0
         with:
-          version: v2.12.2
+          version: v2.13.2
 
   unit:
     strategy:

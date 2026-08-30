@@ -211,7 +211,7 @@ Documentation must state that accurate counts require a conforming client. Unver
 
 ### 5.3 Emission
 
-One instrumentation path: the OpenTelemetry Go SDK. The exporter is chosen by configuration.
+One instrumentation path: the OpenTelemetry Go SDK, configured by `github.com/gaarutyunov/goga/telemetry`. The exporter is chosen by configuration.
 
 |Exporter    |Use                          |
 |------------|-----------------------------|
@@ -219,7 +219,13 @@ One instrumentation path: the OpenTelemetry Go SDK. The exporter is chosen by co
 |`prometheus`|Production scrape            |
 |`otlp`      |Production push              |
 
-Instrument: `epos.downloads`, a monotonic counter.
+`goga/telemetry` names the terminal exporter `console`; `epos-registry` keeps `stdout` on the command line and translates. `prometheus` is not yet reachable from `--metrics.exporter`: goga attaches a scrape reader through a separate option, and `epos-registry` mounts no `/metrics` handler because §4.1 says it speaks the OCI Distribution API and nothing else. The scrape path arrives with the deployment story that gives it an endpoint to scrape.
+
+**Three signals, not one.** `telemetry.Setup` builds a tracer, a meter *and* a logger provider — all three or none — and installs them as the OpenTelemetry globals. `epos-registry` wants the counter; it takes the other two with it. That is the trade the adoption accepted, and it buys back a real defect: before it, nothing called `otel.SetMeterProvider`, so the counter fed a provider that was never a global and any instrument reading the global meter saw nothing. Traces default to the `none` exporter (`--traces.exporter`) and logs to `stderr` (`--logs.exporter`), which is where operator output has always gone — stdout stays the metric channel the godog suite parses.
+
+**The export interval.** `--metrics.interval` is published to the SDK through `OTEL_METRIC_EXPORT_INTERVAL`. goga exposes no option for it and wraps every registered push exporter in a periodic reader the consumer never sees, so the environment variable is the only route.
+
+Instrument: `epos.downloads`, a monotonic counter, on instrumentation scope `github.com/gaarutyunov/epos`.
 
 Attributes: `repository`, `verified`, `client` (from `User-Agent`; `oras-go` sets `User-Agent: oras-go` on its auth `DefaultClient`).
 
@@ -659,13 +665,13 @@ The godog runners live in `tests/integration` and read `features/` at the reposi
 
 **Full CI exists before A1 ships**, not after. A1’s gate is not met until every workflow below is green, including the integration suite against real zot.
 
-All actions are pinned by commit SHA with the version in a trailing comment. Tag pins are mutable; SHA pins are not, and a spec that ships cosign verification (§11) should not undermine it in its own supply chain. Go toolchain: **1.26.5**.
+All actions are pinned by commit SHA with the version in a trailing comment. Tag pins are mutable; SHA pins are not, and a spec that ships cosign verification (§11) should not undermine it in its own supply chain. Go toolchain: **1.27.0**. The floor is not epos’s own choice: `github.com/gaarutyunov/goga` — whose `telemetry` package configures OpenTelemetry (§5.3) — declares `go 1.27`, and Go’s module rule forbids a consumer requiring less than a module it depends on.
 
 |Purpose        |Action                         |Version                       |
 |---------------|-------------------------------|------------------------------|
 |Checkout       |`actions/checkout`             |v7.0.1                        |
 |Go toolchain   |`actions/setup-go`             |v7.0.0                        |
-|Lint           |`golangci/golangci-lint-action`|v9.3.0 (golangci-lint v2.12.2)|
+|Lint           |`golangci/golangci-lint-action`|v9.3.0 (golangci-lint v2.13.2)|
 |Vulnerabilities|`golang/govulncheck-action`    |v1.1.0                        |
 |Release        |`goreleaser/goreleaser-action` |v7.2.3                        |
 |Docs publish   |`peaceiris/actions-gh-pages`   |v4.1.0                        |
@@ -680,7 +686,7 @@ on:
     branches: [main]
   pull_request:
 env:
-  GO_VERSION: "1.26.5"
+  GO_VERSION: "1.27.0"
 jobs:
   check:
     runs-on: ubuntu-latest
@@ -697,7 +703,7 @@ jobs:
         run: go vet ./...
       - uses: golangci/golangci-lint-action@d583c34f0599d37dbac4a198b9c83201be380893 # v9.3.0
         with:
-          version: v2.12.2
+          version: v2.13.2
 
   unit:
     runs-on: ubuntu-latest
