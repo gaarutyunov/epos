@@ -8,6 +8,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/exporters/stdout/stdoutmetric"
+	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 )
 
 // export is the shape stdoutmetric writes. The godog harness reads the same
@@ -15,6 +17,9 @@ import (
 // contract, not an implementation detail.
 type export struct {
 	ScopeMetrics []struct {
+		Scope struct {
+			Name string `json:"Name"`
+		} `json:"Scope"`
 		Metrics []struct {
 			Name string `json:"Name"`
 			Data struct {
@@ -35,18 +40,28 @@ type export struct {
 
 // collect runs recordings through a real exporter and returns the downloads
 // data points it emitted, keyed by their attribute set.
-func collect(t *testing.T, cfg Config, record func(*Downloads)) (points map[string]int64, monotonic bool) {
+//
+// The provider is built here rather than by the package under test: since the
+// goga/telemetry adoption, exporter selection belongs to the composition root
+// and this package only owns the instrument. What the test exercises is
+// therefore the same thing production does — a counter on a meter somebody else
+// configured.
+func collect(t *testing.T, cfg Config, record func(*Downloads)) (points map[string]int64, monotonic bool, scope string) {
 	t.Helper()
 
 	var buf bytes.Buffer
-	cfg.Out = &buf
+	exporter, err := stdoutmetric.New(stdoutmetric.WithWriter(&buf))
+	require.NoError(t, err)
+	provider := sdkmetric.NewMeterProvider(
+		sdkmetric.WithReader(sdkmetric.NewPeriodicReader(exporter)),
+	)
 
-	downloads, shutdown, err := New(context.Background(), cfg)
+	downloads, err := New(provider.Meter(ScopeName), cfg)
 	require.NoError(t, err)
 	record(downloads)
 
 	// Shutdown flushes, so the test never waits on an interval.
-	require.NoError(t, shutdown(context.Background()))
+	require.NoError(t, provider.Shutdown(context.Background()))
 
 	points = map[string]int64{}
 	dec := json.NewDecoder(&buf)
@@ -59,6 +74,7 @@ func collect(t *testing.T, cfg Config, record func(*Downloads)) (points map[stri
 					continue
 				}
 				monotonic = m.Data.IsMonotonic
+				scope = sm.Scope.Name
 				for _, dp := range m.Data.DataPoints {
 					key := ""
 					for _, a := range dp.Attributes {
@@ -70,7 +86,7 @@ func collect(t *testing.T, cfg Config, record func(*Downloads)) (points map[stri
 			}
 		}
 	}
-	return points, monotonic
+	return points, monotonic, scope
 }
 
 func stringify(v any) string {
@@ -79,7 +95,7 @@ func stringify(v any) string {
 }
 
 func TestDownloadsCounterIsMonotonicAndCarriesItsAttributes(t *testing.T) {
-	points, monotonic := collect(t, Config{}, func(d *Downloads) {
+	points, monotonic, scope := collect(t, Config{}, func(d *Downloads) {
 		d.Record(context.Background(), Download{
 			Repository: "demo/hello", Verified: true, Client: "epos", Version: "1.0.0",
 		})
@@ -89,6 +105,8 @@ func TestDownloadsCounterIsMonotonicAndCarriesItsAttributes(t *testing.T) {
 	})
 
 	assert.True(t, monotonic, "SPEC.md 5.3 asks for a monotonic counter")
+	assert.Equal(t, ScopeName, scope,
+		"the counter stays on epos's own instrumentation scope, not goga's")
 	require.Len(t, points, 1)
 	for key, value := range points {
 		assert.EqualValues(t, 2, value)
@@ -107,13 +125,13 @@ func TestVersionAttributeIsOffByDefault(t *testing.T) {
 		})
 	}
 
-	off, _ := collect(t, Config{}, record)
+	off, _, _ := collect(t, Config{}, record)
 	for key := range off {
 		assert.NotContains(t, key, "version=",
 			"version-valued attributes are unbounded in cardinality and off by default")
 	}
 
-	on, _ := collect(t, Config{VersionAttribute: true}, record)
+	on, _, _ := collect(t, Config{VersionAttribute: true}, record)
 	found := false
 	for key := range on {
 		if contains(key, `version="1.0.0"`) {
@@ -126,7 +144,7 @@ func TestVersionAttributeIsOffByDefault(t *testing.T) {
 // Verified and unverified downloads of the same skill are distinct series, so
 // SPEC.md 5.2's split is readable off the counter.
 func TestVerifiedAndUnverifiedAreSeparateSeries(t *testing.T) {
-	points, _ := collect(t, Config{}, func(d *Downloads) {
+	points, _, _ := collect(t, Config{}, func(d *Downloads) {
 		d.Record(context.Background(), Download{Repository: "demo/hello", Verified: true, Client: "epos"})
 		d.Record(context.Background(), Download{Repository: "demo/hello", Verified: false, Client: "oras-go"})
 		d.Record(context.Background(), Download{Repository: "demo/hello", Verified: false, Client: "oras-go"})
@@ -142,18 +160,33 @@ func TestVerifiedAndUnverifiedAreSeparateSeries(t *testing.T) {
 	}
 }
 
-// The "none" exporter is how a deployment turns counting off; it must not be a
-// nil pointer waiting to panic on the first blob fetch.
-func TestNoneExporterRecordsNothingAndDoesNotPanic(t *testing.T) {
-	downloads, shutdown, err := New(context.Background(), Config{Exporter: ExporterNone})
+// A meter provider with no reader — what `--metrics.exporter none` now produces
+// through goga/telemetry — must record nothing and must not panic on the first
+// blob fetch.
+func TestARecordWithNoReaderConfiguredDoesNotPanic(t *testing.T) {
+	downloads, err := New(sdkmetric.NewMeterProvider().Meter(ScopeName), Config{})
 	require.NoError(t, err)
-	downloads.Record(context.Background(), Download{Repository: "demo/hello"})
-	assert.NoError(t, shutdown(context.Background()))
+	assert.NotPanics(t, func() {
+		downloads.Record(context.Background(), Download{Repository: "demo/hello"})
+	})
 }
 
-func TestUnknownExporterIsRejected(t *testing.T) {
-	_, _, err := New(context.Background(), Config{Exporter: "carrier-pigeon"})
-	assert.Error(t, err, "an unknown exporter must be rejected")
+// The zero value records nothing rather than dereferencing a nil counter.
+func TestZeroValueRecordsNothing(t *testing.T) {
+	var downloads *Downloads
+	assert.NotPanics(t, func() {
+		downloads.Record(context.Background(), Download{Repository: "demo/hello"})
+	})
+	assert.NotPanics(t, func() {
+		(&Downloads{}).Record(context.Background(), Download{Repository: "demo/hello"})
+	})
+}
+
+// A nil meter is a wiring mistake in the composition root, and is reported as
+// one rather than yielding a counter that silently records nowhere.
+func TestNilMeterIsRejected(t *testing.T) {
+	_, err := New(nil, Config{})
+	assert.Error(t, err)
 }
 
 func contains(haystack, needle string) bool {

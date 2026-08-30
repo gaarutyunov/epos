@@ -1,43 +1,32 @@
-// Package metrics implements the OTel instruments and exporters of SPEC.md 5.
+// Package metrics implements the OTel instruments of SPEC.md 5.
 //
-// One instrumentation path: the OpenTelemetry Go SDK, with the exporter chosen
-// by configuration (5.3). Nothing here holds state that outlives a process —
-// a counter lives in the exporter's pipeline, not in a store shared between
-// replicas, so 4.4 still holds.
+// One instrumentation path: the OpenTelemetry Go SDK, configured once by
+// github.com/gaarutyunov/goga/telemetry in the composition root (5.3). This
+// package owns the instrument and its attribute set and nothing else — it is
+// handed a meter, it does not build one. Nothing here holds state that outlives
+// a process — a counter lives in the exporter's pipeline, not in a store shared
+// between replicas, so 4.4 still holds.
 package metrics
 
 import (
 	"context"
 	"fmt"
-	"io"
-	"time"
 
 	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/exporters/stdout/stdoutmetric"
 	"go.opentelemetry.io/otel/metric"
-	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 )
 
-// Exporter names accepted by Config.Exporter (SPEC.md 5.3). prometheus and otlp
-// are production exporters and arrive with the deployment story; A1 needs
-// stdout, for godog runs and local development.
-const (
-	ExporterStdout = "stdout"
-	ExporterNone   = "none"
-)
+// ScopeName is the instrumentation scope epos.downloads is recorded under.
+//
+// It is epos's own module path rather than goga's, which is why the composition
+// root asks the returned *telemetry.Telemetry for its MeterProvider and takes a
+// meter from it instead of using the ready-made Telemetry.Meter: the latter is
+// scoped to goga, and the scope is part of what an operator reads off the
+// export.
+const ScopeName = "github.com/gaarutyunov/epos"
 
-// Config selects the exporter and the attribute set.
+// Config selects the attribute set.
 type Config struct {
-	// Exporter is one of the Exporter* constants. Empty means stdout.
-	Exporter string
-
-	// Interval is how often a periodic exporter emits. Zero means the SDK
-	// default.
-	Interval time.Duration
-
-	// Out is where the stdout exporter writes. Nil means os.Stdout.
-	Out io.Writer
-
 	// VersionAttribute adds the skill version to each download.
 	//
 	// Off by default and deliberately so: SPEC.md 5.3 calls out that
@@ -79,54 +68,27 @@ type Download struct {
 	Version string
 }
 
-// New builds the meter provider and the epos.downloads counter.
+// New builds the epos.downloads counter on meter.
 //
-// The returned shutdown function flushes pending metrics and must be called
-// before the process exits, or the last interval's counts are lost.
-func New(ctx context.Context, cfg Config) (*Downloads, func(context.Context) error, error) {
-	name := cfg.Exporter
-	if name == "" {
-		name = ExporterStdout
+// The meter comes from the caller because exporter selection, the resource and
+// the reader are goga/telemetry's business, not this package's: a nil meter is
+// a wiring mistake in the composition root, not a runtime condition, and is
+// reported as an error rather than silently degraded to a no-op counter.
+func New(meter metric.Meter, cfg Config) (*Downloads, error) {
+	if meter == nil {
+		return nil, fmt.Errorf("epos/metrics: a meter is required")
 	}
 
-	if name == ExporterNone {
-		return &Downloads{}, func(context.Context) error { return nil }, nil
-	}
-	if name != ExporterStdout {
-		return nil, nil, fmt.Errorf("metrics exporter %q is not implemented; use %q or %q",
-			name, ExporterStdout, ExporterNone)
-	}
-
-	opts := []stdoutmetric.Option{}
-	if cfg.Out != nil {
-		opts = append(opts, stdoutmetric.WithWriter(cfg.Out))
-	}
-	exporter, err := stdoutmetric.New(opts...)
-	if err != nil {
-		return nil, nil, fmt.Errorf("stdout metric exporter: %w", err)
-	}
-
-	readerOpts := []sdkmetric.PeriodicReaderOption{}
-	if cfg.Interval > 0 {
-		readerOpts = append(readerOpts, sdkmetric.WithInterval(cfg.Interval))
-	}
-	provider := sdkmetric.NewMeterProvider(
-		sdkmetric.WithReader(sdkmetric.NewPeriodicReader(exporter, readerOpts...)),
-	)
-
-	meter := provider.Meter("github.com/gaarutyunov/epos")
 	counter, err := meter.Int64Counter(
 		"epos.downloads",
 		metric.WithDescription("Content blob fetches answered by epos-registry."),
 		metric.WithUnit("{download}"),
 	)
 	if err != nil {
-		return nil, nil, fmt.Errorf("epos.downloads counter: %w", err)
+		return nil, fmt.Errorf("epos/metrics: epos.downloads counter: %w", err)
 	}
 
-	_ = ctx
-	return &Downloads{counter: counter, versionAttribute: cfg.VersionAttribute},
-		provider.Shutdown, nil
+	return &Downloads{counter: counter, versionAttribute: cfg.VersionAttribute}, nil
 }
 
 // Record adds one to epos.downloads.

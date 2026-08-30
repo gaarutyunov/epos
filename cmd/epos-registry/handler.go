@@ -6,10 +6,18 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/gaarutyunov/goga/telemetry"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
+
 	"github.com/gaarutyunov/epos/internal/artifact"
 	"github.com/gaarutyunov/epos/internal/metrics"
 	"github.com/gaarutyunov/epos/internal/upstream"
 )
+
+// tracingModule names the goga/telemetry instrumentation this command's spans
+// and log records are attributed to.
+const tracingModule = "epos-registry"
 
 // eposVersionHeader is set on every response so a client can tell epos-registry
 // from a plain registry without probing (SPEC.md 4.3).
@@ -35,6 +43,7 @@ type downloadRecorder interface {
 type handler struct {
 	up        relayer
 	downloads downloadRecorder
+	instr     *telemetry.Instrumentation
 }
 
 // newHandler returns the registry handler.
@@ -47,7 +56,11 @@ type handler struct {
 // cached, and two replicas behave identically. Counting does not change that —
 // downloads go to an OTel counter, never to a store the replicas share.
 func newHandler(version string, up relayer, downloads downloadRecorder) http.Handler {
-	h := &handler{up: up, downloads: downloads}
+	// telemetry.For never fails and resolves through OpenTelemetry's global
+	// delegating providers, so a handler built before telemetry.Setup runs
+	// starts emitting the moment Setup installs the real ones. Nothing here
+	// has to be ordered against the composition root.
+	h := &handler{up: up, downloads: downloads, instr: telemetry.For(tracingModule)}
 	return withEposVersion(version, http.HandlerFunc(h.route))
 }
 
@@ -134,17 +147,48 @@ func (h *handler) route(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if err := h.relay(w, r, ref); err != nil {
+		http.Error(w, "upstream request failed", http.StatusBadGateway)
+		return
+	}
+}
+
+// relay performs the upstream request under a span and counts the download it
+// answered.
+//
+// The result is named on purpose. The deferred closer observes the *variable*
+// err, so with an unnamed result a `return someErr` would never assign it and
+// every failed relay would be recorded as a successful span — goga's
+// docs/CONVENTIONS.md 1.1.
+//
+// Counting happens inside the span rather than after it so the recording sees
+// a context with an active span, which is what lets an exemplar tie a download
+// to the request that produced it.
+func (h *handler) relay(w http.ResponseWriter, r *http.Request, ref ociRef) (err error) {
+	// Only the bounded attribute goes through Start. Start shares its
+	// attribute list with the goga.operation.duration histogram it records, so
+	// a repository-valued label passed here would be one time series per
+	// repository per bucket — the unbounded cardinality SPEC.md 5.3 keeps off
+	// the counter, arriving through the back door. The span still carries it:
+	// Start documents the span as reachable from the context for exactly this.
+	ctx, end := h.instr.Start(r.Context(), "relay",
+		attribute.String("epos.reference.kind", ref.kind),
+	)
+	defer func() { end(err) }()
+	trace.SpanFromContext(ctx).SetAttributes(attribute.String("epos.repository", ref.name))
+	r = r.WithContext(ctx)
+
 	// The status actually answered decides whether this was a download, so the
 	// writer is wrapped to observe it (5.1).
 	rec := &statusWriter{ResponseWriter: w, status: http.StatusOK}
-	if err := h.up.Relay(rec, r); err != nil {
-		http.Error(w, "upstream request failed", http.StatusBadGateway)
-		return
+	if err = h.up.Relay(rec, r); err != nil {
+		return err
 	}
 
 	if ref.kind == kindBlobs {
 		h.countDownload(r, rec.status, ref.name)
 	}
+	return nil
 }
 
 // countDownload records a content blob fetch (SPEC.md 5.1).
