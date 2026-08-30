@@ -18,8 +18,8 @@ import (
 // serveConfig is the configuration the server assertions run against. The
 // address is ignored: servetest binds a loopback port of its own and appends
 // its own serve.WithAddr after these options.
-func serveConfig() config {
-	return config{addr: ":8080", upstreamURL: "http://zot:5000"}
+func serveConfig() registryConfig {
+	return registryConfig{Addr: ":8080", Upstream: "http://zot:5000"}
 }
 
 // startServer runs epos-registry's real handler under epos-registry's real
@@ -131,7 +131,7 @@ func TestApplicationRoutingSurvivesTheOpsMux(t *testing.T) {
 // answering on the API port entirely.
 func TestOpsAddrMovesTheEndpointsOffTheAPIPort(t *testing.T) {
 	cfg := serveConfig()
-	cfg.opsAddr = opsAddr(t)
+	cfg.OpsAddr = opsAddr(t)
 
 	ctrl := gomock.NewController(t)
 	h := servetest.Start(t.Context(), t,
@@ -141,7 +141,7 @@ func TestOpsAddrMovesTheEndpointsOffTheAPIPort(t *testing.T) {
 	assert.Equal(t, http.StatusNotFound, status,
 		"the API port answers /livez with epos's own 404 once the probes have moved")
 
-	resp, err := h.Client.Get("http://" + cfg.opsAddr + serve.LivezPath)
+	resp, err := h.Client.Get("http://" + cfg.OpsAddr + serve.LivezPath)
 	require.NoError(t, err, "the operational listener answers on its own address")
 	defer func() { _ = resp.Body.Close() }()
 	assert.Equal(t, http.StatusOK, resp.StatusCode)

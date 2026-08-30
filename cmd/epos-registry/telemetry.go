@@ -95,8 +95,8 @@ func newExporterRegistry() (*registry.Registry, error) {
 // otel.SetMeterProvider, so before this its counter fed a provider that was
 // never installed globally. There is no path through telemetry.Setup that
 // installs a tracer without also installing a meter.
-func setupTelemetry(ctx context.Context, cfg config) (*telemetry.Telemetry, func(), error) {
-	if err := applyMetricInterval(cfg.interval); err != nil {
+func setupTelemetry(ctx context.Context, cfg registryConfig) (*telemetry.Telemetry, func(), error) {
+	if err := applyMetricInterval(cfg.Metrics.Interval); err != nil {
 		return nil, nil, err
 	}
 
@@ -109,9 +109,9 @@ func setupTelemetry(ctx context.Context, cfg config) (*telemetry.Telemetry, func
 		telemetry.WithServiceName("epos-registry"),
 		telemetry.WithServiceVersion(Version),
 		telemetry.WithExporterRegistry(reg),
-		telemetry.WithMetricExporter(gogaExporter(cfg.exporter)),
-		telemetry.WithTraceExporter(gogaExporter(cfg.tracesExporter)),
-		telemetry.WithLogExporter(gogaExporter(cfg.logsExporter)),
+		telemetry.WithMetricExporter(gogaExporter(cfg.Metrics.Exporter)),
+		telemetry.WithTraceExporter(gogaExporter(cfg.Traces.Exporter)),
+		telemetry.WithLogExporter(gogaExporter(cfg.Logs.Exporter)),
 		// The scrape path SPEC.md 5.3 deferred until there was an endpoint to
 		// scrape. goga/serve now mounts /metrics on the operational mux
 		// unconditionally, and this reader is what puts epos.downloads on it:

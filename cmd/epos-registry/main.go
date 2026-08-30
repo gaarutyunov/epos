@@ -15,23 +15,27 @@
 //
 // The routing is unchanged by the adoption. goga/serve's port is a plain
 // net/http.Handler, so newHandler is handed over as it stands.
+//
+// Configuration is github.com/gaarutyunov/goga/config (SPEC.md 4.6). One
+// config.Load call replaces the koanf pipeline that used to live here, and with
+// it the paragraph explaining what order the sources were merged in: the order
+// is now a property of Load. The visible cost is the environment spelling,
+// which is goga's — EPOS_REGISTRY__METRICS__EXPORTER, not
+// EPOS_REGISTRY_METRICS_EXPORTER — and which breaks every variable this command
+// used to read.
 package main
 
 import (
 	"context"
 	"errors"
-	"fmt"
 	"log/slog"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 	"time"
 
+	"github.com/gaarutyunov/goga/config"
 	"github.com/gaarutyunov/goga/serve"
-	"github.com/knadh/koanf/providers/env/v2"
-	"github.com/knadh/koanf/providers/posflag"
-	"github.com/knadh/koanf/v2"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
@@ -43,15 +47,27 @@ import (
 // Overridden at release time via -ldflags.
 var Version = "0.0.0-dev"
 
-// envPrefix namespaces the environment variables that configure the registry:
-// EPOS_REGISTRY_UPSTREAM sets `upstream`, EPOS_REGISTRY_METRICS_EXPORTER sets
-// `metrics.exporter`, and so on.
-const envPrefix = "EPOS_REGISTRY_"
+// envPrefix namespaces the environment variables that configure the registry.
+//
+// goga/config owns the spelling and epos-registry does not get a say in it
+// (SPEC.md 4.6): the prefix, then "__" between the segments of a key path, a
+// single "_" between the words of one segment, the whole name lower-cased.
+// EPOS_REGISTRY__UPSTREAM sets `upstream`, EPOS_REGISTRY__METRICS__EXPORTER
+// sets `metrics.exporter`, EPOS_REGISTRY__METRICS__VERSION_ATTRIBUTE sets
+// `metrics.version_attribute`.
+//
+// The single-underscore spellings this command accepted before the adoption —
+// EPOS_REGISTRY_UPSTREAM, EPOS_REGISTRY_METRICS_EXPORTER — are gone, and so is
+// the per-group exception table that made two spellings mean one key. A name
+// that no longer maps to anything is ignored rather than rejected, which is
+// what every environment-variable loader does with a name it does not know, so
+// an operator who misses the rename sees the default and not an error. The
+// required upstream is the exception: it fails the start and names the variable.
+const envPrefix = "EPOS_REGISTRY"
 
-// signalPrefixes are the configuration groups whose single-underscore
-// environment spelling reaches a dotted key: EPOS_REGISTRY_METRICS_EXPORTER and
-// EPOS_REGISTRY_METRICS__EXPORTER both mean metrics.exporter.
-var signalPrefixes = []string{"metrics_", "traces_", "logs_"}
+// upstreamEnv is the one variable an error message has to name. Spelled from
+// envPrefix so the message and the convention cannot drift apart.
+const upstreamEnv = envPrefix + "__UPSTREAM"
 
 // shutdownGrace bounds the request drain and the final telemetry flush.
 const shutdownGrace = 5 * time.Second
@@ -105,7 +121,7 @@ func newRootCommand() *cobra.Command {
 	flags.String("logs.exporter", exporterStderr, "log exporter: stderr, stdout, otlp or none")
 
 	cmd.RunE = func(cmd *cobra.Command, _ []string) error {
-		cfg, err := loadConfig(flags)
+		cfg, err := loadConfig(cmd.Context(), flags)
 		if err != nil {
 			return err
 		}
@@ -115,77 +131,83 @@ func newRootCommand() *cobra.Command {
 	return cmd
 }
 
-// config is the resolved runtime configuration.
-type config struct {
-	addr             string
-	opsAddr          string
-	upstreamURL      string
-	exporter         string
-	interval         time.Duration
-	versionAttribute bool
-	tracesExporter   string
-	logsExporter     string
-}
-
-// loadConfig resolves flags and environment through koanf.
+// registryConfig is the resolved runtime configuration.
 //
-// Precedence is environment first, then flags, so a flag the user actually
-// typed wins over the ambient environment while an untouched flag still
-// contributes its default.
-func loadConfig(flags *pflag.FlagSet) (config, error) {
-	k := koanf.New(".")
+// The struct tags are the key paths, and there is exactly one per setting: a
+// flag name with "-" rewritten to "_" (--ops-addr is ops_addr,
+// --metrics.version-attribute is metrics.version_attribute), which is the same
+// path the environment reaches through "__". The nesting is not decoration —
+// `metrics` is a parent and never also a value, which is the one merge koanf
+// cannot represent and goga/config now refuses rather than silently resolves.
+//
+// The tag is `koanf`, not `mapstructure`, and that is not a preference.
+// goga/config decodes through koanf's UnmarshalWithConf, which sets the
+// mapstructure TagName to "koanf" whenever its own Tag field is empty — which
+// it always is, because goga supplies a DecoderConfig and no Tag. A field
+// tagged `mapstructure:"ops_addr"` is therefore untagged as far as the decoder
+// is concerned, and falls back to case-insensitive matching on the field name:
+// Addr still finds addr, and OpsAddr silently does NOT find ops_addr. It
+// decodes to the empty string with no error, which is exactly the failure mode
+// goga/config exists to remove, arriving one layer further down.
+type registryConfig struct {
+	Addr     string `koanf:"addr"`
+	OpsAddr  string `koanf:"ops_addr"`
+	Upstream string `koanf:"upstream"`
 
-	if err := k.Load(env.Provider(".", env.Opt{
-		Prefix: envPrefix,
-		TransformFunc: func(key, value string) (string, any) {
-			key = strings.TrimPrefix(key, envPrefix)
-			key = strings.ToLower(key)
-			// EPOS_REGISTRY_METRICS__EXPORTER and
-			// EPOS_REGISTRY_METRICS_EXPORTER both reach metrics.exporter.
-			key = strings.ReplaceAll(key, "__", ".")
-			for _, prefix := range signalPrefixes {
-				if after, ok := strings.CutPrefix(key, prefix); ok {
-					key = strings.TrimSuffix(prefix, "_") + "." + after
-					break
-				}
-			}
-			return strings.ReplaceAll(key, "_", "-"), value
-		},
-	}), nil); err != nil {
-		return config{}, fmt.Errorf("load environment: %w", err)
-	}
-
-	if err := k.Load(posflag.ProviderWithFlag(flags, ".", k,
-		func(f *pflag.Flag) (string, any) {
-			// An untouched flag must not overwrite the environment; its default
-			// is only a fallback for a key nothing else supplied.
-			if !f.Changed && k.Exists(f.Name) {
-				return "", nil
-			}
-			return f.Name, posflag.FlagVal(flags, f)
-		}), nil); err != nil {
-		return config{}, fmt.Errorf("load flags: %w", err)
-	}
-
-	cfg := config{
-		addr:             k.String("addr"),
-		opsAddr:          k.String("ops-addr"),
-		upstreamURL:      k.String("upstream"),
-		exporter:         k.String("metrics.exporter"),
-		interval:         k.Duration("metrics.interval"),
-		versionAttribute: k.Bool("metrics.version-attribute"),
-		tracesExporter:   k.String("traces.exporter"),
-		logsExporter:     k.String("logs.exporter"),
-	}
-	if cfg.upstreamURL == "" {
-		return config{}, errors.New("an upstream registry is required: pass --upstream or set " +
-			envPrefix + "UPSTREAM")
-	}
-	return cfg, nil
+	Metrics metricsConfig `koanf:"metrics"`
+	Traces  signalConfig  `koanf:"traces"`
+	Logs    signalConfig  `koanf:"logs"`
 }
 
-func run(ctx context.Context, cfg config) error {
-	up, err := upstream.New(cfg.upstreamURL)
+// metricsConfig is the `metrics` subtree: the signal epos-registry exists to
+// produce, and the only one with more to configure than its exporter.
+type metricsConfig struct {
+	Exporter         string        `koanf:"exporter"`
+	Interval         time.Duration `koanf:"interval"`
+	VersionAttribute bool          `koanf:"version_attribute"`
+}
+
+// signalConfig is a telemetry signal whose only setting is its exporter, which
+// is traces and logs.
+type signalConfig struct {
+	Exporter string `koanf:"exporter"`
+}
+
+// loadConfig resolves the runtime configuration through goga/config.
+//
+// Precedence is goga's fixed order — defaults, files, environment, flags, later
+// beating earlier — and it is a property of config.Load rather than of the
+// order these two options are passed. epos-registry supplies the last two: the
+// environment, and the parsed flag set, whose defaults are the bottom layer
+// because posflag contributes an untouched flag only where nothing else set
+// that key. So a flag the operator typed beats the environment, the environment
+// beats a flag default, and no arrangement of this call changes that.
+//
+// There is no file source. epos-registry is configured by flags in the godog
+// suite and by the environment in a container, and a config file would be a
+// user-visible surface SPEC.md does not describe; adding one is a decision, not
+// a consequence of the adoption.
+//
+// The upstream is checked here rather than with config.WithRequiredKeys because
+// --upstream has a default: the key exists whether or not anyone set it, so
+// "required" would always be satisfied and never fire.
+func loadConfig(ctx context.Context, flags *pflag.FlagSet) (registryConfig, error) {
+	cfg, err := config.Load[registryConfig](ctx,
+		config.WithEnv(envPrefix),
+		config.WithFlags(flags),
+	)
+	if err != nil {
+		return registryConfig{}, err
+	}
+	if cfg.Value.Upstream == "" {
+		return registryConfig{}, errors.New(
+			"an upstream registry is required: pass --upstream or set " + upstreamEnv)
+	}
+	return cfg.Value, nil
+}
+
+func run(ctx context.Context, cfg registryConfig) error {
+	up, err := upstream.New(cfg.Upstream)
 	if err != nil {
 		return err
 	}
@@ -206,7 +228,7 @@ func run(ctx context.Context, cfg config) error {
 	// package-level state is exactly what goga returns *Telemetry for.
 	downloads, err := metrics.New(
 		tel.MeterProvider.Meter(metrics.ScopeName),
-		metrics.Config{VersionAttribute: cfg.versionAttribute},
+		metrics.Config{VersionAttribute: cfg.Metrics.VersionAttribute},
 	)
 	if err != nil {
 		return err
@@ -229,7 +251,7 @@ func run(ctx context.Context, cfg config) error {
 	defer stop()
 
 	slog.InfoContext(ctx, "epos-registry listening",
-		"version", Version, "addr", cfg.addr, "upstream", cfg.upstreamURL)
+		"version", Version, "addr", cfg.Addr, "upstream", cfg.Upstream)
 	return srv.Run(signalled)
 }
 
@@ -244,17 +266,17 @@ func run(ctx context.Context, cfg config) error {
 // holds no state (SPEC.md 4.4), so an instance whose upstream is down should
 // leave the load balancer's rotation and stay running — which is exactly what
 // /readyz means and /livez does not.
-func serverOptions(cfg config, ready func(ctx context.Context) error) []serve.Option {
+func serverOptions(cfg registryConfig, ready func(ctx context.Context) error) []serve.Option {
 	opts := []serve.Option{
-		serve.WithAddr(cfg.addr),
+		serve.WithAddr(cfg.Addr),
 		serve.WithReadHeaderTimeout(readHeaderTimeout),
 		serve.WithShutdownGrace(shutdownGrace),
 	}
 	if ready != nil {
 		opts = append(opts, serve.WithReadinessCheck("upstream", ready))
 	}
-	if cfg.opsAddr != "" {
-		opts = append(opts, serve.WithOpsAddr(cfg.opsAddr))
+	if cfg.OpsAddr != "" {
+		opts = append(opts, serve.WithOpsAddr(cfg.OpsAddr))
 	}
 	return opts
 }
