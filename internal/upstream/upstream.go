@@ -7,6 +7,7 @@
 package upstream
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -55,6 +56,48 @@ func New(baseURL string) (*Client, error) {
 // fetches them from the redirect target itself.
 func neverFollow(*http.Request, []*http.Request) error {
 	return http.ErrUseLastResponse
+}
+
+// versionCheckPath is the OCI Distribution API version check, the one endpoint
+// every conformant registry serves (SPEC.md 4.1). It is what Ping probes.
+const versionCheckPath = "/v2/"
+
+// Ping reports whether the upstream registry is answering.
+//
+// It backs epos-registry's readiness probe. A relay that holds no state
+// (SPEC.md 4.4) can serve nothing while its upstream is unreachable, and an
+// instance in that condition should leave the load balancer's rotation without
+// being restarted — which is what a failing readiness check does and a failing
+// liveness check does not.
+//
+// Any status below 500 counts as answering, including 401: a registry that
+// requires authentication rejects an unauthenticated version check and is
+// nonetheless up, and epos-registry carries no credentials of its own to
+// satisfy it with. What is being probed is reachability, not authorisation.
+func (c *Client) Ping(ctx context.Context) error {
+	target := *c.base
+	target.Path = strings.TrimSuffix(c.base.Path, "/") + versionCheckPath
+	target.RawQuery = ""
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, target.String(), nil)
+	if err != nil {
+		return err
+	}
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return fmt.Errorf("upstream %s: %w", target.Host, err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	// Drained so the connection returns to the pool: a probe runs on a timer
+	// and would otherwise open a fresh one every time.
+	_, _ = io.Copy(io.Discard, resp.Body)
+
+	if resp.StatusCode >= http.StatusInternalServerError {
+		return fmt.Errorf("upstream %s answered %s to %s",
+			target.Host, resp.Status, versionCheckPath)
+	}
+	return nil
 }
 
 // Target is the absolute upstream URL for a request's path and query.

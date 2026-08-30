@@ -1,8 +1,20 @@
 // Command epos-registry fronts an upstream OCI registry.
 //
 // It serves the read surface of SPEC.md 4.1, relays blobs with the 4.2 transfer
-// posture, sets Epos-Version on every response (4.3), and counts downloads
+// posture, sets Epos-Version on every API response (4.3), and counts downloads
 // (5.1). The write path (4.5) arrives in a later milestone.
+//
+// The listener is github.com/gaarutyunov/goga/serve, which contributes the
+// bounded timeouts, the bounded drain, the OpenTelemetry wrapper applied
+// exactly once, and the operational endpoints — /livez, /readyz, /healthz and
+// /metrics. Those four are dispatched before the instrumented handler is
+// reached and are therefore never traced, which is the property epos-registry
+// adopted goga/serve for: a liveness probe every second is not a request the
+// registry received. They are not part of the OCI Distribution API and do not
+// carry Epos-Version; --ops-addr moves them to a listener of their own.
+//
+// The routing is unchanged by the adoption. goga/serve's port is a plain
+// net/http.Handler, so newHandler is handed over as it stands.
 package main
 
 import (
@@ -10,13 +22,13 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"net/http"
 	"os"
 	"os/signal"
 	"strings"
 	"syscall"
 	"time"
 
+	"github.com/gaarutyunov/goga/serve"
 	"github.com/knadh/koanf/providers/env/v2"
 	"github.com/knadh/koanf/providers/posflag"
 	"github.com/knadh/koanf/v2"
@@ -44,6 +56,11 @@ var signalPrefixes = []string{"metrics_", "traces_", "logs_"}
 // shutdownGrace bounds the request drain and the final telemetry flush.
 const shutdownGrace = 5 * time.Second
 
+// readHeaderTimeout bounds how long a connection may take to send its request
+// headers. An unbounded one is the cheapest denial of service there is: one
+// idle connection holds a goroutine for the life of the process.
+const readHeaderTimeout = 10 * time.Second
+
 func main() {
 	if err := newRootCommand().Execute(); err != nil {
 		// cobra has already printed the error.
@@ -65,6 +82,13 @@ func newRootCommand() *cobra.Command {
 
 	flags := cmd.Flags()
 	flags.String("addr", ":8080", "address to listen on")
+	// The operational endpoints share --addr by default, which is what a
+	// single-port deployment wants. They move to their own listener when this
+	// is set, for a deployment whose registry port is public and whose probes
+	// and metrics must not be (SPEC.md 4.1).
+	flags.String("ops-addr", "",
+		"address for /livez, /readyz, /healthz and /metrics "+
+			"(empty serves them on --addr)")
 	flags.String("upstream", "", "upstream registry base URL (required)")
 	flags.String("metrics.exporter", exporterStdout, "metrics exporter: stdout, otlp or none")
 	flags.Duration("metrics.interval", 0,
@@ -94,6 +118,7 @@ func newRootCommand() *cobra.Command {
 // config is the resolved runtime configuration.
 type config struct {
 	addr             string
+	opsAddr          string
 	upstreamURL      string
 	exporter         string
 	interval         time.Duration
@@ -144,6 +169,7 @@ func loadConfig(flags *pflag.FlagSet) (config, error) {
 
 	cfg := config{
 		addr:             k.String("addr"),
+		opsAddr:          k.String("ops-addr"),
 		upstreamURL:      k.String("upstream"),
 		exporter:         k.String("metrics.exporter"),
 		interval:         k.Duration("metrics.interval"),
@@ -186,33 +212,49 @@ func run(ctx context.Context, cfg config) error {
 		return err
 	}
 
-	srv := &http.Server{
-		Addr:              cfg.addr,
-		Handler:           newHandler(Version, up, downloads),
-		ReadHeaderTimeout: 10 * time.Second,
+	srv, err := serve.New(ctx, newHandler(Version, up, downloads),
+		serverOptions(cfg, up.Ping)...)
+	if err != nil {
+		return err
 	}
 
-	// A signalled shutdown drains in-flight requests, and the deferred flush
-	// then runs on the way out of run. This has to be wired explicitly:
-	// ListenAndServe blocks until the server stops, so nothing else would
-	// notice the signal.
+	// The signal handling stays here. goga/serve installs none of its own by
+	// design — one process gets one handler, and it belongs to the composition
+	// root, which is this function until goga/cli lands (goga's
+	// docs/CONVENTIONS.md 1.4). Run returns when the context is cancelled,
+	// having drained within shutdownGrace, and the deferred flush then runs on
+	// the way out of run. That is the whole of what the old ListenAndServe
+	// plus a shutdown goroutine did.
 	signalled, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	go func() {
-		<-signalled.Done()
-		shutdownCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), shutdownGrace)
-		defer cancel()
-		if err := srv.Shutdown(shutdownCtx); err != nil {
-			slog.ErrorContext(shutdownCtx, "epos-registry: shutdown", "error", err)
-		}
-	}()
 
 	slog.InfoContext(ctx, "epos-registry listening",
 		"version", Version, "addr", cfg.addr, "upstream", cfg.upstreamURL)
-	serveErr := srv.ListenAndServe()
+	return srv.Run(signalled)
+}
 
-	if serveErr != nil && !errors.Is(serveErr, http.ErrServerClosed) {
-		return serveErr
+// serverOptions is the operational configuration epos-registry ships.
+//
+// It is a function rather than an inline literal so that the tests assert
+// against the options the command actually runs with: a drain or a timeout
+// asserted against a configuration nobody deploys proves nothing.
+//
+// ready is registered as a readiness check rather than a health check because
+// an unreachable upstream is not a broken process. epos-registry relays and
+// holds no state (SPEC.md 4.4), so an instance whose upstream is down should
+// leave the load balancer's rotation and stay running — which is exactly what
+// /readyz means and /livez does not.
+func serverOptions(cfg config, ready func(ctx context.Context) error) []serve.Option {
+	opts := []serve.Option{
+		serve.WithAddr(cfg.addr),
+		serve.WithReadHeaderTimeout(readHeaderTimeout),
+		serve.WithShutdownGrace(shutdownGrace),
 	}
-	return nil
+	if ready != nil {
+		opts = append(opts, serve.WithReadinessCheck("upstream", ready))
+	}
+	if cfg.opsAddr != "" {
+		opts = append(opts, serve.WithOpsAddr(cfg.opsAddr))
+	}
+	return opts
 }

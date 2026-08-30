@@ -3,10 +3,13 @@ package main
 import (
 	"context"
 	"log/slog"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"testing"
 	"time"
 
+	"github.com/gaarutyunov/goga/serve"
 	"github.com/gaarutyunov/goga/telemetry"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -89,6 +92,32 @@ func TestStderrLogExporterResolvesThroughTheRegistry(t *testing.T) {
 
 	_, err := setup(t, cfg)
 	require.NoError(t, err)
+}
+
+// SPEC.md 5.3's production scrape. The endpoint is goga/serve's, mounted on
+// the operational mux and never traced; what makes it worth exposing is that
+// epos.downloads reaches it, which is the Prometheus reader's doing and not
+// the endpoint's.
+func TestDownloadsReachThePrometheusScrape(t *testing.T) {
+	tel, err := setup(t, silentConfig())
+	require.NoError(t, err)
+
+	downloads, err := metrics.New(
+		tel.MeterProvider.Meter(metrics.ScopeName), metrics.Config{})
+	require.NoError(t, err)
+	downloads.Record(t.Context(), metrics.Download{Repository: "demo/hello"})
+
+	srv, err := serve.New(t.Context(), http.NotFoundHandler())
+	require.NoError(t, err)
+
+	rec := httptest.NewRecorder()
+	srv.Ops().ServeHTTP(rec,
+		httptest.NewRequest(http.MethodGet, serve.MetricsPath, nil))
+
+	require.Equal(t, http.StatusOK, rec.Code, "the scrape failed:\n%s", rec.Body)
+	assert.Contains(t, rec.Body.String(), `epos_downloads_total{`,
+		"SPEC.md 5.3's instrument is what a scrape is for")
+	assert.Contains(t, rec.Body.String(), `repository="demo/hello"`)
 }
 
 func TestUnknownExporterIsRejected(t *testing.T) {
