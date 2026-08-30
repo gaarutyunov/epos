@@ -112,13 +112,18 @@ func setupTelemetry(ctx context.Context, cfg config) (*telemetry.Telemetry, func
 		telemetry.WithMetricExporter(gogaExporter(cfg.exporter)),
 		telemetry.WithTraceExporter(gogaExporter(cfg.tracesExporter)),
 		telemetry.WithLogExporter(gogaExporter(cfg.logsExporter)),
-		// SPEC.md 4.1: epos-registry speaks the OCI Distribution API and
-		// nothing else, so it mounts no /metrics handler — and goga's default
-		// Prometheus reader registers a collector with
-		// prometheus.DefaultRegisterer that nothing would ever scrape. The
-		// scrape path of 5.3 arrives with the deployment story, together with
-		// the endpoint to scrape.
-		telemetry.WithPrometheus(false),
+		// The scrape path SPEC.md 5.3 deferred until there was an endpoint to
+		// scrape. goga/serve now mounts /metrics on the operational mux
+		// unconditionally, and this reader is what puts epos.downloads on it:
+		// it registers a collector with prometheus.DefaultRegisterer, which is
+		// the registry goga's promhttp handler gathers from. Leaving it off
+		// would ship an endpoint exporting Go runtime counters and not the one
+		// instrument the registry exists to produce.
+		//
+		// It is additive to --metrics.exporter, not an alternative to it: both
+		// readers feed the same meter provider, so a stdout run still writes
+		// the stream the godog suite parses.
+		telemetry.WithPrometheus(true),
 		telemetry.WithShutdownTimeout(shutdownGrace),
 	)
 	if err != nil {

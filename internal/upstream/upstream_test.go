@@ -134,3 +134,52 @@ func TestRelayDropsHopByHopHeaders(t *testing.T) {
 	assert.Empty(t, rec.Body.String(), "Proxy-Authorization must not reach upstream")
 	assert.Empty(t, rec.Header().Get("Proxy-Authenticate"), "Proxy-Authenticate must not reach the client")
 }
+
+// Ping backs /readyz. Reachability is what it reports: a registry demanding
+// credentials epos-registry does not hold still answers, and an instance in
+// front of it can serve every request it is going to be sent.
+func TestPingReportsReachability(t *testing.T) {
+	tests := []struct {
+		name    string
+		status  int
+		wantErr bool
+	}{
+		{"an open registry answers", http.StatusOK, false},
+		{"an authenticating registry is up", http.StatusUnauthorized, false},
+		{"a broken registry is not", http.StatusBadGateway, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var got string
+			up := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				got = r.URL.Path
+				w.WriteHeader(tt.status)
+			}))
+			t.Cleanup(up.Close)
+
+			c, err := New(up.URL)
+			require.NoError(t, err)
+
+			err = c.Ping(t.Context())
+			if tt.wantErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, versionCheckPath, got,
+				"the version check is the one endpoint every registry serves")
+		})
+	}
+}
+
+func TestPingFailsWhenTheUpstreamIsUnreachable(t *testing.T) {
+	up := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
+	url := up.URL
+	up.Close()
+
+	c, err := New(url)
+	require.NoError(t, err)
+	assert.Error(t, c.Ping(t.Context()),
+		"an instance whose upstream is gone must leave the rotation")
+}

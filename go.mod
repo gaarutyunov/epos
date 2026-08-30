@@ -6,7 +6,7 @@ require (
 	github.com/benhoyt/goawk v1.31.0
 	github.com/bluekeyes/go-gitdiff v0.9.0
 	github.com/cucumber/godog v0.15.1
-	github.com/gaarutyunov/goga v0.0.0-20260830073240-1a6cff368687
+	github.com/gaarutyunov/goga v0.0.0-20260830085930-7c67fe40ee99
 	github.com/go-git/go-git/v5 v5.19.1
 	github.com/goccy/go-yaml v1.19.2
 	github.com/knadh/koanf/providers/env/v2 v2.0.0
@@ -25,6 +25,7 @@ require (
 	go.opentelemetry.io/otel/metric v1.46.0
 	go.opentelemetry.io/otel/sdk/log v0.22.0
 	go.opentelemetry.io/otel/sdk/metric v1.46.0
+	go.opentelemetry.io/otel/trace v1.46.0
 	go.uber.org/mock v0.6.0
 	golang.org/x/term v0.45.0
 	oras.land/oras-go/v2 v2.6.2
@@ -123,7 +124,6 @@ require (
 	go.opentelemetry.io/otel/exporters/stdout/stdouttrace v1.46.0 // indirect
 	go.opentelemetry.io/otel/log v0.22.0 // indirect
 	go.opentelemetry.io/otel/sdk v1.46.0 // indirect
-	go.opentelemetry.io/otel/trace v1.46.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.11.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.yaml.in/yaml/v3 v3.0.5 // indirect

@@ -138,6 +138,12 @@ Content Management (`DELETE`) is not implemented, and neither is the write path:
 
 `GET /v2/_catalog` is proxied **when the upstream registry supports it**, and is the basis for discovery (§7). It is outside the Content Discovery conformance category and is disabled on several hosted registries; where upstream does not support it, `epos-registry` relays upstream’s response unchanged and `epos search` reports the capability as unavailable.
 
+**Operational endpoints are not part of the API.** `epos-registry` runs on `github.com/gaarutyunov/goga/serve`, which serves four fixed paths — `/livez`, `/readyz`, `/healthz` and `/metrics` — on a mux dispatched *before* the application handler. They exist so an orchestrator can probe the process and a Prometheus can scrape it (§5.3); they are not OCI Distribution endpoints, they carry no `Epos-Version` (§4.3), and they are never part of a request trace. The paths are goga's and are deliberately not configurable, because an endpoint an orchestrator probes is a contract with the thing that restarts the process.
+
+By default they share `--addr`, which is what a single-port deployment wants. `--ops-addr` moves them to a listener of their own, for a deployment whose registry port is public and whose probes and metrics must not be. Every path outside those four still reaches the application handler and its 404, so “the OCI Distribution API and nothing else” continues to describe what an OCI client can reach.
+
+`/readyz` reports whether the **upstream** is answering its own `GET /v2/`. That is a readiness condition and not a liveness one: `epos-registry` holds no state (§4.4), so an instance whose upstream is unreachable should leave the load balancer’s rotation and keep running rather than be restarted. Any upstream status below 500 counts as answering — a registry that demands credentials `epos-registry` does not hold still rejects an unauthenticated version check, and is up.
+
 ### 4.2 Blob transfer posture
 
 `epos-registry` **passes redirects through**. Blob bytes never cross it.
@@ -151,7 +157,9 @@ Consequence, stated plainly: clients need network egress to the upstream’s CDN
 
 ### 4.3 Discoverability
 
-`epos-registry` sets `Epos-Version: <semver>` on all responses so a client can distinguish it from a plain registry without probing.
+`epos-registry` sets `Epos-Version: <semver>` on all API responses — successes and errors alike — so a client can distinguish it from a plain registry without probing.
+
+The operational endpoints of §4.1 do not carry it, and cannot: they are dispatched before the application handler, so neither `epos-registry`’s own middleware nor a `serve.WithMiddleware` ever sees a request to one. Nothing is lost — the header exists so an *OCI client* can identify what it is talking to, and an OCI client never requests `/livez`.
 
 ### 4.4 Statelessness
 
@@ -219,7 +227,9 @@ One instrumentation path: the OpenTelemetry Go SDK, configured by `github.com/ga
 |`prometheus`|Production scrape            |
 |`otlp`      |Production push              |
 
-`goga/telemetry` names the terminal exporter `console`; `epos-registry` keeps `stdout` on the command line and translates. `prometheus` is not yet reachable from `--metrics.exporter`: goga attaches a scrape reader through a separate option, and `epos-registry` mounts no `/metrics` handler because §4.1 says it speaks the OCI Distribution API and nothing else. The scrape path arrives with the deployment story that gives it an endpoint to scrape.
+`goga/telemetry` names the terminal exporter `console`; `epos-registry` keeps `stdout` on the command line and translates. `prometheus` is not a `--metrics.exporter` value and never will be: goga attaches the scrape reader through a separate option, and it is **additive** rather than an alternative — both readers feed the same meter provider, so a `stdout` run still writes the stream the godog suite parses while `/metrics` answers a scrape.
+
+**The scrape endpoint.** It is `/metrics` on the operational mux of §4.1, served by `goga/serve` and outside the request trace. goga mounts it unconditionally and it cannot be replaced, so the only decision left to `epos-registry` is whether it exports anything worth reading: the Prometheus reader is on, and `epos.downloads` is therefore on the endpoint. Leaving it off would ship a `/metrics` carrying Go runtime counters and not the one instrument this registry exists to produce.
 
 **Three signals, not one.** `telemetry.Setup` builds a tracer, a meter *and* a logger provider — all three or none — and installs them as the OpenTelemetry globals. `epos-registry` wants the counter; it takes the other two with it. That is the trade the adoption accepted, and it buys back a real defect: before it, nothing called `otel.SetMeterProvider`, so the counter fed a provider that was never a global and any instrument reading the global meter saw nothing. Traces default to the `none` exporter (`--traces.exporter`) and logs to `stderr` (`--logs.exporter`), which is where operator output has always gone — stdout stays the metric channel the godog suite parses.
 
@@ -891,6 +901,7 @@ Every page carries Open Graph and Twitter card metadata, so a link pasted into S
 |22|Frontmatter edits    |`SET` / `UNSET` via `goccy/go-yaml` AST; measured 2-line drift versus 6 for `yaml/v3`                                   |
 |23|Discovery            |Only where upstream implements `_catalog`; native discovery deferred to a later `epos-registry` capability              |
 |24|Write path routing   |**Withdrawn.** `epos-registry` was to serve writes for one configured host; `oras-go` rejects the cross-host upload `Location` the 307 produces (GHSA-jxpm-75mh-9fp7), so no client could publish *through* it. A client pointed at the upstream itself is unaffected, which is what `epos push` does (§4.5) |
+|25|HTTP server          |`goga/serve`. Its port is a plain `http.Handler`, so `epos-registry`'s routing is handed over unchanged; it contributes the bounded timeouts, the bounded drain, one OpenTelemetry wrapper, and the four operational endpoints of §4.1 — which are not a second *API* surface (decision 2), carry no Epos semantics, and are never traced. Signal handling stays in `epos-registry` until `goga/cli` ships the one-handler-per-process rule |
 
 ### Removed from scope
 

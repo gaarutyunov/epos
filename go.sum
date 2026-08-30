@@ -66,8 +66,8 @@ github.com/emirpasic/gods v1.18.1 h1:FXtiHYKDGKCW2KzwZKx0iC0PQmdlorYgdFG9jPXJ1Bc
 github.com/emirpasic/gods v1.18.1/go.mod h1:8tpGGwCnJ5H4r6BWwaV6OrWmMoPhUl5jm/FMNAnJvWQ=
 github.com/felixge/httpsnoop v1.1.0 h1:3YtUj32ZZkqZtt3sZZsClsymw/QDuVfpNhoA31zeORc=
 github.com/felixge/httpsnoop v1.1.0/go.mod h1:Zqxgdd+1Rkcz8euOqdr7lqgCRJztwr5hp9vDSi5UZCE=
-github.com/gaarutyunov/goga v0.0.0-20260830073240-1a6cff368687 h1:vst/NwsYSIBhK19l8dqLZx9Ug869l1CyUWzZsCcFTIw=
-github.com/gaarutyunov/goga v0.0.0-20260830073240-1a6cff368687/go.mod h1:ZcqBSJ+CJzCv+I9a7nerHvAoLhHEShF7uDuRpGWpsg4=
+github.com/gaarutyunov/goga v0.0.0-20260830085930-7c67fe40ee99 h1:4rsf9w6z8pPtWv4GIHgWNbpTL0vJJ5Nir4YHEOt9yMU=
+github.com/gaarutyunov/goga v0.0.0-20260830085930-7c67fe40ee99/go.mod h1:Ls11xzJDVSMy2ye61XFgdWLtrcBTORmoONH3rRoBsvc=
 github.com/gliderlabs/ssh v0.3.8 h1:a4YXD1V7xMF9g5nTkdfnja3Sxy1PVDCj1Zg4Wb8vY6c=
 github.com/gliderlabs/ssh v0.3.8/go.mod h1:xYoytBv1sV0aL3CavoDuJIQNURXkkfPA/wxQ1pL1fAU=
 github.com/go-git/gcfg v1.5.1-0.20230307220236-3a3c6141e376 h1:+zs/tPmkDkHx3U66DAb0lQFJrpS6731Oaa12ikc+DiI=
